@@ -1,0 +1,22 @@
+{
+  "name": "nossl.sh",
+  "version": "1.0.0",
+  "description": "SEO-friendly diagnostic page inspired by NeverSSL that reports client connection details.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development nodemon server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "ejs": "^3.1.10"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

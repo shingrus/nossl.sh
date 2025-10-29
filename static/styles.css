@@ -1,0 +1,119 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-size: 16px;
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+body {
+  margin: 0;
+}
+
+.container {
+  width: min(900px, 90vw);
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.hero {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.hero h1 {
+  margin-bottom: 0.25rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+main section {
+  margin-bottom: 2.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 1.5rem;
+  color: #38bdf8;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.status.secure {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.status.insecure {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.ip {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+table th,
+table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+footer {
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  text-align: center;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+a {
+  color: #38bdf8;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
+
+  .hero {
+    background: linear-gradient(135deg, #38bdf8, #2563eb);
+    color: #0f172a;
+  }
+
+  main section {
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  table tbody tr:nth-child(even) {
+    background: rgba(148, 163, 184, 0.1);
+  }
+}
