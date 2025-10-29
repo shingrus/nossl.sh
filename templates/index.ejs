@@ -35,20 +35,26 @@
         </p>
       </section>
 
-      <section aria-labelledby="connection-status">
-        <h2 id="connection-status">Connection Status</h2>
-        <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-          <%= status %>
-        </p>
-        <p>Your request reached us using the <strong><%= scheme.toUpperCase() %></strong> protocol.</p>
+      <section aria-labelledby="connection-info" class="connection-info">
+        <h2 id="connection-info">Connection Details</h2>
+        <div class="connection-info__content">
+          <div class="connection-info__status">
+            <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
+              <%= status %>
+            </p>
+            <p>
+              Your request reached us using the
+              <strong><%= scheme.toUpperCase() %></strong> protocol.
+            </p>
+          </div>
+          <div class="connection-info__ip">
+            <span class="ip-label">Your IP Address</span>
+            <p class="ip"><%= clientIp %></p>
+          </div>
+        </div>
       </section>
 
-      <section aria-labelledby="ip-address">
-        <h2 id="ip-address">Your IP Address</h2>
-        <p class="ip"><%= clientIp %></p>
-      </section>
-
-      <section aria-labelledby="request-headers">
+      <section aria-labelledby="request-headers" class="request-headers">
         <h2 id="request-headers">Request Headers</h2>
         <p>We received the following headers from your client:</p>
         <div class="table-wrapper">

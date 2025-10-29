@@ -24,6 +24,36 @@ main.container {
   align-items: stretch;
 }
 
+.connection-info__content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.connection-info__status,
+.connection-info__ip {
+  flex: 1 1 240px;
+}
+
+.connection-info__ip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.ip-label {
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
 .hero {
   background: linear-gradient(135deg, #0f172a, #1e293b);
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
@@ -88,6 +118,10 @@ h2 {
   letter-spacing: 0.03em;
 }
 
+.request-headers {
+  grid-column: 1 / -1;
+}
+
 .table-wrapper {
   overflow-x: auto;
 }
@@ -143,5 +177,14 @@ a {
   .usage pre {
     background: #f1f5f9;
     border-color: rgba(15, 23, 42, 0.15);
+  }
+
+  .connection-info__ip {
+    background: #f8fafc;
+    border-color: rgba(15, 23, 42, 0.1);
+  }
+
+  .ip-label {
+    color: #475569;
   }
 }
