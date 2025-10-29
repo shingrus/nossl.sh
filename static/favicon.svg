@@ -3,7 +3,7 @@
   <!-- almond outline -->
   <path d="M6 32Q32 10 58 32Q32 54 6 32Z" fill="#111"/>
   <!-- iris (tweak color) -->
-  <ellipse cx="32" cy="32" rx="16" ry="16" fill="#7bdc7f"/>
+  <ellipse cx="32" cy="32" rx="16" ry="16" fill="#5cadf0"/>
   <!-- slit pupil -->
   <rect x="29" y="18" width="6" height="28" rx="3" fill="#000"/>
   <!-- tiny highlight -->
