@@ -64,6 +64,11 @@ app.get('/', (req, res) => {
   const headers = normalizeHeaders(req.headers);
   const generatedAt = new Date();
 
+// Strong anti-cache for dynamic content only:
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   res.render('index', {
     scheme,
     status,
