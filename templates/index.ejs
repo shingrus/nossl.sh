@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Check your connection security, IP address, and HTTP headers on the nossl.sh diagnostic page."
+    />
+    <title>nossl.sh - Connection &amp; Header Diagnostics</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="container">
+        <h1>nossl.sh</h1>
+        <p>A simple diagnostic page inspired by NeverSSL for quick connection checks.</p>
+      </div>
+    </header>
+
+    <main class="container">
+      <section aria-labelledby="connection-status">
+        <h2 id="connection-status">Connection Status</h2>
+        <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
+          <%= status %>
+        </p>
+        <p>Your request reached us using the <strong><%= scheme.toUpperCase() %></strong> protocol.</p>
+      </section>
+
+      <section aria-labelledby="ip-address">
+        <h2 id="ip-address">Your IP Address</h2>
+        <p class="ip"><%= clientIp %></p>
+      </section>
+
+      <section aria-labelledby="request-headers">
+        <h2 id="request-headers">Request Headers</h2>
+        <p>We received the following headers from your client:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Header</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% headers.forEach(([key, value]) => { %>
+              <tr>
+                <th scope="row"><%= key %></th>
+                <td><%= value %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <p>Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>.</p>
+        <p>
+          Prefer JSON? Try the
+          <a href="/api/request-info" rel="nofollow">request info API endpoint</a>.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
