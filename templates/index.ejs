@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Check your connection security, IP address, and HTTP headers on the nossl.sh diagnostic page."
+      content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, and inspect the headers your device sends."
     />
     <title>nossl.sh - Connection &amp; Header Diagnostics</title>
     <link rel="stylesheet" href="/static/styles.css" />
@@ -14,11 +14,27 @@
     <header class="hero">
       <div class="container">
         <h1>nossl.sh</h1>
-        <p>A simple diagnostic page inspired by NeverSSL for quick connection checks.</p>
+        <p>
+          A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
+          stuck on a captive portal or seeing no SSL warnings.
+        </p>
       </div>
     </header>
 
     <main class="container">
+      <section aria-labelledby="usage-tips" class="usage">
+        <h2 id="usage-tips">How to use nossl.sh</h2>
+        <p>
+          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
+          reach the open <strong>http://nossl.sh</strong> site without SSL:
+        </p>
+        <pre><code>curl -v http://nossl.sh</code></pre>
+        <p>
+          If the page still won't load, double-check your Wi-Fi connection, make sure your internet
+          service is working, and try disabling any VPN or custom DNS temporarily.
+        </p>
+      </section>
+
       <section aria-labelledby="connection-status">
         <h2 id="connection-status">Connection Status</h2>
         <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">

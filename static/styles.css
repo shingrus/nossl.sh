@@ -12,9 +12,16 @@ body {
 }
 
 .container {
-  width: min(900px, 90vw);
+  width: min(1100px, 92vw);
   margin: 0 auto;
   padding: 2rem 1rem;
+}
+
+main.container {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: stretch;
 }
 
 .hero {
@@ -28,12 +35,28 @@ body {
 }
 
 main section {
-  margin-bottom: 2.5rem;
   background: rgba(15, 23, 42, 0.6);
   padding: 1.5rem;
   border-radius: 1rem;
   border: 1px solid rgba(148, 163, 184, 0.2);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+}
+
+.usage p {
+  margin-top: 0;
+}
+
+.usage pre {
+  background: rgba(15, 23, 42, 0.8);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  overflow-x: auto;
+}
+
+.usage code {
+  font-family: "Fira Code", "SFMono-Regular", ui-monospace, "SFMono-Regular", "Roboto Mono", monospace;
+  font-size: 0.95rem;
 }
 
 h2 {
@@ -115,5 +138,10 @@ a {
 
   table tbody tr:nth-child(even) {
     background: rgba(148, 163, 184, 0.1);
+  }
+
+  .usage pre {
+    background: #f1f5f9;
+    border-color: rgba(15, 23, 42, 0.15);
   }
 }
