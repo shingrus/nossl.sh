@@ -21,6 +21,14 @@ app.use(
 
 app.use('/static', express.static(path.join(__dirname, 'static'), { maxAge: '1h' }));
 
+const faviconPath = path.join(__dirname, 'static', 'favicon.svg');
+
+app.get('/favicon.ico', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.type('image/svg+xml');
+  res.sendFile(faviconPath);
+});
+
 const getClientIp = (req) => {
   const forwardedFor = req.headers['x-forwarded-for'];
   if (forwardedFor) {
