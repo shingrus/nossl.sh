@@ -16,6 +16,7 @@ app.set('views', path.join(__dirname, 'templates'));
 app.use(
   helmet({
     contentSecurityPolicy: false,
+    hsts: false,
   })
 );
 
