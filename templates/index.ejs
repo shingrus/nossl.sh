@@ -120,7 +120,17 @@
           <div>
             <h3>Test with curl</h3>
             <p>Verify plain HTTP access from your shell:</p>
-            <pre><code>curl http://nossl.sh</code></pre>
+            <div class="code-snippet" data-curl-snippet>
+              <button
+                type="button"
+                class="copy copy--snippet"
+                data-copy-curl
+                aria-label="Copy curl command"
+              >
+                Copy
+              </button>
+              <pre><code>curl http://nossl.sh</code></pre>
+            </div>
           </div>
           <div>
             <h3>Up next</h3>
@@ -164,6 +174,7 @@
     <script>
       const latencyEl = document.querySelector('[data-api-latency]');
       const headersCopyButton = document.querySelector('[data-copy-headers]');
+      const curlCopyButton = document.querySelector('[data-copy-curl]');
 
       if (latencyEl) {
         const startedAt = performance.now();
@@ -204,6 +215,25 @@
             setTimeout(() => {
               headersCopyButton.textContent = 'Copy as JSON';
             }, 2000);
+          }
+        });
+      }
+
+      if (curlCopyButton) {
+        const commandElement = document.querySelector('[data-curl-snippet] code');
+        const curlCommand = commandElement?.textContent.trim() || 'curl http://nossl.sh';
+        const resetLabel = () => {
+          curlCopyButton.textContent = 'Copy';
+        };
+
+        curlCopyButton.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(curlCommand);
+            curlCopyButton.textContent = 'Copied!';
+            setTimeout(resetLabel, 2000);
+          } catch (error) {
+            curlCopyButton.textContent = 'Copy failed';
+            setTimeout(resetLabel, 2000);
           }
         });
       }
