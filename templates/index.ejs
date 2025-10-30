@@ -1,3 +1,35 @@
+<%
+  const headersObject = Object.fromEntries(headers);
+  const highlightOrder = [
+    'host',
+    'user-agent',
+    'accept',
+    'accept-language',
+    'accept-encoding',
+    'connection',
+    'x-forwarded-for',
+    'cf-connecting-ip',
+  ];
+  const primaryHeaders = [];
+  const pickedKeys = new Set();
+
+  highlightOrder.forEach((target) => {
+    const match = headers.find(([key]) => key.toLowerCase() === target);
+    if (match && !pickedKeys.has(match[0])) {
+      primaryHeaders.push(match);
+      pickedKeys.add(match[0]);
+    }
+  });
+
+  headers.forEach(([key, value]) => {
+    if (primaryHeaders.length < 6 && !pickedKeys.has(key)) {
+      primaryHeaders.push([key, value]);
+      pickedKeys.add(key);
+    }
+  });
+
+  const secondaryHeaders = headers.filter(([key]) => !pickedKeys.has(key));
+%>
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -36,105 +68,134 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <div class="container">
-        <h1>nossl.sh</h1>
+    <header class="app-header">
+      <div class="container header__inner">
+        <div class="brand" aria-label="nossl.sh">
+          <img src="/static/logo.svg" alt="nossl.sh logo" class="brand__logo" />
+          <div class="brand__meta">
+            <span class="brand__name">nossl.sh</span>
+            <span class="brand__status">
+              <span
+                class="status-dot <%= scheme === 'https' ? 'status-dot--secure' : 'status-dot--insecure' %>"
+                aria-hidden="true"
+              ></span>
+              You're online
+            </span>
+          </div>
+        </div>
+        <div class="header-status">
+          <span class="status-pill <%= scheme === 'https' ? 'status-pill--secure' : 'status-pill--insecure' %>">
+            <%= scheme.toUpperCase() %> connection
+          </span>
+          <p class="header-status__note"><%= status %></p>
+        </div>
       </div>
     </header>
 
-    <main class="container">
-      <section aria-labelledby="connection-info" class="connection-info">
-        <h2 id="connection-info">Connection Details</h2>
-        <div class="connection-info__content">
-          <div class="connection-info__status">
-            <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-              <%= status %>
-            </p>
-            <p>
-              Your request reached us using the
-              <strong><%= scheme.toUpperCase() %></strong> protocol.
-            </p>
-          </div>
-          <div class="connection-info__ip">
-            <span class="ip-label">Your IP Address</span>
-            <p class="ip"><%= clientIp %></p>
-          </div>
+    <main class="container dashboard">
+      <section aria-labelledby="connection-summary" class="panel panel--summary">
+        <div class="panel__header">
+          <h2 id="connection-summary">Connection summary</h2>
+          <p>Essential details about the request reaching nossl.sh.</p>
         </div>
-        <div class="connection-info__meta">
-          <div>
-            <dt>Page timestamp</dt>
-            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
-          </div>
-          <div>
-            <dt>Ping</dt>
-            <dd data-api-latency aria-live="polite">Measuring…</dd>
-          </div>
+        <div class="metric-grid">
+          <article class="card metric-card">
+            <h3>Connection type</h3>
+            <p class="metric-value"><%= scheme.toUpperCase() %></p>
+            <p class="metric-meta">Protocol negotiated</p>
+          </article>
+          <article class="card metric-card">
+            <h3>Client IP</h3>
+            <p class="metric-value metric-value--ip"><%= clientIp %></p>
+            <p class="metric-meta">Detected address</p>
+          </article>
+          <article class="card metric-card">
+            <h3>Page timestamp</h3>
+            <p class="metric-value metric-value--mono">
+              <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>
+            </p>
+            <p class="metric-meta">Generated on nossl.sh</p>
+          </article>
+          <article class="card metric-card">
+            <h3>Ping</h3>
+            <p class="metric-value metric-value--mono" data-api-latency aria-live="polite">Measuring…</p>
+            <p class="metric-meta">Round-trip to request info API</p>
+          </article>
+          <article class="card metric-card metric-card--upcoming" aria-label="Geo IP insights coming soon">
+            <h3>Geo IP insights</h3>
+            <p class="metric-value metric-value--placeholder">Coming soon</p>
+            <p class="metric-meta">City, region, ASN and more on the roadmap.</p>
+          </article>
+          <article class="card metric-card metric-card--upcoming" aria-label="Connection speed tests coming soon">
+            <h3>Connection speed</h3>
+            <p class="metric-value metric-value--placeholder">Coming soon</p>
+            <p class="metric-meta">Throughput &amp; stability checks in development.</p>
+          </article>
         </div>
-
       </section>
 
-      <section aria-labelledby="how-to" class="usage usage--how-to">
-        <h2 id="how-to">How to use nossl.sh</h2>
+      <section aria-labelledby="request-headers" class="panel panel--headers">
+        <div class="panel__header">
+          <h2 id="request-headers">Request headers</h2>
+          <div class="panel__actions">
+            <button type="button" class="copy-button" data-copy-headers>Copy headers JSON</button>
+          </div>
+        </div>
+        <p class="panel__intro">Key headers observed from your device.</p>
+        <dl class="headers-list">
+          <% primaryHeaders.forEach(([key, value]) => { %>
+          <div class="headers-list__row">
+            <dt><%= key %></dt>
+            <dd><%= value %></dd>
+          </div>
+          <% }) %>
+        </dl>
+        <% if (secondaryHeaders.length) { %>
+        <details class="headers-details">
+          <summary>Show <%= secondaryHeaders.length %> more header<%= secondaryHeaders.length === 1 ? '' : 's' %></summary>
+          <dl class="headers-list headers-list--secondary">
+            <% secondaryHeaders.forEach(([key, value]) => { %>
+            <div class="headers-list__row">
+              <dt><%= key %></dt>
+              <dd><%= value %></dd>
+            </div>
+            <% }) %>
+          </dl>
+        </details>
+        <% } %>
+      </section>
+
+      <section aria-labelledby="how-to" class="panel panel--how-to">
+        <div class="panel__header">
+          <h2 id="how-to">Quick curl check</h2>
+        </div>
         <p>
-          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
-          reach the open <strong>http://nossl.sh</strong> site without SSL:
+          Verify captive portal access or basic connectivity with a single command:
         </p>
         <pre><code>curl http://nossl.sh</code></pre>
       </section>
 
-      <section aria-labelledby="request-headers" class="request-headers">
-        <h2 id="request-headers">Request Headers</h2>
-        <p>We received the following headers from your client:</p>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Header</th>
-                <th scope="col">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% headers.forEach(([key, value]) => { %>
-              <tr>
-                <th scope="row"><%= key %></th>
-                <td><%= value %></td>
-              </tr>
-              <% }) %>
-            </tbody>
-          </table>
+      <section aria-labelledby="usage-information" class="panel panel--about">
+        <div class="panel__header">
+          <h2 id="usage-information">Why this page exists</h2>
         </div>
-      </section>
-
-      <section aria-labelledby="usage-information" class="usage usage--information">
-        <h2 id="usage-information">Usage information</h2>
         <p>
-            A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
-            stuck on a captive portal or seeing no SSL warnings. Launch this HTTP-only landing page when a splash screen refuses to appear so you can quickly
-            confirm whether the network is blocking encrypted traffic.
-          </p>
-        <p>
-          If the page still won't load, double-check your Wi-Fi connection, make sure your internet
-          service is working, and try disabling any VPN or custom DNS temporarily.
+          nossl.sh is a fast-loading diagnostic page, inspired by NeverSSL, for confirming that HTTP
+          traffic still works when HTTPS is blocked or intercepted. Launch it when captive portals fail
+          to appear so you can trigger the network login screen manually.
         </p>
         <p>
-          Many captive portal detection workflows look for a plain HTTP page like NeverSSL. You can
-          use nossl.sh as a reliable fallback when automatic login prompts fail, when browsers keep
-          showing certificate errors, or when you need an easy URL to remember for "no ssl" testing.
+          If the page won't load, double-check your Wi-Fi connection, confirm your internet service is
+          running, and temporarily disable VPNs or custom DNS settings.
         </p>
         <p>
-          People often search for phrases like "NeverSSL login", "open Wi-Fi sign in", "bypass HTTPS
-          captive portal", "hotel Wi-Fi won't load", or "airport Wi-Fi redirect page". This site is
-          designed to answer those queries by providing a fast-loading, SSL-free diagnostic page that
-          makes captive portal login screens reappear.
-        </p>
-        <p>
-          Bookmark nossl.sh to resolve issues with smart TVs, game consoles, streaming boxes, and other
-          devices that cannot complete an HTTPS handshake on restricted networks.
+          Many detection workflows look for an open HTTP page. Keep nossl.sh handy as a fallback when
+          browsers show certificate errors or devices need a memorable "no SSL" test URL.
         </p>
       </section>
     </main>
 
-    <footer>
+    <footer class="app-footer">
       <div class="container">
         <p>Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>.</p>
         <p>
@@ -143,8 +204,12 @@
         </p>
       </div>
     </footer>
+
+    <script type="application/json" id="headers-json"><%= JSON.stringify(headersObject).replace(/</g, '\\u003c') %></script>
     <script>
       const latencyEl = document.querySelector('[data-api-latency]');
+      const headersScript = document.getElementById('headers-json');
+      const copyButton = document.querySelector('[data-copy-headers]');
 
       if (latencyEl) {
         const startedAt = performance.now();
@@ -160,6 +225,28 @@
           .catch(() => {
             latencyEl.textContent = 'Unable to measure';
           });
+      }
+
+      if (copyButton && headersScript) {
+        const headersJson = headersScript.textContent;
+        copyButton.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(headersJson);
+            copyButton.textContent = 'Copied!';
+            copyButton.classList.add('copy-button--success');
+            setTimeout(() => {
+              copyButton.textContent = 'Copy headers JSON';
+              copyButton.classList.remove('copy-button--success');
+            }, 2000);
+          } catch (error) {
+            copyButton.textContent = 'Copy failed';
+            copyButton.classList.add('copy-button--error');
+            setTimeout(() => {
+              copyButton.textContent = 'Copy headers JSON';
+              copyButton.classList.remove('copy-button--error');
+            }, 2000);
+          }
+        });
       }
     </script>
   </body>
