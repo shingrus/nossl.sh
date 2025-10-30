@@ -1,11 +1,24 @@
-<!-- favicon.svg -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- almond outline -->
-  <path d="M6 32Q32 10 58 32Q32 54 6 32Z" fill="#111"/>
-  <!-- iris (tweak color) -->
-  <ellipse cx="32" cy="32" rx="16" ry="16" fill="#5cadf0"/>
-  <!-- slit pupil -->
-  <rect x="29" y="18" width="6" height="28" rx="3" fill="#000"/>
-  <!-- tiny highlight -->
-  <circle cx="26" cy="26" r="2" fill="#fff" opacity=".9"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>nossl.sh favicon</title>
+  <desc>Minimal status line with grey dot, green dot, and tiny toggle above center. Transparent background.</desc>
+
+  <!-- Status line -->
+  <line x1="14" y1="36" x2="50" y2="36" stroke="#0A1F44" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Left (offline) dot -->
+  <circle cx="8" cy="36" r="6" fill="#B9C0C8"/>
+
+  <!-- Right (online) dot -->
+  <circle cx="56" cy="36" r="8" fill="#34C759"/>
+
+  <!-- Tiny toggle above center -->
+  <g>
+    <rect x="20" y="18" width="22" height="8" rx="4" fill="#0A1F44"/>
+    <!-- toggle knob -->
+    <circle cx="38" cy="22" r="3.5" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Optional visual tweak for tiny sizes: slight outline on green dot -->
+  <circle cx="56" cy="36" r="8" fill="none" stroke="#0A1F44" stroke-opacity="0.08" stroke-width="1"/>
 </svg>
