@@ -42,12 +42,15 @@
         </div>
         <div class="connection-info__meta">
           <div>
-            <dt>Page timestamp</dt>
+            <dt>Page generated</dt>
             <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
           </div>
-
           <div>
-            <dt>Ping latency</dt>
+            <dt>API response timestamp</dt>
+            <dd data-api-timestamp>Loading…</dd>
+          </div>
+          <div>
+            <dt>API latency</dt>
             <dd data-api-latency aria-live="polite">Measuring…</dd>
           </div>
         </div>
