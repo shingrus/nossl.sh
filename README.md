@@ -1,6 +1,6 @@
 # nossl.sh
 
-nossl.sh is a lightweight diagnostic page inspired by [NeverSSL](http://neverssl.com/). It returns a search-engine-friendly HTML
+nossl.sh is a lightweight diagnostic page. It returns a search-engine-friendly HTML
 page that reports the client's IP address, request headers, and whether the connection reached the service over HTTP or HTTPS.
 The project is packaged for deployment on Google Cloud Run.
 
