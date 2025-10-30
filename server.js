@@ -100,7 +100,6 @@ app.get('/api/request-info', (req, res) => {
     status: scheme === 'https' ? 'secure' : 'insecure',
     clientIp,
     headers,
-    timestamp: new Date().toISOString(),
   });
 });
 
