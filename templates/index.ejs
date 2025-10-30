@@ -192,6 +192,45 @@
           });
       }
 
+      const fallbackCopyText = (text) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount) {
+          selection.removeAllRanges();
+        }
+
+        textarea.select();
+
+        let successful = false;
+        try {
+          successful = document.execCommand('copy');
+        } catch (error) {
+          successful = false;
+        }
+
+        document.body.removeChild(textarea);
+        return successful;
+      };
+
+      const copyText = async (text) => {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          try {
+            await navigator.clipboard.writeText(text);
+            return true;
+          } catch (error) {
+            // fall back to execCommand
+          }
+        }
+
+        return fallbackCopyText(text);
+      };
+
       if (headersCopyButton) {
         const headerPairs = <%- JSON.stringify(headers) %>;
         const headersPayload = headerPairs.reduce((acc, [key, value]) => {
@@ -204,18 +243,11 @@
         }, {});
 
         headersCopyButton.addEventListener('click', async () => {
-          try {
-            await navigator.clipboard.writeText(JSON.stringify(headersPayload, null, 2));
-            headersCopyButton.textContent = 'Copied!';
-            setTimeout(() => {
-              headersCopyButton.textContent = 'Copy as JSON';
-            }, 2000);
-          } catch (error) {
-            headersCopyButton.textContent = 'Copy failed';
-            setTimeout(() => {
-              headersCopyButton.textContent = 'Copy as JSON';
-            }, 2000);
-          }
+          const copied = await copyText(JSON.stringify(headersPayload, null, 2));
+          headersCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
+          setTimeout(() => {
+            headersCopyButton.textContent = 'Copy as JSON';
+          }, 2000);
         });
       }
 
@@ -227,14 +259,9 @@
         };
 
         curlCopyButton.addEventListener('click', async () => {
-          try {
-            await navigator.clipboard.writeText(curlCommand);
-            curlCopyButton.textContent = 'Copied!';
-            setTimeout(resetLabel, 2000);
-          } catch (error) {
-            curlCopyButton.textContent = 'Copy failed';
-            setTimeout(resetLabel, 2000);
-          }
+          const copied = await copyText(curlCommand);
+          curlCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
+          setTimeout(resetLabel, 2000);
         });
       }
     </script>
