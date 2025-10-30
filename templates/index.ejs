@@ -49,6 +49,16 @@
             <p class="ip"><%= clientIp %></p>
           </div>
         </div>
+        <dl class="connection-info__meta">
+          <div>
+            <dt>Page timestamp</dt>
+            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
+          </div>
+          <div>
+            <dt>Ping</dt>
+            <dd data-api-latency aria-live="polite">Measuring…</dd>
+          </div>
+        </div>
       </section>
 
       <section aria-labelledby="request-headers" class="request-headers">
@@ -112,5 +122,24 @@
         </p>
       </div>
     </footer>
+    <script>
+      const latencyEl = document.querySelector('[data-api-latency]');
+
+      if (latencyEl) {
+        const startedAt = performance.now();
+        fetch('/api/request-info', { headers: { Accept: 'application/json' } })
+          .then((response) => {
+            const elapsed = Math.round(performance.now() - startedAt);
+            latencyEl.textContent = `${elapsed} ms`;
+
+            if (!response.ok) {
+              throw new Error('Response not OK');
+            }
+          })
+          .catch(() => {
+            latencyEl.textContent = 'Unable to measure';
+          });
+      }
+    </script>
   </body>
 </html>
