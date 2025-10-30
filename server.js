@@ -58,16 +58,24 @@ const normalizeHeaders = (headers) =>
     .sort((a, b) => a[0].localeCompare(b[0]));
 
 app.get('/', (req, res) => {
-  const scheme = getScheme(req);
-  const status = scheme === 'https' ? 'Secure connection detected.' : 'Unsecured connection detected.';
   const clientIp = getClientIp(req);
-  const headers = normalizeHeaders(req.headers);
-  const generatedAt = new Date();
+  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
 
-// Strong anti-cache for dynamic content only:
+  // Strong anti-cache for dynamic content only:
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
+
+  if (userAgent.includes('curl')) {
+    res.type('text/plain');
+    res.send(`${clientIp}\n`);
+    return;
+  }
+
+  const scheme = getScheme(req);
+  const status = scheme === 'https' ? 'Secure connection detected.' : 'Unsecured connection detected.';
+  const headers = normalizeHeaders(req.headers);
+  const generatedAt = new Date();
 
   res.render('index', {
     scheme,
