@@ -36,6 +36,22 @@ main.container {
   justify-content: space-between;
 }
 
+.connection-info__meta {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.connection-info__meta dt {
+  font-weight: 600;
+}
+
+.connection-info__meta dd {
+  margin: 0.25rem 0 0;
+  font-family: "Fira Code", "SFMono-Regular", ui-monospace, "Roboto Mono", monospace;
+  word-break: break-word;
+}
+
 .connection-info__status,
 .connection-info__ip {
   flex: 1 1 240px;
