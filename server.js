@@ -1,5 +1,4 @@
 import express from 'express';
-import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -13,12 +12,6 @@ app.set('trust proxy', true);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
 
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-    hsts: false,
-  })
-);
 
 app.use('/static', express.static(path.join(__dirname, 'static'), { maxAge: '1h' }));
 
