@@ -1,166 +1,111 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
-    />
-    <meta
-      name="keywords"
-      content="no ssl, nossl, never ssl alternative, captive portal login, hotel wifi login, airport wifi, coffee shop wifi, http test page"
-    />
-    <meta property="og:title" content="nossl.sh - Connection &amp; Header Diagnostics" />
-    <meta
-            property="og:description"
-            content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="http://nossl.sh/" />
-    <meta property="og:site_name" content="nossl.sh" />
-    <meta property="og:image" content="/static/og-image.png" />
-    <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="nossl.sh - Connection &amp; Header Diagnostics" />
-    <meta
-            name="twitter:description"
-            content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
-    />
-    <meta name="twitter:image" content="/static/og-image.png" />
-    <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
-    <title>nossl.sh - Connection &amp; Header Diagnostics</title>
-    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <header class="hero">
-      <div class="container">
-        <h1>nossl.sh</h1>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>nossl.sh — quick connection check</title>
+  <meta name="description" content="Compact connection dashboard: online status, protocol, IP, time, ping, headers." />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<header class="topbar" role="banner">
+  <div class="status">
+    <span class="dot" id="online-dot" aria-hidden="true"></span>
+    <strong id="online-text">You're online</strong>
+    <span class="pill" id="scheme-pill"><%= scheme ? scheme.toUpperCase() : 'HTTP' %></span>
+  </div>
+
+  <!-- logo on the right -->
+  <div class="logo" aria-label="nossl.sh">
+    <span class="wordmark">nossl.sh</span>
+  </div>
+</header>
+
+<main class="wrap" role="main">
+  <section class="grid kpis" aria-label="Summary">
+    <article class="card">
+      <h2>Status</h2>
+      <dl class="kv">
+        <dt>Connection</dt><dd id="conn-type">—</dd>
+        <dt>IP</dt>
+        <dd>
+          <code id="ip"><%= clientIp %></code>
+          <button class="copy" data-copy="<%= clientIp %>" aria-label="Copy IP">copy</button>
+        </dd>
+        <dt>HTTP version</dt><dd><code><%= httpVersion %></code></dd>
+        <dt>Ping</dt><dd id="ping">—</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h2>Time</h2>
+      <dl class="kv">
+        <dt>Local</dt><dd id="local-time">—</dd>
+        <dt>UTC</dt><dd id="utc-time">—</dd>
+        <dt>Timezone</dt><dd id="tz">—</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h2>Network</h2>
+      <dl class="kv">
+        <dt>Protocol</dt><dd><code id="proto"><%= scheme %></code></dd>
+        <dt>Effective type</dt><dd id="eff-type">—</dd>
+        <dt>Downlink</dt><dd id="downlink">—</dd>
+        <dt>RTT (browser)</dt><dd id="rtt">—</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <h2>Client</h2>
+      <dl class="kv">
+        <dt>User‑Agent</dt><dd class="truncate"><code><%= headers['user-agent'] %></code></dd>
+        <dt>Accept‑Language</dt><dd><code><%= headers['accept-language'] %></code></dd>
+      </dl>
+    </article>
+  </section>
+
+  <section class="card">
+    <details open>
+      <summary>Request headers</summary>
+      <div class="table-wrap">
+        <table class="kv-table" id="headers-table">
+          <thead><tr><th>Header</th><th>Value</th></tr></thead>
+          <tbody>
+          <% Object.keys(headers).sort().forEach(function(k){ %>
+            <tr>
+              <td><code><%= k %></code></td>
+              <td class="wrap"><code><%= headers[k] %></code></td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
       </div>
-    </header>
+    </details>
+  </section>
 
-    <main class="container">
-      <section aria-labelledby="connection-info" class="connection-info">
-        <h2 id="connection-info">Connection Details</h2>
-        <div class="connection-info__content">
-          <div class="connection-info__status">
-            <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-              <%= status %>
-            </p>
-            <p>
-              Your request reached us using the
-              <strong><%= scheme.toUpperCase() %></strong> protocol.
-            </p>
-          </div>
-          <div class="connection-info__ip">
-            <span class="ip-label">Your IP Address</span>
-            <p class="ip"><%= clientIp %></p>
-          </div>
-        </div>
-        <div class="connection-info__meta">
-          <div>
-            <dt>Page timestamp</dt>
-            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
-          </div>
-          <div>
-            <dt>Ping</dt>
-            <dd data-api-latency aria-live="polite">Measuring…</dd>
-          </div>
-        </div>
+  <!-- Future blocks you plan (kept empty/hidden for now) -->
+  <section class="grid future" hidden>
+    <article class="card">
+      <h2>GeoIP</h2>
+      <dl class="kv">
+        <dt>Country</dt><dd id="geo-country">—</dd>
+        <dt>Region</dt><dd id="geo-region">—</dd>
+        <dt>City</dt><dd id="geo-city">—</dd>
+        <dt>ASN / ISP</dt><dd id="geo-asn">—</dd>
+      </dl>
+    </article>
+    <article class="card">
+      <h2>Speed</h2>
+      <dl class="kv">
+        <dt>Download</dt><dd id="speed-down">—</dd>
+        <dt>Upload</dt><dd id="speed-up">—</dd>
+      </dl>
+    </article>
+  </section>
+</main>
 
-      </section>
-
-      <section aria-labelledby="how-to" class="usage usage--how-to">
-        <h2 id="how-to">How to use nossl.sh</h2>
-        <p>
-          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
-          reach the open <strong>http://nossl.sh</strong> site without SSL:
-        </p>
-        <pre><code>curl http://nossl.sh</code></pre>
-      </section>
-
-      <section aria-labelledby="request-headers" class="request-headers">
-        <h2 id="request-headers">Request Headers</h2>
-        <p>We received the following headers from your client:</p>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Header</th>
-                <th scope="col">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% headers.forEach(([key, value]) => { %>
-              <tr>
-                <th scope="row"><%= key %></th>
-                <td><%= value %></td>
-              </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section aria-labelledby="usage-information" class="usage usage--information">
-        <h2 id="usage-information">Usage information</h2>
-        <p>
-            A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
-            stuck on a captive portal or seeing no SSL warnings. Launch this HTTP-only landing page when a splash screen refuses to appear so you can quickly
-            confirm whether the network is blocking encrypted traffic.
-          </p>
-        <p>
-          If the page still won't load, double-check your Wi-Fi connection, make sure your internet
-          service is working, and try disabling any VPN or custom DNS temporarily.
-        </p>
-        <p>
-          Many captive portal detection workflows look for a plain HTTP page like NeverSSL. You can
-          use nossl.sh as a reliable fallback when automatic login prompts fail, when browsers keep
-          showing certificate errors, or when you need an easy URL to remember for "no ssl" testing.
-        </p>
-        <p>
-          People often search for phrases like "NeverSSL login", "open Wi-Fi sign in", "bypass HTTPS
-          captive portal", "hotel Wi-Fi won't load", or "airport Wi-Fi redirect page". This site is
-          designed to answer those queries by providing a fast-loading, SSL-free diagnostic page that
-          makes captive portal login screens reappear.
-        </p>
-        <p>
-          Bookmark nossl.sh to resolve issues with smart TVs, game consoles, streaming boxes, and other
-          devices that cannot complete an HTTPS handshake on restricted networks.
-        </p>
-      </section>
-    </main>
-
-    <footer>
-      <div class="container">
-        <p>Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>.</p>
-        <p>
-          Prefer JSON? Try the
-          <a href="/api/request-info" rel="nofollow">request info API endpoint</a>.
-        </p>
-      </div>
-    </footer>
-    <script>
-      const latencyEl = document.querySelector('[data-api-latency]');
-
-      if (latencyEl) {
-        const startedAt = performance.now();
-        fetch('/api/request-info', { headers: { Accept: 'application/json' } })
-          .then((response) => {
-            const elapsed = Math.round(performance.now() - startedAt);
-            latencyEl.textContent = `${elapsed} ms`;
-
-            if (!response.ok) {
-              throw new Error('Response not OK');
-            }
-          })
-          .catch(() => {
-            latencyEl.textContent = 'Unable to measure';
-          });
-      }
-    </script>
-  </body>
+<script>window.__REQUEST__ = <%- JSON.stringify({ clientIp, scheme, httpVersion, headers }) %>;</script>
+<script src="/static/app.js" defer></script>
+</body>
 </html>

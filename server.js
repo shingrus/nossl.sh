@@ -102,6 +102,7 @@ const renderIndex = (req, res) => {
   const status = scheme === 'https' ? 'Secure connection detected.' : 'Unsecured connection detected.';
   const headers = normalizeHeaders(req.headers);
   const generatedAt = new Date();
+  const httpVersion =  req.httpVersion;
 
   res.render('index', {
     scheme,
@@ -109,6 +110,7 @@ const renderIndex = (req, res) => {
     clientIp,
     headers,
     generatedAt,
+    httpVersion,
   });
 };
 
