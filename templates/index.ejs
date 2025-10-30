@@ -42,32 +42,19 @@
         </div>
         <div class="connection-info__meta">
           <div>
-            <dt>Page generated</dt>
+            <dt>Page timestamp</dt>
             <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
           </div>
           <div>
-            <dt>API response timestamp</dt>
-            <dd data-api-timestamp>Loading…</dd>
-          </div>
-          <div>
-            <dt>API latency</dt>
+            <dt>Ping</dt>
             <dd data-api-latency aria-live="polite">Measuring…</dd>
           </div>
         </div>
 
       </section>
 
-      <section aria-labelledby="usage-tips" class="usage">
-        <h2 id="usage-tips">How to use nossl.sh</h2>
-        <p>
-          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
-          reach the open <strong>http://nossl.sh</strong> site without SSL:
-        </p>
-        <pre><code>curl -v http://nossl.sh</code></pre>
-      </section>
-
-      <section aria-labelledby="usage-tips" class="usage usage--quick">
-        <h2 id="usage-tips">How to use nossl.sh</h2>
+      <section aria-labelledby="how-to" class="usage usage--how-to">
+        <h2 id="how-to">How to use nossl.sh</h2>
         <p>
           Copy the code below to try a quick <code>curl</code> request and confirm that your device can
           reach the open <strong>http://nossl.sh</strong> site without SSL:
@@ -98,7 +85,7 @@
         </div>
       </section>
 
-      <section aria-labelledby="usage-information" class="usage">
+      <section aria-labelledby="usage-information" class="usage usage--information">
         <h2 id="usage-information">Usage information</h2>
         <p>
             A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
@@ -137,22 +124,9 @@
       </div>
     </footer>
     <script>
-      const formatUtc = (timestamp) => {
-        try {
-          const date = new Date(timestamp);
-          if (Number.isNaN(date.getTime())) {
-            return timestamp;
-          }
-          return date.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
-        } catch (error) {
-          return timestamp;
-        }
-      };
-
       const latencyEl = document.querySelector('[data-api-latency]');
-      const timestampEl = document.querySelector('[data-api-timestamp]');
 
-      if (latencyEl && timestampEl) {
+      if (latencyEl) {
         const startedAt = performance.now();
         fetch('/api/request-info', { headers: { Accept: 'application/json' } })
           .then((response) => {
@@ -162,15 +136,9 @@
             if (!response.ok) {
               throw new Error('Response not OK');
             }
-
-            return response.json();
-          })
-          .then((data) => {
-            timestampEl.textContent = formatUtc(data.timestamp);
           })
           .catch(() => {
             latencyEl.textContent = 'Unable to measure';
-            timestampEl.textContent = 'Unavailable';
           });
       }
     </script>
