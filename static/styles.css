@@ -219,17 +219,34 @@ table tbody tr:nth-child(even) {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.panel--actions pre {
-  background: rgba(15, 23, 42, 0.65);
+.panel--actions .code-snippet {
+  margin: 0.75rem 0 0;
+}
+
+.code-snippet {
+  position: relative;
+}
+
+.code-snippet pre {
+  background: rgba(15, 23, 42, 0.4);
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 0.65rem;
   padding: 0.8rem 1rem;
-  margin: 0.75rem 0 0;
+  padding-right: 3.25rem;
+  margin: 0;
   overflow-x: auto;
 }
 
 .panel--actions code {
   font-family: "Fira Code", "SFMono-Regular", ui-monospace, "Roboto Mono", monospace;
+}
+
+.copy--snippet {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  font-size: 0.8rem;
+  padding-inline: 0.6rem;
 }
 
 .panel__body {
