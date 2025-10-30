@@ -36,55 +36,90 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <div class="container">
-        <h1>nossl.sh</h1>
+    <% const headerMap = Object.fromEntries(headers); %>
+    <% const hostHeader = headerMap['host'] || '—'; %>
+    <% const userAgent = headerMap['user-agent'] || '—'; %>
+    <% const acceptLanguage = headerMap['accept-language'] || '—'; %>
+    <% const forwardedFor = headerMap['x-forwarded-for']; %>
+
+    <header class="top-bar">
+      <div class="top-bar__content container">
+        <div class="brand">
+          <img src="/static/logo.svg" width="40" height="40" alt="nossl.sh logo" class="brand__logo" />
+          <div class="brand__text">
+            <span class="brand__name">nossl.sh</span>
+            <span class="brand__status"><span class="brand__dot" aria-hidden="true"></span>You're online</span>
+          </div>
+        </div>
+        <div class="top-bar__status">
+          <span class="status-code"><%= status %></span>
+          <span class="status-pill <%= scheme === 'https' ? 'status-pill--secure' : 'status-pill--insecure' %>">
+            <%= scheme.toUpperCase() %>
+          </span>
+        </div>
       </div>
     </header>
 
-    <main class="container">
-      <section aria-labelledby="connection-info" class="connection-info">
-        <h2 id="connection-info">Connection Details</h2>
-        <div class="connection-info__content">
-          <div class="connection-info__status">
-            <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-              <%= status %>
-            </p>
-            <p>
-              Your request reached us using the
-              <strong><%= scheme.toUpperCase() %></strong> protocol.
-            </p>
-          </div>
-          <div class="connection-info__ip">
-            <span class="ip-label">Your IP Address</span>
-            <p class="ip"><%= clientIp %></p>
-          </div>
+    <main class="dashboard container">
+      <section aria-labelledby="snapshot" class="panel panel--cards">
+        <div class="panel__header">
+          <h2 id="snapshot">Connection snapshot</h2>
+          <p class="panel__hint">Key facts about the request you just made.</p>
         </div>
-        <div class="connection-info__meta">
-          <div>
-            <dt>Page timestamp</dt>
-            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
-          </div>
-          <div>
-            <dt>Ping</dt>
-            <dd data-api-latency aria-live="polite">Measuring…</dd>
-          </div>
+        <div class="cards-grid">
+          <article class="card">
+            <h3>Protocol</h3>
+            <p class="card__value card__value--strong"><%= scheme.toUpperCase() %></p>
+            <p class="card__meta">HTTP vs HTTPS detection.</p>
+          </article>
+          <article class="card">
+            <h3>IP address</h3>
+            <p class="card__value card__value--mono" title="Client IP"><%= clientIp %></p>
+            <p class="card__meta">How we see your connection.</p>
+          </article>
+          <article class="card">
+            <h3>Page timestamp</h3>
+            <p class="card__value card__value--mono">
+              <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>
+            </p>
+            <p class="card__meta">Snapshot of when this view was generated.</p>
+          </article>
+          <article class="card">
+            <h3>Ping</h3>
+            <p class="card__value" data-api-latency aria-live="polite">Measuring…</p>
+            <p class="card__meta">Round-trip time to the request info API.</p>
+          </article>
+          <article class="card">
+            <h3>Host header</h3>
+            <p class="card__value card__value--mono" title="<%= hostHeader %>"><%= hostHeader %></p>
+            <p class="card__meta">What your client requested.</p>
+          </article>
+          <article class="card">
+            <h3>Accept-Language</h3>
+            <p class="card__value card__value--wrap" title="<%= acceptLanguage %>"><%= acceptLanguage %></p>
+            <p class="card__meta">Language preferences supplied.</p>
+          </article>
+          <% if (forwardedFor) { %>
+          <article class="card">
+            <h3>X-Forwarded-For</h3>
+            <p class="card__value card__value--wrap" title="<%= forwardedFor %>"><%= forwardedFor %></p>
+            <p class="card__meta">Upstream client IP chain.</p>
+          </article>
+          <% } %>
+          <article class="card card--wide">
+            <h3>User-Agent</h3>
+            <p class="card__value card__value--wrap" title="<%= userAgent %>"><%= userAgent %></p>
+            <p class="card__meta">Device + browser details.</p>
+          </article>
         </div>
-
       </section>
 
-      <section aria-labelledby="how-to" class="usage usage--how-to">
-        <h2 id="how-to">How to use nossl.sh</h2>
-        <p>
-          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
-          reach the open <strong>http://nossl.sh</strong> site without SSL:
-        </p>
-        <pre><code>curl http://nossl.sh</code></pre>
-      </section>
-
-      <section aria-labelledby="request-headers" class="request-headers">
-        <h2 id="request-headers">Request Headers</h2>
-        <p>We received the following headers from your client:</p>
+      <section aria-labelledby="request-headers" class="panel request-headers">
+        <div class="panel__header">
+          <h2 id="request-headers">Request headers</h2>
+          <button type="button" class="copy-button" data-copy-source="headers-json">Copy JSON</button>
+        </div>
+        <p class="panel__hint">Full header list for debugging captive portals or proxy settings.</p>
         <div class="table-wrapper">
           <table>
             <thead>
@@ -105,31 +140,37 @@
         </div>
       </section>
 
-      <section aria-labelledby="usage-information" class="usage usage--information">
-        <h2 id="usage-information">Usage information</h2>
+      <section aria-labelledby="how-to" class="panel usage">
+        <div class="panel__header">
+          <h2 id="how-to">Quick usage</h2>
+        </div>
         <p>
-            A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
-            stuck on a captive portal or seeing no SSL warnings. Launch this HTTP-only landing page when a splash screen refuses to appear so you can quickly
-            confirm whether the network is blocking encrypted traffic.
-          </p>
+          Run a fast <code>curl</code> request to confirm that your device can reach the open
+          <strong>http://nossl.sh</strong> landing page:
+        </p>
+        <pre><code>curl http://nossl.sh</code></pre>
         <p>
-          If the page still won't load, double-check your Wi-Fi connection, make sure your internet
-          service is working, and try disabling any VPN or custom DNS temporarily.
+          Keep this page in mind for future upgrades&mdash;we plan to surface GeoIP, connection speed, and
+          more actionable diagnostics alongside the data above.
+        </p>
+      </section>
+
+      <section aria-labelledby="usage-information" class="panel usage-info">
+        <div class="panel__header">
+          <h2 id="usage-information">Why nossl.sh matters</h2>
+        </div>
+        <p>
+          nossl.sh is a lightweight, SSL-free checkpoint inspired by NeverSSL. It's built for captive
+          portal troubleshooting, Wi-Fi splash screens that refuse to appear, and environments where encrypted
+          traffic is blocked.
         </p>
         <p>
-          Many captive portal detection workflows look for a plain HTTP page like NeverSSL. You can
-          use nossl.sh as a reliable fallback when automatic login prompts fail, when browsers keep
-          showing certificate errors, or when you need an easy URL to remember for "no ssl" testing.
+          If the page doesn't load at all, double-check your Wi-Fi, verify that your internet service is up,
+          and try temporarily disabling VPNs or custom DNS settings.
         </p>
         <p>
-          People often search for phrases like "NeverSSL login", "open Wi-Fi sign in", "bypass HTTPS
-          captive portal", "hotel Wi-Fi won't load", or "airport Wi-Fi redirect page". This site is
-          designed to answer those queries by providing a fast-loading, SSL-free diagnostic page that
-          makes captive portal login screens reappear.
-        </p>
-        <p>
-          Bookmark nossl.sh to resolve issues with smart TVs, game consoles, streaming boxes, and other
-          devices that cannot complete an HTTPS handshake on restricted networks.
+          Keep the URL handy for smart TVs, consoles, streaming boxes, or any device that struggles with
+          HTTPS handshakes on restricted networks.
         </p>
       </section>
     </main>
@@ -143,6 +184,8 @@
         </p>
       </div>
     </footer>
+
+    <script type="application/json" id="headers-json"><%- JSON.stringify(headerMap, null, 2) %></script>
     <script>
       const latencyEl = document.querySelector('[data-api-latency]');
 
@@ -160,6 +203,37 @@
           .catch(() => {
             latencyEl.textContent = 'Unable to measure';
           });
+      }
+
+      const copyButton = document.querySelector('[data-copy-source]');
+
+      if (copyButton) {
+        const sourceId = copyButton.getAttribute('data-copy-source');
+        const sourceEl = document.getElementById(sourceId);
+
+        copyButton.addEventListener('click', async () => {
+          if (!sourceEl) {
+            return;
+          }
+
+          try {
+            await navigator.clipboard.writeText(sourceEl.textContent.trim());
+            const previousLabel = copyButton.textContent;
+            copyButton.textContent = 'Copied!';
+            copyButton.classList.add('copy-button--success');
+            setTimeout(() => {
+              copyButton.textContent = previousLabel;
+              copyButton.classList.remove('copy-button--success');
+            }, 2000);
+          } catch (error) {
+            copyButton.textContent = 'Copy failed';
+            copyButton.classList.add('copy-button--error');
+            setTimeout(() => {
+              copyButton.textContent = 'Copy JSON';
+              copyButton.classList.remove('copy-button--error');
+            }, 2500);
+          }
+        });
       }
     </script>
   </body>
