@@ -23,6 +23,7 @@ main.container {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "connection"
+    "quick-check"
     "request"
     "usage";
   align-items: stretch;
@@ -200,11 +201,16 @@ h2 {
   grid-area: usage;
 }
 
+.usage--quick {
+  grid-area: quick-check;
+}
+
 @media (min-width: 900px) {
   main.container {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
       "connection request"
+      "quick-check request"
       "usage usage";
     align-items: start;
   }
