@@ -20,7 +20,11 @@ body {
 main.container {
   display: grid;
   gap: 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "connection"
+    "request"
+    "usage";
   align-items: stretch;
 }
 
@@ -118,11 +122,34 @@ h2 {
   letter-spacing: 0.03em;
 }
 
+.connection-info {
+  grid-area: connection;
+}
+
 .request-headers {
-  grid-column: 1 / -1;
+  grid-area: request;
   max-width: 720px;
   width: 100%;
   justify-self: start;
+}
+
+.usage {
+  grid-area: usage;
+}
+
+@media (min-width: 900px) {
+  main.container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "connection request"
+      "usage usage";
+    align-items: start;
+  }
+
+  .request-headers {
+    max-width: none;
+    justify-self: stretch;
+  }
 }
 
 .table-wrapper {
