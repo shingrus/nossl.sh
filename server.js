@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import helmet from 'helmet';
 import path from 'path';
@@ -57,11 +58,42 @@ const normalizeHeaders = (headers) =>
     .map(([key, value]) => [key, Array.isArray(value) ? value.join(', ') : String(value)])
     .sort((a, b) => a[0].localeCompare(b[0]));
 
-app.get('/', (req, res) => {
+const randomSubdomain = () => {
+  const words = [
+    'alpha',
+    'bravo',
+    'charlie',
+    'delta',
+    'echo',
+    'foxtrot',
+    'golf',
+    'hotel',
+    'india',
+    'juliet',
+    'kilo',
+    'lima',
+    'mike',
+    'november',
+    'oscar',
+    'papa',
+    'quebec',
+    'romeo',
+    'sierra',
+    'tango',
+    'uniform',
+    'victor',
+    'whiskey',
+    'xray',
+    'yankee',
+    'zulu',
+  ];
+  return words[crypto.randomInt(0, words.length)];
+};
+
+const renderIndex = (req, res) => {
   const clientIp = getClientIp(req);
   const userAgent = (req.headers['user-agent'] || '').toLowerCase();
 
-  // Strong anti-cache for dynamic content only:
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
@@ -84,6 +116,27 @@ app.get('/', (req, res) => {
     headers,
     generatedAt,
   });
+};
+
+app.get('/', (req, res) => {
+  const scheme = getScheme(req);
+  if (scheme === 'https') {
+    const subdomain = randomSubdomain();
+    const redirectUrl = `http://${subdomain}.nossl.sh/check`;
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.type('text/html');
+    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Redirecting...</title></head><body><script>window.location.href='${redirectUrl}';</script></body></html>`);
+    return;
+  }
+
+  renderIndex(req, res);
+});
+
+app.get('/check', (req, res) => {
+  renderIndex(req, res);
 });
 
 app.get('/api/request-info', (req, res) => {
