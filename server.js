@@ -99,7 +99,7 @@ const renderIndex = (req, res) => {
   }
 
   const scheme = getScheme(req);
-  const status = scheme === 'https' ? 'Secure connection detected.' : 'Unsecured connection detected.';
+  const status = scheme === 'https' ? 'Secure connection.' : 'Unsecure connection.';
   const headers = normalizeHeaders(req.headers);
   const generatedAt = new Date();
 
