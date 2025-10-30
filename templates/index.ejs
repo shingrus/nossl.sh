@@ -36,55 +36,56 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <div class="container">
-        <h1>nossl.sh</h1>
+    <header class="topbar">
+      <div class="container topbar__layout">
+        <div class="brand" aria-label="nossl.sh">
+          <span class="brand__mark" aria-hidden="true">◎</span>
+          <div class="brand__copy">
+            <span class="brand__name">nossl.sh</span>
+            <span class="brand__status">You're online</span>
+          </div>
+        </div>
+        <div class="connection-pill <%= scheme === 'https' ? 'is-https' : 'is-http' %>">
+          <span class="connection-pill__label">Connection</span>
+          <span class="connection-pill__value"><%= scheme.toUpperCase() %></span>
+        </div>
       </div>
     </header>
 
-    <main class="container">
-      <section aria-labelledby="connection-info" class="connection-info">
-        <h2 id="connection-info">Connection Details</h2>
-        <div class="connection-info__content">
-          <div class="connection-info__status">
-            <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-              <%= status %>
-            </p>
-            <p>
-              Your request reached us using the
-              <strong><%= scheme.toUpperCase() %></strong> protocol.
-            </p>
-          </div>
-          <div class="connection-info__ip">
-            <span class="ip-label">Your IP Address</span>
-            <p class="ip"><%= clientIp %></p>
-          </div>
+    <main class="container main-content">
+      <section class="insights" aria-labelledby="connection-insights">
+        <div class="section-heading">
+          <h2 id="connection-insights">Live connection snapshot</h2>
+          <p class="section-heading__copy">Fast facts about the request your device just made.</p>
         </div>
-        <div class="connection-info__meta">
+        <dl class="insights__grid">
+          <div>
+            <dt>Connection type</dt>
+            <dd class="insights__value"><%= scheme.toUpperCase() %></dd>
+          </div>
+          <div>
+            <dt>IP address</dt>
+            <dd class="insights__value insights__value--mono"><%= clientIp %></dd>
+          </div>
           <div>
             <dt>Page timestamp</dt>
-            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
+            <dd class="insights__value insights__value--mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
           </div>
           <div>
-            <dt>Ping</dt>
-            <dd data-api-latency aria-live="polite">Measuring…</dd>
+            <dt>Ping time</dt>
+            <dd class="insights__value insights__value--mono" data-api-latency aria-live="polite">Measuring…</dd>
           </div>
-        </div>
-
-      </section>
-
-      <section aria-labelledby="how-to" class="usage usage--how-to">
-        <h2 id="how-to">How to use nossl.sh</h2>
-        <p>
-          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
-          reach the open <strong>http://nossl.sh</strong> site without SSL:
-        </p>
-        <pre><code>curl http://nossl.sh</code></pre>
+        </dl>
       </section>
 
       <section aria-labelledby="request-headers" class="request-headers">
-        <h2 id="request-headers">Request Headers</h2>
-        <p>We received the following headers from your client:</p>
+        <div class="section-heading">
+          <h2 id="request-headers">Request headers</h2>
+          <div class="section-heading__actions">
+            <button type="button" class="copy-json" data-copy-headers>Copy JSON</button>
+          </div>
+        </div>
+        <p class="section-description">A compact view of the headers we received from your device.</p>
         <div class="table-wrapper">
           <table>
             <thead>
@@ -105,46 +106,43 @@
         </div>
       </section>
 
-      <section aria-labelledby="usage-information" class="usage usage--information">
-        <h2 id="usage-information">Usage information</h2>
-        <p>
-            A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
-            stuck on a captive portal or seeing no SSL warnings. Launch this HTTP-only landing page when a splash screen refuses to appear so you can quickly
-            confirm whether the network is blocking encrypted traffic.
+      <section class="usage-grid" aria-labelledby="how-to">
+        <div class="usage-card" id="how-to">
+          <div class="section-heading">
+            <h2>How to use nossl.sh</h2>
+          </div>
+          <p>Run a quick HTTP check from any shell to confirm the network allows unsecured traffic:</p>
+          <pre><code>curl http://nossl.sh</code></pre>
+          <p>You'll get the same diagnostic data shown here in your terminal.</p>
+        </div>
+        <div class="usage-card" id="why">
+          <div class="section-heading">
+            <h2>Why this page exists</h2>
+          </div>
+          <p>
+            Captive portals often unblock HTTP-only traffic first. Loading nossl.sh helps force their login screen to appear so you
+            can authenticate and get back online quickly.
           </p>
-        <p>
-          If the page still won't load, double-check your Wi-Fi connection, make sure your internet
-          service is working, and try disabling any VPN or custom DNS temporarily.
-        </p>
-        <p>
-          Many captive portal detection workflows look for a plain HTTP page like NeverSSL. You can
-          use nossl.sh as a reliable fallback when automatic login prompts fail, when browsers keep
-          showing certificate errors, or when you need an easy URL to remember for "no ssl" testing.
-        </p>
-        <p>
-          People often search for phrases like "NeverSSL login", "open Wi-Fi sign in", "bypass HTTPS
-          captive portal", "hotel Wi-Fi won't load", or "airport Wi-Fi redirect page". This site is
-          designed to answer those queries by providing a fast-loading, SSL-free diagnostic page that
-          makes captive portal login screens reappear.
-        </p>
-        <p>
-          Bookmark nossl.sh to resolve issues with smart TVs, game consoles, streaming boxes, and other
-          devices that cannot complete an HTTPS handshake on restricted networks.
-        </p>
+          <p>
+            Keep this tab handy—we plan to surface GeoIP insights, connection speed, and other quick checks right beside the core
+            diagnostics.
+          </p>
+        </div>
       </section>
     </main>
 
-    <footer>
+    <footer class="site-footer">
       <div class="container">
         <p>Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>.</p>
         <p>
-          Prefer JSON? Try the
-          <a href="/api/request-info" rel="nofollow">request info API endpoint</a>.
+          Prefer JSON? Try the <a href="/api/request-info" rel="nofollow">request info API endpoint</a>.
         </p>
       </div>
     </footer>
     <script>
       const latencyEl = document.querySelector('[data-api-latency]');
+      const copyButton = document.querySelector('[data-copy-headers]');
+      const headersData = <%- JSON.stringify(Object.fromEntries(headers)) %>;
 
       if (latencyEl) {
         const startedAt = performance.now();
@@ -160,6 +158,36 @@
           .catch(() => {
             latencyEl.textContent = 'Unable to measure';
           });
+      }
+
+      if (copyButton) {
+        copyButton.addEventListener('click', async () => {
+          const formatted = JSON.stringify(headersData, null, 2);
+
+          try {
+            await navigator.clipboard.writeText(formatted);
+            copyButton.textContent = 'Copied!';
+            copyButton.setAttribute('aria-live', 'polite');
+            setTimeout(() => {
+              copyButton.textContent = 'Copy JSON';
+              copyButton.removeAttribute('aria-live');
+            }, 2400);
+          } catch (error) {
+            const temp = document.createElement('textarea');
+            temp.value = formatted;
+            temp.setAttribute('readonly', '');
+            temp.style.position = 'absolute';
+            temp.style.left = '-9999px';
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            copyButton.textContent = 'Copied!';
+            setTimeout(() => {
+              copyButton.textContent = 'Copy JSON';
+            }, 2400);
+          }
+        });
       }
     </script>
   </body>
