@@ -36,55 +36,62 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <div class="container">
-        <h1>nossl.sh</h1>
+    <header class="top-bar">
+      <div class="container top-bar__inner">
+        <div class="branding" role="banner">
+          <span class="logo" aria-hidden="true">●</span>
+          <div class="branding__copy">
+            <span class="brand-name">nossl.sh</span>
+            <span class="brand-status">You're online</span>
+          </div>
+        </div>
+        <p class="top-bar__hint">Plain HTTP diagnostics for captive portals &amp; restricted networks</p>
       </div>
     </header>
 
-    <main class="container">
-      <section aria-labelledby="connection-info" class="connection-info">
-        <h2 id="connection-info">Connection Details</h2>
-        <div class="connection-info__content">
-          <div class="connection-info__status">
-            <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-              <%= status %>
-            </p>
-            <p>
-              Your request reached us using the
-              <strong><%= scheme.toUpperCase() %></strong> protocol.
-            </p>
+    <main class="container dashboard">
+      <section aria-labelledby="connection-info" class="panel panel--connection">
+        <header class="panel__header">
+          <h2 id="connection-info">Connection snapshot</h2>
+          <span class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
+            <%= status %>
+          </span>
+        </header>
+
+        <p class="panel__summary">
+          Request served over <strong><%= scheme.toUpperCase() %></strong>. These numbers refresh each time you load the page.
+        </p>
+
+        <dl class="connection-grid">
+          <div>
+            <dt>Connection type</dt>
+            <dd><%= scheme.toUpperCase() %></dd>
           </div>
-          <div class="connection-info__ip">
-            <span class="ip-label">Your IP Address</span>
-            <p class="ip"><%= clientIp %></p>
+          <div>
+            <dt>Client IP</dt>
+            <dd class="mono"><%= clientIp %></dd>
           </div>
-        </div>
-        <div class="connection-info__meta">
           <div>
             <dt>Page timestamp</dt>
-            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
+            <dd class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
           </div>
           <div>
-            <dt>Ping</dt>
-            <dd data-api-latency aria-live="polite">Measuring…</dd>
+            <dt>Ping time</dt>
+            <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
           </div>
-        </div>
-
+        </dl>
       </section>
 
-      <section aria-labelledby="how-to" class="usage usage--how-to">
-        <h2 id="how-to">How to use nossl.sh</h2>
-        <p>
-          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
-          reach the open <strong>http://nossl.sh</strong> site without SSL:
-        </p>
-        <pre><code>curl http://nossl.sh</code></pre>
-      </section>
-
-      <section aria-labelledby="request-headers" class="request-headers">
-        <h2 id="request-headers">Request Headers</h2>
-        <p>We received the following headers from your client:</p>
+      <section aria-labelledby="request-headers" class="panel panel--headers">
+        <header class="panel__header">
+          <div>
+            <h2 id="request-headers">Request headers</h2>
+            <p class="panel__summary">Compact view of the headers we saw from your device.</p>
+          </div>
+          <button type="button" class="copy" data-copy-headers>
+            Copy as JSON
+          </button>
+        </header>
         <div class="table-wrapper">
           <table>
             <thead>
@@ -105,32 +112,43 @@
         </div>
       </section>
 
-      <section aria-labelledby="usage-information" class="usage usage--information">
-        <h2 id="usage-information">Usage information</h2>
-        <p>
-            A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
-            stuck on a captive portal or seeing no SSL warnings. Launch this HTTP-only landing page when a splash screen refuses to appear so you can quickly
-            confirm whether the network is blocking encrypted traffic.
+      <section aria-labelledby="how-to" class="panel panel--actions">
+        <header class="panel__header">
+          <h2 id="how-to">Quick actions</h2>
+        </header>
+        <div class="actions-grid">
+          <div>
+            <h3>Test with curl</h3>
+            <p>Verify plain HTTP access from your shell:</p>
+            <pre><code>curl http://nossl.sh</code></pre>
+          </div>
+          <div>
+            <h3>Up next</h3>
+            <p class="panel__summary">
+              Geo IP lookups, connection speed checks, and other insight cards will live here soon. The layout is ready for more
+              data without adding clutter.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="usage-information" class="panel panel--support">
+        <header class="panel__header">
+          <h2 id="usage-information">Why this page exists</h2>
+        </header>
+        <div class="panel__body">
+          <p>
+            Inspired by NeverSSL, nossl.sh is a quick diagnostic checkpoint when captive portals or restrictive firewalls block
+            HTTPS handshakes. Load this page to trigger splash screens and inspect what your device sends.
           </p>
-        <p>
-          If the page still won't load, double-check your Wi-Fi connection, make sure your internet
-          service is working, and try disabling any VPN or custom DNS temporarily.
-        </p>
-        <p>
-          Many captive portal detection workflows look for a plain HTTP page like NeverSSL. You can
-          use nossl.sh as a reliable fallback when automatic login prompts fail, when browsers keep
-          showing certificate errors, or when you need an easy URL to remember for "no ssl" testing.
-        </p>
-        <p>
-          People often search for phrases like "NeverSSL login", "open Wi-Fi sign in", "bypass HTTPS
-          captive portal", "hotel Wi-Fi won't load", or "airport Wi-Fi redirect page". This site is
-          designed to answer those queries by providing a fast-loading, SSL-free diagnostic page that
-          makes captive portal login screens reappear.
-        </p>
-        <p>
-          Bookmark nossl.sh to resolve issues with smart TVs, game consoles, streaming boxes, and other
-          devices that cannot complete an HTTPS handshake on restricted networks.
-        </p>
+          <p>
+            Still stuck? Confirm your Wi-Fi link, temporarily disable VPNs, or retry after clearing custom DNS profiles.
+          </p>
+          <p>
+            Keep this URL handy for smart TVs, consoles, or travel routers that need an HTTP-only landing page to finish login
+            flows.
+          </p>
+        </div>
       </section>
     </main>
 
@@ -145,6 +163,7 @@
     </footer>
     <script>
       const latencyEl = document.querySelector('[data-api-latency]');
+      const headersCopyButton = document.querySelector('[data-copy-headers]');
 
       if (latencyEl) {
         const startedAt = performance.now();
@@ -160,6 +179,33 @@
           .catch(() => {
             latencyEl.textContent = 'Unable to measure';
           });
+      }
+
+      if (headersCopyButton) {
+        const headerPairs = <%- JSON.stringify(headers) %>;
+        const headersPayload = headerPairs.reduce((acc, [key, value]) => {
+          if (acc[key]) {
+            acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
+          } else {
+            acc[key] = value;
+          }
+          return acc;
+        }, {});
+
+        headersCopyButton.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(JSON.stringify(headersPayload, null, 2));
+            headersCopyButton.textContent = 'Copied!';
+            setTimeout(() => {
+              headersCopyButton.textContent = 'Copy as JSON';
+            }, 2000);
+          } catch (error) {
+            headersCopyButton.textContent = 'Copy failed';
+            setTimeout(() => {
+              headersCopyButton.textContent = 'Copy as JSON';
+            }, 2000);
+          }
+        });
       }
     </script>
   </body>
