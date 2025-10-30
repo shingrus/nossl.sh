@@ -21,6 +21,10 @@ main.container {
   display: grid;
   gap: 2rem;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "connection"
+    "request"
+    "usage";
   align-items: stretch;
 }
 
@@ -118,36 +122,33 @@ h2 {
   letter-spacing: 0.03em;
 }
 
+.connection-info {
+  grid-area: connection;
+}
+
 .request-headers {
-  grid-column: 1 / -1;
+  grid-area: request;
   max-width: 720px;
   width: 100%;
   justify-self: start;
 }
 
+.usage {
+  grid-area: usage;
+}
+
 @media (min-width: 900px) {
   main.container {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "connection request"
+      "usage usage";
     align-items: start;
   }
 
-  .connection-info,
   .request-headers {
-    height: 100%;
-  }
-
-  .connection-info {
-    grid-column: 1;
-  }
-
-  .request-headers {
-    grid-column: 2;
     max-width: none;
     justify-self: stretch;
-  }
-
-  .usage {
-    grid-column: 1 / -1;
   }
 }
 
