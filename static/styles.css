@@ -23,9 +23,9 @@ main.container {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "connection"
-    "quick-check"
+    "how-to"
     "request"
-    "usage";
+    "usage-info";
   align-items: stretch;
 }
 
@@ -197,21 +197,21 @@ h2 {
   justify-self: start;
 }
 
-.usage {
-  grid-area: usage;
+.usage--how-to {
+  grid-area: how-to;
 }
 
-.usage--quick {
-  grid-area: quick-check;
+.usage--information {
+  grid-area: usage-info;
 }
 
 @media (min-width: 900px) {
   main.container {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     grid-template-areas:
       "connection request"
-      "quick-check request"
-      "usage usage";
+      "how-to request"
+      "usage-info request";
     align-items: start;
   }
 
