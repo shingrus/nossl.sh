@@ -228,14 +228,15 @@ table tbody tr:nth-child(even) {
 }
 
 .code-snippet pre {
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(241, 245, 249, 0.75);      /* very light slate */
+  border: 1px solid rgba(100, 116, 139, 0.18);
   border-radius: 0.65rem;
   padding: 0.8rem 1rem;
   padding-right: 3.25rem;
   margin: 0;
   overflow-x: auto;
 }
+
 
 .panel--actions code {
   font-family: "Fira Code", "SFMono-Regular", ui-monospace, "Roboto Mono", monospace;
