@@ -100,11 +100,7 @@ const renderIndex = (req, res) => {
 
   const scheme = getScheme(req);
   const status = scheme === 'https' ? 'Secure connection detected.' : 'Unsecured connection detected.';
-  const headerEntries = normalizeHeaders(req.headers);
-  const headers = headerEntries.reduce((acc, [key, value]) => {
-    acc[key] = value;
-    return acc;
-  }, {});
+  const headers = normalizeHeaders(req.headers);
   const generatedAt = new Date();
 
   res.render('index', {
@@ -113,7 +109,6 @@ const renderIndex = (req, res) => {
     clientIp,
     headers,
     generatedAt,
-    countryCode: req.headers['cf-ipcountry'] || '',
   });
 };
 
