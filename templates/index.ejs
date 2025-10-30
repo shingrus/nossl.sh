@@ -1,196 +1,146 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>nossl.sh — http demo</title>
-  <meta name="robots" content="noindex" />
-  <style>
-    :root {
-      --bg: #0b0f1a;
-      --panel: #0f1627;
-      --muted: #8ea0b3;
-      --text: #e6edf3;
-      --success: #33d39b;
-      --danger: #ff5c5c;
-      --accent: #7cf6a1; /* neon vibe */
-      --border: #1f2c43;
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
-      --radius: 18px;
-    }
-    [data-theme="light"] {
-      --bg: #f6f8fb; --panel:#ffffff; --text:#0b1220; --muted:#516071; --border:#e3e8ef;
-      --success:#0e9f6e; --danger:#e11d48; --accent:#10b981; --shadow:0 6px 18px rgba(20,20,20,.08);
-    }
-    /* base */
-    html,body{height:100%}
-    body{margin:0; background:radial-gradient(1200px 1200px at 10% -10%, rgba(124,246,161,.06), transparent 40%),radial-gradient(800px 800px at 90% 0%, rgba(124,246,161,.04), transparent 45%), var(--bg); color:var(--text); font:16px/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,"Helvetica Neue","Apple Color Emoji","Segoe UI Emoji";}
-    .container{max-width:980px;margin:0 auto;padding:24px}
-
-    /* header */
-    .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
-    .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.06));box-shadow:var(--shadow)}
-    .dot{width:8px;height:8px;border-radius:999px;background:var(--danger);box-shadow:0 0 0 3px rgba(255,92,92,.12)}
-    .btn{border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.06));border-radius:12px;padding:10px 14px;cursor:pointer;color:var(--text);display:inline-flex;align-items:center;gap:8px}
-    .btn:hover{border-color:color-mix(in oklab, var(--border), var(--accent) 30%)}
-
-    /* hero */
-    .hero{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.08)); box-shadow:var(--shadow);}
-    .hero .inner{padding:28px}
-    .eyebrow{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.18em}
-    h1{margin:.2em 0 .4em;font-size:clamp(26px, 4vw, 42px);line-height:1.1}
-    .status{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .status .badge{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid var(--border)}
-    .status .badge.good .dot{background:var(--success); box-shadow:0 0 0 3px rgba(51,211,155,.12)}
-    .status .badge.bad .dot{background:var(--danger)}
-
-    /* grid */
-    .grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px}
-    @media(min-width:860px){.grid{grid-template-columns: 1fr 1fr}}
-
-    .card{border:1px solid var(--border);border-radius:var(--radius);background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.08)); box-shadow:var(--shadow)}
-    .card h3{margin:0 0 12px;font-size:16px}
-    .card .content{padding:18px 20px}
-
-    .kv{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:start}
-    .kv .k{color:var(--muted)} .kv .v{word-break:break-word}
-
-    .muted{color:var(--muted)}
-
-    /* accordion */
-    details{border:1px solid var(--border);border-radius:12px}
-    summary{cursor:pointer;padding:14px 16px;list-style:none}
-    summary::-webkit-details-marker{display:none}
-    details[open]{background:rgba(255,255,255,.02)}
-
-    /* footer */
-    footer{margin:28px 0 8px;color:var(--muted);text-align:center;font-size:13px}
-
-    /* subtle in */
-    .fade-in{animation:fade .6s ease-out both}
-    @keyframes fade{from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none}}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <nav class="nav">
-      <div class="brand">
-        <span class="pill"><strong style="letter-spacing:.3px">nossl.sh</strong></span>
-        <span class="pill"><span class="dot" id="lock-dot"></span><span id="scheme-label">http</span></span>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
+    />
+    <meta
+      name="keywords"
+      content="no ssl, nossl, never ssl alternative, captive portal login, hotel wifi login, airport wifi, coffee shop wifi, http test page"
+    />
+    <title>nossl.sh - Connection &amp; Header Diagnostics</title>
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="container">
+        <h1>nossl.sh</h1>
       </div>
-      <div class="actions">
-        <button class="btn" id="themeToggle" title="Toggle theme">🌓 <span class="muted">Theme</span></button>
-        <button class="btn" id="refreshBtn" title="Refresh">↻ <span class="muted">Refresh</span></button>
-      </div>
-    </nav>
+    </header>
 
-    <section class="hero fade-in">
-      <div class="inner">
-        <div class="eyebrow">Connection status</div>
-        <h1 id="h1">You're on <span id="scheme-big">HTTP</span></h1>
-        <div class="status">
-          <div class="badge bad"><span class="dot"></span> <span id="status-text"><%= typeof status !== 'undefined' ? status : 'Unsecured connection detected.' %></span></div>
-          <div class="badge"><span>Generated at</span> <strong><%= typeof generatedAt !== 'undefined' ? generatedAt.toISOString ? generatedAt.toISOString() : generatedAt : new Date().toISOString() %></strong></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="grid">
-      <article class="card fade-in" style="animation-delay:.05s">
-        <div class="content">
-          <h3>Your connection</h3>
-          <div class="kv">
-            <div class="k">IP</div>
-            <div class="v"><code id="ip"><%= typeof clientIp !== 'undefined' ? clientIp : '0.0.0.0' %></code> <button class="btn" id="copyIp">Copy</button></div>
-            <div class="k">Country</div>
-            <div class="v"><span id="country-emoji">🏴‍☠️</span> <span id="country-name"><%= typeof countryName !== 'undefined' ? countryName : 'Unknown' %></span></div>
-            <div class="k">Reverse DNS</div>
-            <div class="v"><code><%= typeof rDNS !== 'undefined' ? rDNS : '—' %></code></div>
+    <main class="container">
+      <section aria-labelledby="connection-info" class="connection-info">
+        <h2 id="connection-info">Connection Details</h2>
+        <div class="connection-info__content">
+          <div class="connection-info__status">
+            <p class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
+              <%= status %>
+            </p>
+            <p>
+              Your request reached us using the
+              <strong><%= scheme.toUpperCase() %></strong> protocol.
+            </p>
+          </div>
+          <div class="connection-info__ip">
+            <span class="ip-label">Your IP Address</span>
+            <p class="ip"><%= clientIp %></p>
           </div>
         </div>
-      </article>
-
-      <article class="card fade-in" style="animation-delay:.1s">
-        <div class="content">
-          <h3>User agent</h3>
-          <code id="ua"><%= (headers && headers['user-agent']) ? headers['user-agent'] : (typeof navigator !== 'undefined' ? navigator.userAgent : '') %></code>
-          <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn" id="copyUa">Copy UA</button>
-            <button class="btn" id="copyHeaders">Copy headers JSON</button>
+        <div class="connection-info__meta">
+          <div>
+            <dt>Page timestamp</dt>
+            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
+          </div>
+          <div>
+            <dt>Ping</dt>
+            <dd data-api-latency aria-live="polite">Measuring…</dd>
           </div>
         </div>
-      </article>
 
-      <article class="card fade-in" style="grid-column:1 / -1; animation-delay:.15s">
-        <div class="content">
-          <h3>Request headers</h3>
-          <details>
-            <summary>Show details</summary>
-            <div style="padding:12px 16px">
-              <div class="kv" id="headers-table"></div>
-            </div>
-          </details>
+      </section>
+
+      <section aria-labelledby="how-to" class="usage usage--how-to">
+        <h2 id="how-to">How to use nossl.sh</h2>
+        <p>
+          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
+          reach the open <strong>http://nossl.sh</strong> site without SSL:
+        </p>
+        <pre><code>curl http://nossl.sh</code></pre>
+      </section>
+
+      <section aria-labelledby="request-headers" class="request-headers">
+        <h2 id="request-headers">Request Headers</h2>
+        <p>We received the following headers from your client:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Header</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% headers.forEach(([key, value]) => { %>
+              <tr>
+                <th scope="row"><%= key %></th>
+                <td><%= value %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
         </div>
-      </article>
-    </section>
+      </section>
+
+      <section aria-labelledby="usage-information" class="usage usage--information">
+        <h2 id="usage-information">Usage information</h2>
+        <p>
+            A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
+            stuck on a captive portal or seeing no SSL warnings. Launch this HTTP-only landing page when a splash screen refuses to appear so you can quickly
+            confirm whether the network is blocking encrypted traffic.
+          </p>
+        <p>
+          If the page still won't load, double-check your Wi-Fi connection, make sure your internet
+          service is working, and try disabling any VPN or custom DNS temporarily.
+        </p>
+        <p>
+          Many captive portal detection workflows look for a plain HTTP page like NeverSSL. You can
+          use nossl.sh as a reliable fallback when automatic login prompts fail, when browsers keep
+          showing certificate errors, or when you need an easy URL to remember for "no ssl" testing.
+        </p>
+        <p>
+          People often search for phrases like "NeverSSL login", "open Wi-Fi sign in", "bypass HTTPS
+          captive portal", "hotel Wi-Fi won't load", or "airport Wi-Fi redirect page". This site is
+          designed to answer those queries by providing a fast-loading, SSL-free diagnostic page that
+          makes captive portal login screens reappear.
+        </p>
+        <p>
+          Bookmark nossl.sh to resolve issues with smart TVs, game consoles, streaming boxes, and other
+          devices that cannot complete an HTTPS handshake on restricted networks.
+        </p>
+      </section>
+    </main>
 
     <footer>
-      <p>nossl.sh is a tiny demo that celebrates good old <strong>HTTP</strong> for testing & debugging. Use at your own risk. No cookies. No tracking.</p>
+      <div class="container">
+        <p>Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>.</p>
+        <p>
+          Prefer JSON? Try the
+          <a href="/api/request-info" rel="nofollow">request info API endpoint</a>.
+        </p>
+      </div>
     </footer>
-  </div>
+    <script>
+      const latencyEl = document.querySelector('[data-api-latency]');
 
-  <script>
-    // Server data
-    const scheme = <%- JSON.stringify(typeof scheme !== 'undefined' ? scheme : 'http') %>;
-    const headers = <%- JSON.stringify(typeof headers !== 'undefined' ? headers : {}, null, 2) %>;
-    const countryCode = <%- JSON.stringify(typeof countryCode !== 'undefined' ? countryCode : '') %>; // e.g. "GB"
+      if (latencyEl) {
+        const startedAt = performance.now();
+        fetch('/api/request-info', { headers: { Accept: 'application/json' } })
+          .then((response) => {
+            const elapsed = Math.round(performance.now() - startedAt);
+            latencyEl.textContent = `${elapsed} ms`;
 
-    // Scheme UI
-    document.getElementById('scheme-label').textContent = scheme;
-    document.getElementById('scheme-big').textContent = scheme.toUpperCase();
-    const dot = document.getElementById('lock-dot');
-    if (scheme === 'https') {
-      dot.style.background = 'var(--success)';
-      dot.style.boxShadow = '0 0 0 3px rgba(51,211,155,.12)';
-      document.getElementById('status-text').textContent = 'Secure connection detected.';
-      document.getElementById('h1').innerHTML = `You're on <span>${scheme.toUpperCase()}</span>`;
-    }
-
-    // Headers table render
-    const kv = document.getElementById('headers-table');
-    Object.entries(headers).forEach(([k, v]) => {
-      const K = document.createElement('div'); K.className = 'k'; K.textContent = k;
-      const V = document.createElement('div'); V.className = 'v'; V.innerHTML = `<code>${String(v)}</code>`;
-      kv.appendChild(K); kv.appendChild(V);
-    });
-
-    // Emoji flag from ISO country code
-    function toFlagEmoji(cc){
-      if(!cc||cc.length!==2)return '🏴\u200d☠️';
-      const base = 127397; // regional indicator A
-      return String.fromCodePoint(...cc.toUpperCase().split('').map(c=>c.charCodeAt(0)+base));
-    }
-    document.getElementById('country-emoji').textContent = toFlagEmoji(countryCode);
-
-    // Copy helpers
-    function copy(text){navigator.clipboard?.writeText(text)}
-    document.getElementById('copyIp').onclick = ()=> copy(document.getElementById('ip').textContent);
-    document.getElementById('copyUa').onclick = ()=> copy(document.getElementById('ua').textContent);
-    document.getElementById('copyHeaders').onclick = ()=> copy(JSON.stringify(headers, null, 2));
-
-    // Refresh busts cache
-    document.getElementById('refreshBtn').onclick = ()=> location.href = location.pathname + '?_=' + Date.now();
-
-    // Theme toggle
-    const root = document.documentElement;
-    const saved = localStorage.getItem('theme');
-    if(saved) root.setAttribute('data-theme', saved);
-    document.getElementById('themeToggle').onclick = () => {
-      const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-    }
-  </script>
-</body>
+            if (!response.ok) {
+              throw new Error('Response not OK');
+            }
+          })
+          .catch(() => {
+            latencyEl.textContent = 'Unable to measure';
+          });
+      }
+    </script>
+  </body>
 </html>
