@@ -19,15 +19,6 @@
     <header class="hero">
       <div class="container">
         <h1>nossl.sh</h1>
-        <p>
-          A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
-          stuck on a captive portal or seeing no SSL warnings.
-        </p>
-        <p>
-          Use this HTTP-only landing page when a splash screen refuses to appear, whether you're
-          testing hotel Wi-Fi, airport hotspots, library networks, campus internet, or a coffee shop
-          access point that blocks HTTPS sites.
-        </p>
       </div>
     </header>
 
@@ -49,6 +40,30 @@
             <p class="ip"><%= clientIp %></p>
           </div>
         </div>
+        <div class="connection-info__meta">
+          <div>
+            <dt>Page generated</dt>
+            <dd><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
+          </div>
+          <div>
+            <dt>API response timestamp</dt>
+            <dd data-api-timestamp>Loading…</dd>
+          </div>
+          <div>
+            <dt>API latency</dt>
+            <dd data-api-latency aria-live="polite">Measuring…</dd>
+          </div>
+        </div>
+
+      </section>
+
+      <section aria-labelledby="usage-tips" class="usage">
+        <h2 id="usage-tips">How to use nossl.sh</h2>
+        <p>
+          Copy the code below to try a quick <code>curl</code> request and confirm that your device can
+          reach the open <strong>http://nossl.sh</strong> site without SSL:
+        </p>
+        <pre><code>curl -v http://nossl.sh</code></pre>
       </section>
 
       <section aria-labelledby="usage-tips" class="usage usage--quick">
@@ -86,6 +101,11 @@
       <section aria-labelledby="usage-information" class="usage">
         <h2 id="usage-information">Usage information</h2>
         <p>
+            A simple diagnostic page inspired by NeverSSL for quick connection checks when you're
+            stuck on a captive portal or seeing no SSL warnings. Launch this HTTP-only landing page when a splash screen refuses to appear so you can quickly
+            confirm whether the network is blocking encrypted traffic.
+          </p>
+        <p>
           If the page still won't load, double-check your Wi-Fi connection, make sure your internet
           service is working, and try disabling any VPN or custom DNS temporarily.
         </p>
@@ -116,5 +136,43 @@
         </p>
       </div>
     </footer>
+    <script>
+      const formatUtc = (timestamp) => {
+        try {
+          const date = new Date(timestamp);
+          if (Number.isNaN(date.getTime())) {
+            return timestamp;
+          }
+          return date.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+        } catch (error) {
+          return timestamp;
+        }
+      };
+
+      const latencyEl = document.querySelector('[data-api-latency]');
+      const timestampEl = document.querySelector('[data-api-timestamp]');
+
+      if (latencyEl && timestampEl) {
+        const startedAt = performance.now();
+        fetch('/api/request-info', { headers: { Accept: 'application/json' } })
+          .then((response) => {
+            const elapsed = Math.round(performance.now() - startedAt);
+            latencyEl.textContent = `${elapsed} ms`;
+
+            if (!response.ok) {
+              throw new Error('Response not OK');
+            }
+
+            return response.json();
+          })
+          .then((data) => {
+            timestampEl.textContent = formatUtc(data.timestamp);
+          })
+          .catch(() => {
+            latencyEl.textContent = 'Unable to measure';
+            timestampEl.textContent = 'Unavailable';
+          });
+      }
+    </script>
   </body>
 </html>
