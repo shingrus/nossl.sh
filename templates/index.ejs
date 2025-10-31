@@ -263,8 +263,7 @@
       }
 
       if (curlCopyButton) {
-        const commandElement = document.querySelector('[data-curl-snippet] code');
-        const curlCommand = commandElement?.textContent.trim() || 'curl http://nossl.sh';
+        const curlCommand =  'curl http://nossl.sh';
         const resetLabel = () => {
           curlCopyButton.textContent = '[ COPY ]';
         };
