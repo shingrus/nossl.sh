@@ -39,27 +39,31 @@
     <header class="top-bar">
       <div class="container top-bar__inner">
         <div class="branding" role="banner">
-          <span class="logo" aria-hidden="true">●</span>
+          <pre class="logo" aria-hidden="true">╔═══╗
+║ <span class="logo-dot">●</span> ║
+╚═══╝</pre>
           <div class="branding__copy">
-            <span class="brand-name">nossl.sh</span>
-            <span class="brand-status">You're online</span>
+            <span class="brand-name">┌─[ nossl.sh ]─┐</span>
+            <span class="brand-status">└─[ ✓ Connected ]──┘</span>
           </div>
         </div>
-        <p class="top-bar__hint">Plain HTTP diagnostics for captive portals &amp; restricted networks</p>
+        <p class="top-bar__hint">// Plain HTTP diagnostics for captive portals &amp; restricted networks //</p>
       </div>
     </header>
 
     <main class="container dashboard">
       <section aria-labelledby="connection-info" class="panel panel--connection">
         <header class="panel__header">
-          <h2 id="connection-info">Connection snapshot</h2>
+          <h2 id="connection-info">╔═══════════════════════╗
+║ CONNECTION SNAPSHOT   ║
+╚═══════════════════════╝</h2>
           <span class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-            <%= status %>
+            [ <%= status %> ]
           </span>
         </header>
 
         <p class="panel__summary">
-          Request served over <strong><%= scheme.toUpperCase() %></strong>. These numbers refresh each time you load the page.
+          >> Request served over <strong><%= scheme.toUpperCase() %></strong>. These numbers refresh each time you load the page.
         </p>
 
         <dl class="connection-grid">
@@ -85,11 +89,13 @@
       <section aria-labelledby="request-headers" class="panel panel--headers">
         <header class="panel__header">
           <div>
-            <h2 id="request-headers">Request headers</h2>
-            <p class="panel__summary">Compact view of the headers we saw from your device.</p>
+            <h2 id="request-headers">╔═══════════════════╗
+║ REQUEST HEADERS   ║
+╚═══════════════════╝</h2>
+            <p class="panel__summary">>> Compact view of the headers we saw from your device.</p>
           </div>
           <button type="button" class="copy" data-copy-headers>
-            Copy as JSON
+            [ COPY AS JSON ]
           </button>
         </header>
         <div class="table-wrapper">
@@ -114,12 +120,14 @@
 
       <section aria-labelledby="how-to" class="panel panel--actions">
         <header class="panel__header">
-          <h2 id="how-to">Quick actions</h2>
+          <h2 id="how-to">╔══════════════════╗
+║ QUICK ACTIONS    ║
+╚══════════════════╝</h2>
         </header>
         <div class="actions-grid">
           <div>
-            <h3>Test with curl</h3>
-            <p>Verify plain HTTP access from your shell:</p>
+            <h3>┌─[ TEST WITH CURL ]─┐</h3>
+            <p>>> Verify plain HTTP access from your shell:</p>
             <div class="code-snippet" data-curl-snippet>
               <button
                 type="button"
@@ -127,15 +135,15 @@
                 data-copy-curl
                 aria-label="Copy curl command"
               >
-                Copy
+                [ COPY ]
               </button>
-              <pre><code>curl http://nossl.sh</code></pre>
+              <pre><code>$ curl http://nossl.sh</code></pre>
             </div>
           </div>
           <div>
-            <h3>Up next</h3>
+            <h3>┌─[ UP NEXT ]─┐</h3>
             <p class="panel__summary">
-              Geo IP lookups, connection speed checks, and other insight cards will live here soon. The layout is ready for more
+              >> Geo IP lookups, connection speed checks, and other insight cards will live here soon. The layout is ready for more
               data without adding clutter.
             </p>
           </div>
@@ -144,18 +152,20 @@
 
       <section aria-labelledby="usage-information" class="panel panel--support">
         <header class="panel__header">
-          <h2 id="usage-information">Why this page exists</h2>
+          <h2 id="usage-information">╔═══════════════════════╗
+║ WHY THIS PAGE EXISTS  ║
+╚═══════════════════════╝</h2>
         </header>
         <div class="panel__body">
           <p>
-            Inspired by NeverSSL, nossl.sh is a quick diagnostic checkpoint when captive portals or restrictive firewalls block
+            >> Inspired by NeverSSL, nossl.sh is a quick diagnostic checkpoint when captive portals or restrictive firewalls block
             HTTPS handshakes. Load this page to trigger splash screens and inspect what your device sends.
           </p>
           <p>
-            Still stuck? Confirm your Wi-Fi link, temporarily disable VPNs, or retry after clearing custom DNS profiles.
+            >> Still stuck? Confirm your Wi-Fi link, temporarily disable VPNs, or retry after clearing custom DNS profiles.
           </p>
           <p>
-            Keep this URL handy for smart TVs, consoles, or travel routers that need an HTTP-only landing page to finish login
+            >> Keep this URL handy for smart TVs, consoles, or travel routers that need an HTTP-only landing page to finish login
             flows.
           </p>
         </div>
@@ -164,11 +174,13 @@
 
     <footer>
       <div class="container">
-        <p>Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>.</p>
+        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
+        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> //</p>
         <p>
-          Prefer JSON? Try the
-          <a href="/api/request-info" rel="nofollow">request info API endpoint</a>.
+          >> Prefer JSON? Try the
+          <a href="/api/request-info" rel="nofollow">[ request info API endpoint ]</a>.
         </p>
+        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
       </div>
     </footer>
     <script>
@@ -207,7 +219,6 @@
 
         textarea.select();
 
-        let successful = false;
         try {
           successful = document.execCommand('copy');
         } catch (error) {
@@ -244,9 +255,9 @@
 
         headersCopyButton.addEventListener('click', async () => {
           const copied = await copyText(JSON.stringify(headersPayload, null, 2));
-          headersCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
+          headersCopyButton.textContent = copied ? '[ COPIED! ]' : '[ COPY FAILED ]';
           setTimeout(() => {
-            headersCopyButton.textContent = 'Copy as JSON';
+            headersCopyButton.textContent = '[ COPY AS JSON ]';
           }, 2000);
         });
       }
@@ -255,12 +266,12 @@
         const commandElement = document.querySelector('[data-curl-snippet] code');
         const curlCommand = commandElement?.textContent.trim() || 'curl http://nossl.sh';
         const resetLabel = () => {
-          curlCopyButton.textContent = 'Copy';
+          curlCopyButton.textContent = '[ COPY ]';
         };
 
         curlCopyButton.addEventListener('click', async () => {
           const copied = await copyText(curlCommand);
-          curlCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
+          curlCopyButton.textContent = copied ? '[ COPIED! ]' : '[ COPY FAILED ]';
           setTimeout(resetLabel, 2000);
         });
       }
