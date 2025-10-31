@@ -24,6 +24,18 @@ app.get('/favicon.ico', (req, res) => {
   res.sendFile(faviconPath);
 });
 
+app.get('/robots.txt', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('text/plain');
+  res.sendFile(path.join(__dirname, 'static', 'robots.txt'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('application/xml');
+  res.sendFile(path.join(__dirname, 'static', 'sitemap.xml'));
+});
+
 const getClientIp = (req) => {
   const forwardedFor = req.headers['x-forwarded-for'];
   if (forwardedFor) {
