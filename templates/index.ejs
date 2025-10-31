@@ -80,65 +80,76 @@
             <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
           </div>
         </dl>
-      </section>
 
-      <section aria-labelledby="request-headers" class="panel panel--headers">
-        <header class="panel__header">
-          <div>
-            <h2 id="request-headers">Request headers</h2>
-            <p class="panel__summary">Compact view of the headers we saw from your device.</p>
-          </div>
-          <button type="button" class="copy" data-copy-headers>
-            Copy as JSON
+        <div class="connection-tools">
+          <button type="button" class="widget widget--headers" data-open-headers>
+            Request headers JSON
           </button>
-        </header>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Header</th>
-                <th scope="col">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% headers.forEach(([key, value]) => { %>
-              <tr>
-                <th scope="row"><%= key %></th>
-                <td><%= value %></td>
-              </tr>
-              <% }) %>
-            </tbody>
-          </table>
+
+          <div class="curl-card">
+            <h3>cURL checks</h3>
+            <p class="curl-card__summary">
+              The plain curl command below only shows your IP in the HTML response. Use the API variant for a JSON payload with
+              the same connection snapshot.
+            </p>
+            <div class="curl-snippets">
+              <div class="code-snippet">
+                <button
+                  type="button"
+                  class="copy copy--snippet"
+                  data-copy-target="curl-http"
+                  aria-label="Copy curl command for homepage"
+                >
+                  Copy
+                </button>
+                <pre><code id="curl-http">curl http://nossl.sh</code></pre>
+              </div>
+              <div class="code-snippet">
+                <button
+                  type="button"
+                  class="copy copy--snippet"
+                  data-copy-target="curl-api"
+                  aria-label="Copy curl command for API request"
+                >
+                  Copy
+                </button>
+                <pre><code id="curl-api">curl -H "Accept: application/json" http://nossl.sh/api/request-info</code></pre>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section aria-labelledby="how-to" class="panel panel--actions">
-        <header class="panel__header">
-          <h2 id="how-to">Quick actions</h2>
-        </header>
-        <div class="actions-grid">
-          <div>
-            <h3>Test with curl</h3>
-            <p>Verify plain HTTP access from your shell:</p>
-            <div class="code-snippet" data-curl-snippet>
-              <button
-                type="button"
-                class="copy copy--snippet"
-                data-copy-curl
-                aria-label="Copy curl command"
-              >
-                Copy
-              </button>
-              <pre><code>curl http://nossl.sh</code></pre>
+      <div class="modal" data-headers-modal hidden aria-hidden="true">
+        <div class="modal__backdrop" data-close-headers></div>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="headers-modal-title">
+          <header class="modal__header">
+            <div>
+              <h3 id="headers-modal-title">Request headers JSON</h3>
+              <p class="modal__summary">Exact headers we observed when you loaded this page.</p>
             </div>
-          </div>
-          <div>
-            <h3>Up next</h3>
-            <p class="panel__summary">
-              Geo IP lookups, connection speed checks, and other insight cards will live here soon. The layout is ready for more
-              data without adding clutter.
-            </p>
-          </div>
+            <div class="modal__actions">
+              <button type="button" class="copy" data-copy-headers>Copy JSON</button>
+              <button type="button" class="modal__close" data-close-headers aria-label="Close headers modal">✕</button>
+            </div>
+          </header>
+          <pre class="modal__content"><code class="mono" data-headers-json></code></pre>
+        </div>
+      </div>
+
+      <section aria-labelledby="ascii-banner" class="panel panel--ascii">
+        <header class="panel__header">
+          <h2 id="ascii-banner">http://nossl.sh</h2>
+        </header>
+        <div class="ascii-wrapper" role="img" aria-label="http://nossl.sh rendered in ASCII art">
+          <pre class="ascii-art">
+ __  __ ______ _______ _____   _____ _     _     _____ _    _
+|  \/  ||  _  \|_   _|/  ___| /  ___| |   (_)   /  ___| |  | |
+| .  . || | | |  | |  \ `--.  \ `--.| |__  _ _ _ \ `--.| |__| |
+| |\/| || | | |  | |   `--. \  `--. \ '_ \| | '_ \ `--. \  __  |
+| |  | || |/ /  _| |_ /\__/ / /\__/ / | | | | | | /\__/ / |  | |
+\_|  |_/|___/   \___/ \____/  \____/|_| |_|_|_|  \____/ \_|  |_|
+          </pre>
         </div>
       </section>
 
@@ -173,8 +184,21 @@
     </footer>
     <script>
       const latencyEl = document.querySelector('[data-api-latency]');
-      const headersCopyButton = document.querySelector('[data-copy-headers]');
-      const curlCopyButton = document.querySelector('[data-copy-curl]');
+      const headersModal = document.querySelector('[data-headers-modal]');
+      const headersOpenButton = document.querySelector('[data-open-headers]');
+      const headersCloseButtons = document.querySelectorAll('[data-close-headers]');
+      const headersCopyButton = headersModal?.querySelector('[data-copy-headers]');
+      const headersContent = headersModal?.querySelector('[data-headers-json]');
+      const copyCommandButtons = document.querySelectorAll('[data-copy-target]');
+      const headerPairs = <%- JSON.stringify(headers) %>;
+      const headersPayload = headerPairs.reduce((acc, [key, value]) => {
+        if (acc[key]) {
+          acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
 
       if (latencyEl) {
         const startedAt = performance.now();
@@ -231,39 +255,86 @@
         return fallbackCopyText(text);
       };
 
-      if (headersCopyButton) {
-        const headerPairs = <%- JSON.stringify(headers) %>;
-        const headersPayload = headerPairs.reduce((acc, [key, value]) => {
-          if (acc[key]) {
-            acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
-          } else {
-            acc[key] = value;
-          }
-          return acc;
-        }, {});
+      if (headersContent) {
+        headersContent.textContent = JSON.stringify(headersPayload, null, 2);
+      }
 
+      if (headersCopyButton) {
         headersCopyButton.addEventListener('click', async () => {
           const copied = await copyText(JSON.stringify(headersPayload, null, 2));
           headersCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
           setTimeout(() => {
-            headersCopyButton.textContent = 'Copy as JSON';
+            headersCopyButton.textContent = 'Copy JSON';
           }, 2000);
         });
       }
 
-      if (curlCopyButton) {
-        const commandElement = document.querySelector('[data-curl-snippet] code');
-        const curlCommand = commandElement?.textContent.trim() || 'curl http://nossl.sh';
-        const resetLabel = () => {
-          curlCopyButton.textContent = 'Copy';
-        };
+      let lastFocusedElement = null;
 
-        curlCopyButton.addEventListener('click', async () => {
-          const copied = await copyText(curlCommand);
-          curlCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
-          setTimeout(resetLabel, 2000);
+      const closeHeadersModal = () => {
+        if (!headersModal) return;
+        headersModal.hidden = true;
+        headersModal.setAttribute('aria-hidden', 'true');
+        document.body.style.removeProperty('overflow');
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+          lastFocusedElement.focus();
+        }
+      };
+
+      const openHeadersModal = () => {
+        if (!headersModal) return;
+        lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        headersModal.hidden = false;
+        headersModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        headersCopyButton?.focus();
+      };
+
+      if (headersOpenButton) {
+        headersOpenButton.addEventListener('click', openHeadersModal);
+      }
+
+      headersCloseButtons.forEach((button) => {
+        button.addEventListener('click', closeHeadersModal);
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !headersModal?.hidden) {
+          event.preventDefault();
+          closeHeadersModal();
+        }
+      });
+
+      if (headersModal) {
+        headersModal.addEventListener('click', (event) => {
+          if (event.target === headersModal) {
+            closeHeadersModal();
+          }
         });
       }
+
+      copyCommandButtons.forEach((button) => {
+        const targetId = button.getAttribute('data-copy-target');
+        if (!targetId) {
+          return;
+        }
+
+        const target = document.getElementById(targetId);
+        if (!target) {
+          return;
+        }
+
+        const defaultLabel = button.textContent?.trim() || 'Copy';
+
+        button.addEventListener('click', async () => {
+          const commandText = target.textContent ? target.textContent.trim() : '';
+          const copied = await copyText(commandText);
+          button.textContent = copied ? 'Copied!' : 'Copy failed';
+          setTimeout(() => {
+            button.textContent = defaultLabel;
+          }, 2000);
+        });
+      });
     </script>
   </body>
 </html>
