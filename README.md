@@ -12,6 +12,7 @@ The project is packaged for deployment on Google Cloud Run.
 - **Request header table** for quick debugging.
 - **JSON API** at `/api/request-info` for programmatic use.
 - **Health endpoint** at `/healthz` for Cloud Run monitoring.
+- **Honeypot log** at `/honeypot` (HTML) and `/api/honeypot` (JSON) showing the top IPs probing `.env`, persisted in SQLite.
 
 ## Local development
 
@@ -31,6 +32,7 @@ npm start
 ## Configuration
 
 - Override the default SQLite database path by setting the `SQLDB` environment variable before starting the server.
+- Control honeypot retention with `MAX_HONEYPOT` (defaults to 1024). When the table exceeds 110% of this value, the oldest rows are pruned.
 
 ## Container build
 

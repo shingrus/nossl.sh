@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nossl.sh - Honeypot Activity</title>
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="container top-bar__inner">
+        <div class="branding" role="banner">
+          <pre class="logo" aria-hidden="true">╔═══╗
+║ ● ║
+╚═══╝</pre>
+          <div class="branding__copy">
+            <pre class="brand-name">[ nossl.sh ]</pre>
+            <pre class="brand-status">  ✓ Honeypot console </pre>
+          </div>
+        </div>
+        <p class="top-bar__hint">// Latest requests hitting /.env honeypot //</p>
+      </div>
+    </header>
+
+    <main class="container dashboard">
+      <section aria-labelledby="honeypot-table" class="panel panel--headers">
+        <header class="panel__header">
+          <div>
+            <h2 id="honeypot-table">╔══════════════════════╗
+║ HONEYPOT REQUEST LOG ║
+╚══════════════════════╝</h2>
+            <p class="panel__summary">
+              >> Displaying the top <%= maxRecords.toLocaleString('en-US') %> IPs ranked by honeypot hits.
+            </p>
+            <p class="panel__summary">
+              >> Aggregate hits: <strong><%= totalHits %></strong> | Unique IPs: <strong><%= uniqueIpCount %></strong>
+            </p>
+          </div>
+          <a class="copy" href="/api/honeypot" rel="nofollow">[ VIEW AS JSON ]</a>
+        </header>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">IP address</th>
+                <th scope="col">Hits</th>
+                <th scope="col">Last seen (UTC)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!rows.length) { %>
+              <tr>
+                <td colspan="4">No honeypot hits recorded yet.</td>
+              </tr>
+              <% } else { %>
+              <% rows.forEach((row) => { %>
+              <tr>
+                <td><%= row.index %></td>
+                <td class="mono"><%= row.ip %></td>
+                <td class="mono"><%= row.hits %></td>
+                <td class="mono">
+                  <% if (row.lastSeen) { %>
+                    <%= new Date(row.lastSeen).toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>
+                  <% } else { %>
+                    &mdash;
+                  <% } %>
+                </td>
+              </tr>
+              <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel panel--actions">
+        <header class="panel__header">
+          <h2>╔════════════╗
+║ NAVIGATION ║
+╚════════════╝</h2>
+        </header>
+        <div class="actions-grid">
+          <div>
+            <h3>┌─[ BACK TO STATUS PAGE ]─┐</h3>
+            <p>>> Return to the main diagnostics dashboard.</p>
+            <div class="code-snippet">
+              <a class="copy copy--snippet" href="/">[ GO HOME ]</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

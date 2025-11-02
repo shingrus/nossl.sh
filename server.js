@@ -29,15 +29,13 @@ db.exec(`
     )
 `);
 db.exec(`
-    CREATE TABLE IF NOT EXISTS queries
+    CREATE TABLE IF NOT EXISTS honeypot_ips
     (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        query TEXT NOT NULL,
-        user_agent TEXT,
-        created_at TEXT NOT NULL
+        ip TEXT PRIMARY KEY,
+        hits INTEGER NOT NULL DEFAULT 0,
+        last_seen TEXT NOT NULL
     )
 `);
-
 const COUNTER_NAMES = Object.freeze([
     'httpCount',
     'httpsCount',
@@ -56,8 +54,6 @@ const selectCountersStmt = db.prepare(
      WHERE name IN (${COUNTER_NAMES.map(() => '?').join(', ')}) LIMIT 10`,
 );
 
-
-
 COUNTER_NAMES.forEach((name) => {
     ensureCounterStmt.run(name);
 });
@@ -74,6 +70,69 @@ const getCountersSnapshot = () => {
         snapshot[name] = value;
     });
     return snapshot;
+};
+
+const parsedMaxHoneypot = Number.parseInt(process.env.MAX_HONEYPOT ?? '', 10);
+const MAX_HONEYPOT_RECORDS = Number.isFinite(parsedMaxHoneypot) && parsedMaxHoneypot > 0 ? parsedMaxHoneypot : 1024;
+const HONEYPOT_PRUNE_THRESHOLD = Math.max(MAX_HONEYPOT_RECORDS, Math.ceil(MAX_HONEYPOT_RECORDS * 1.2));
+
+const upsertHoneypotHitStmt = db.prepare(`
+    INSERT INTO honeypot_ips (ip, hits, last_seen)
+    VALUES (?, 1, ?)
+    ON CONFLICT(ip) DO UPDATE SET
+        hits = honeypot_ips.hits + 1,
+        last_seen = excluded.last_seen
+`);
+const countHoneypotStmt = db.prepare('SELECT COUNT(*) AS total FROM honeypot_ips');
+const pruneHoneypotStmt = db.prepare(`
+    DELETE FROM honeypot_ips
+    WHERE ip IN (
+        SELECT ip
+        FROM honeypot_ips
+        ORDER BY last_seen ASC
+        LIMIT ?
+    )
+`);
+const honeypotTotalsStmt = db.prepare(`
+    SELECT COUNT(*) AS totalIps,
+           COALESCE(SUM(hits), 0) AS totalHits
+    FROM honeypot_ips
+`);
+const selectTopHoneypotStmt = db.prepare(`
+    SELECT ip, hits, last_seen
+    FROM honeypot_ips
+    ORDER BY hits DESC, last_seen DESC
+    LIMIT ?
+`);
+
+const recordHoneypotHit = db.transaction((ip, timestamp) => {
+    upsertHoneypotHitStmt.run(ip, timestamp);
+    const {total} = countHoneypotStmt.get();
+    if (total > HONEYPOT_PRUNE_THRESHOLD) {
+        const toRemove = total - MAX_HONEYPOT_RECORDS;
+        if (toRemove > 0) {
+            pruneHoneypotStmt.run(toRemove);
+        }
+    }
+});
+
+const addHoneypotHit = (ip) => {
+    const timestamp = new Date().toISOString();
+    recordHoneypotHit(ip, timestamp);
+};
+
+const getHoneypotSummary = () => {
+    const totals = honeypotTotalsStmt.get();
+    const counts = selectTopHoneypotStmt.all(MAX_HONEYPOT_RECORDS).map(({ip, hits, last_seen: lastSeen}) => ({
+        ip,
+        hits,
+        lastSeen,
+    }));
+    return {
+        totalHits: Number(totals.totalHits ?? 0),
+        uniqueIpCount: Number(totals.totalIps ?? 0),
+        counts,
+    };
 };
 
 app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}));
@@ -268,6 +327,13 @@ app.get('/check', (req, res) => {
 app.get('/.env', (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
     res.type('text/plain');
+    try {
+        const clientIp = getClientIp(req) || 'unknown';
+        addHoneypotHit(clientIp);
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to record honeypot hit', error);
+    }
     res.send(`${generateFakeEnvFile()}\n`);
 });
 
@@ -300,6 +366,33 @@ app.get('/api/request-info', (req, res) => {
 
 app.get('/healthz', (req, res) => {
     res.json({status: 'ok'});
+});
+
+app.get('/api/honeypot', (req, res) => {
+    const summary = getHoneypotSummary();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.json({
+        totalHits: summary.totalHits,
+        uniqueIpCount: summary.uniqueIpCount,
+        maxRecords: MAX_HONEYPOT_RECORDS,
+        counts: summary.counts,
+    });
+});
+
+app.get('/honeypot', (req, res) => {
+    const summary = getHoneypotSummary();
+    const rows = summary.counts.map((item, index) => ({
+        index: index + 1,
+        ...item,
+    }));
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.render('honeypot', {
+        totalHits: summary.totalHits,
+        uniqueIpCount: summary.uniqueIpCount,
+        maxRecords: MAX_HONEYPOT_RECORDS,
+        rows,
+    });
 });
 
 app.listen(PORT, () => {
