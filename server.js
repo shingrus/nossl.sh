@@ -3,7 +3,7 @@ import express from 'express';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
-import {generateFakeEnvFile} from './componets/honeypot.js';
+import {createHoneypotService} from './componets/honeypot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,69 +72,6 @@ const getCountersSnapshot = () => {
     return snapshot;
 };
 
-const parsedMaxHoneypot = Number.parseInt(process.env.MAX_HONEYPOT ?? '', 10);
-const MAX_HONEYPOT_RECORDS = Number.isFinite(parsedMaxHoneypot) && parsedMaxHoneypot > 0 ? parsedMaxHoneypot : 1024;
-const HONEYPOT_PRUNE_THRESHOLD = Math.max(MAX_HONEYPOT_RECORDS, Math.ceil(MAX_HONEYPOT_RECORDS * 1.2));
-
-const upsertHoneypotHitStmt = db.prepare(`
-    INSERT INTO honeypot_ips (ip, hits, last_seen)
-    VALUES (?, 1, ?)
-    ON CONFLICT(ip) DO UPDATE SET
-        hits = honeypot_ips.hits + 1,
-        last_seen = excluded.last_seen
-`);
-const countHoneypotStmt = db.prepare('SELECT COUNT(*) AS total FROM honeypot_ips');
-const pruneHoneypotStmt = db.prepare(`
-    DELETE FROM honeypot_ips
-    WHERE ip IN (
-        SELECT ip
-        FROM honeypot_ips
-        ORDER BY last_seen 
-        LIMIT ?
-    )
-`);
-const honeypotTotalsStmt = db.prepare(`
-    SELECT COUNT(*) AS totalIps,
-           COALESCE(SUM(hits), 0) AS totalHits
-    FROM honeypot_ips
-`);
-const selectTopHoneypotStmt = db.prepare(`
-    SELECT ip, hits, last_seen
-    FROM honeypot_ips
-    ORDER BY hits DESC, last_seen DESC
-    LIMIT ?
-`);
-
-const recordHoneypotHit = db.transaction((ip, timestamp) => {
-    upsertHoneypotHitStmt.run(ip, timestamp);
-    const {total} = countHoneypotStmt.get();
-    if (total > HONEYPOT_PRUNE_THRESHOLD) {
-        const toRemove = total - MAX_HONEYPOT_RECORDS;
-        if (toRemove > 0) {
-            pruneHoneypotStmt.run(toRemove);
-        }
-    }
-});
-
-const addHoneypotHit = (ip) => {
-    const timestamp = new Date().toISOString();
-    recordHoneypotHit(ip, timestamp);
-};
-
-const getHoneypotSummary = () => {
-    const totals = honeypotTotalsStmt.get();
-    const counts = selectTopHoneypotStmt.all(MAX_HONEYPOT_RECORDS).map(({ip, hits, last_seen: lastSeen}) => ({
-        ip,
-        hits,
-        lastSeen,
-    }));
-    return {
-        totalHits: Number(totals.totalHits ?? 0),
-        uniqueIpCount: Number(totals.totalIps ?? 0),
-        counts,
-    };
-};
-
 app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}));
 
 const faviconPath = path.join(__dirname, 'static', 'favicon.svg');
@@ -179,6 +116,8 @@ const getScheme = (req) => {
     }
     return req.secure ? 'https' : 'http';
 };
+
+const honeypotService = createHoneypotService(db, {getClientIp});
 
 const collectCountersForRequest = (req) => {
     const countersToBump = new Set();
@@ -324,18 +263,7 @@ app.get('/check', (req, res) => {
     renderIndex(req, res);
 });
 
-app.get('/.env', (req, res) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
-    res.type('text/plain');
-    try {
-        const clientIp = getClientIp(req) || 'unknown';
-        addHoneypotHit(clientIp);
-    } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to record honeypot hit', error);
-    }
-    res.send(`${generateFakeEnvFile()}\n`);
-});
+app.all(/^.*\/\.env$/i, honeypotService.handleEnvRequest);
 
 app.get('/api/counters', (req, res) => {
     const counters = getCountersSnapshot();
@@ -369,18 +297,18 @@ app.get('/healthz', (req, res) => {
 });
 
 app.get('/api/honeypot', (req, res) => {
-    const summary = getHoneypotSummary();
+    const summary = honeypotService.getSummary();
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
     res.json({
         totalHits: summary.totalHits,
         uniqueIpCount: summary.uniqueIpCount,
-        maxRecords: MAX_HONEYPOT_RECORDS,
+        maxRecords: honeypotService.maxRecords,
         counts: summary.counts,
     });
 });
 
 app.get('/honeypot', (req, res) => {
-    const summary = getHoneypotSummary();
+    const summary = honeypotService.getSummary();
     const rows = summary.counts.map((item, index) => ({
         index: index + 1,
         ...item,
@@ -390,7 +318,7 @@ app.get('/honeypot', (req, res) => {
     res.render('honeypot', {
         totalHits: summary.totalHits,
         uniqueIpCount: summary.uniqueIpCount,
-        maxRecords: MAX_HONEYPOT_RECORDS,
+        maxRecords: honeypotService.maxRecords,
         rows,
     });
 });

@@ -16,8 +16,6 @@ const randomPrivateIp = () => {
   return `10.${octet()}.${octet()}.${octet()}`;
 };
 
-
-
 export const generateFakeEnvFile = () => {
   const base64Key = crypto.randomBytes(32).toString('base64');
   const dbPassword = randomAlphaNumeric(16);
@@ -92,4 +90,109 @@ export const generateFakeEnvFile = () => {
     `INTERNAL_API_URL=http://${internalApiHost}.nossl.sh:80`,
     'FEATURE_FLAGS=payments,ab_tests,geoip',
   ].join('\n');
+};
+
+export const createHoneypotService = (db, { getClientIp, maxRecords: maxRecordsOverride } = {}) => {
+  if (!db) {
+    throw new Error('Database instance is required to create the honeypot service');
+  }
+
+  if (typeof getClientIp !== 'function') {
+    throw new Error('getClientIp function is required to create the honeypot service');
+  }
+
+  const envConfiguredMax = Number.parseInt(process.env.MAX_HONEYPOT ?? '', 10);
+  const defaultMaxRecords =
+    Number.isFinite(envConfiguredMax) && envConfiguredMax > 0 ? envConfiguredMax : 1024;
+  const maxRecords =
+    Number.isFinite(maxRecordsOverride) && maxRecordsOverride > 0
+      ? maxRecordsOverride
+      : defaultMaxRecords;
+  const pruneThreshold = Math.max(maxRecords, Math.ceil(maxRecords * 1.2));
+
+  const upsertHoneypotStmt = db.prepare(`
+    INSERT INTO honeypot_ips (ip, hits, last_seen)
+    VALUES (?, 1, ?)
+    ON CONFLICT(ip) DO UPDATE SET
+        hits = honeypot_ips.hits + 1,
+        last_seen = excluded.last_seen
+  `);
+  const countHoneypotStmt = db.prepare('SELECT COUNT(*) AS total FROM honeypot_ips');
+  const pruneHoneypotStmt = db.prepare(`
+    DELETE FROM honeypot_ips
+    WHERE ip IN (
+        SELECT ip
+        FROM honeypot_ips
+        ORDER BY last_seen
+        LIMIT ?
+    )
+  `);
+  const honeypotTotalsStmt = db.prepare(`
+    SELECT COUNT(*) AS totalIps,
+           COALESCE(SUM(hits), 0) AS totalHits
+    FROM honeypot_ips
+  `);
+  const selectTopHoneypotStmt = db.prepare(`
+    SELECT ip, hits, last_seen
+    FROM honeypot_ips
+    ORDER BY hits DESC, last_seen DESC
+    LIMIT ?
+  `);
+
+  const recordHoneypotHit = db.transaction((ip, timestamp) => {
+    upsertHoneypotStmt.run(ip, timestamp);
+    const { total } = countHoneypotStmt.get();
+    if (total > pruneThreshold) {
+      const toRemove = total - maxRecords;
+      if (toRemove > 0) {
+        pruneHoneypotStmt.run(toRemove);
+      }
+    }
+  });
+
+  const addHoneypotHit = (ip) => {
+    const timestamp = new Date().toISOString();
+    recordHoneypotHit(ip, timestamp);
+  };
+
+  const getSummary = () => {
+    const totals = honeypotTotalsStmt.get();
+    const counts = selectTopHoneypotStmt.all(maxRecords).map(({ ip, hits, last_seen: lastSeen }) => ({
+      ip,
+      hits,
+      lastSeen,
+    }));
+    return {
+      totalHits: Number(totals.totalHits ?? 0),
+      uniqueIpCount: Number(totals.totalIps ?? 0),
+      counts,
+    };
+  };
+
+  const handleEnvRequest = (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.type('text/plain');
+    try {
+      const clientIp = getClientIp(req) || 'unknown';
+      addHoneypotHit(clientIp);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to record honeypot hit', error);
+    }
+
+    const payload = `${generateFakeEnvFile()}\n`;
+    if (req.method === 'HEAD') {
+      res.set('Content-Length', Buffer.byteLength(payload));
+      res.status(200).end();
+      return;
+    }
+    res.send(payload);
+  };
+
+  return {
+    addHoneypotHit,
+    getSummary,
+    handleEnvRequest,
+    maxRecords,
+  };
 };
