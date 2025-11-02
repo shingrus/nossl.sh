@@ -3,6 +3,7 @@ import express from 'express';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
+import {generateFakeEnvFile} from './componets/honeypot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,15 @@ db.exec(`
     (
         name TEXT PRIMARY KEY,
         value INTEGER NOT NULL DEFAULT 0
+    )
+`);
+db.exec(`
+    CREATE TABLE IF NOT EXISTS queries
+    (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query TEXT NOT NULL,
+        user_agent TEXT,
+        created_at TEXT NOT NULL
     )
 `);
 
@@ -241,7 +251,7 @@ app.get('/', (req, res) => {
         res.set('Pragma', 'no-cache');
         res.set('Expires', '0');
         res.type('text/html');
-        res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Redirecting...</title></head><body><script>window.location.href='${redirectUrl}';</script></body></html>`);
+        res.send(`<!DOCTYPE html><html lang="en-US"><head><meta charset="utf-8"><title>Redirecting...</title></head><body><script>window.location.href='${redirectUrl}';</script></body></html>`);
         return;
     }
 
@@ -250,6 +260,23 @@ app.get('/', (req, res) => {
 
 app.get('/check', (req, res) => {
     renderIndex(req, res);
+});
+
+app.get('/.env', (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.type('text/plain');
+    res.send(`${generateFakeEnvFile()}\n`);
+});
+
+app.get('/api/counters', (req, res) => {
+    const counters = getCountersSnapshot();
+    const totalRequests = counters.httpCount + counters.httpsCount;
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.json({
+        counters,
+        totalRequests,
+    });
 });
 
 app.get('/api/request-info', (req, res) => {
