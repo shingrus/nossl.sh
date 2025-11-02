@@ -28,6 +28,10 @@ To run without live reloading:
 npm start
 ```
 
+## Configuration
+
+- Override the default SQLite database path by setting the `SQLDB` environment variable before starting the server.
+
 ## Container build
 
 ```bash

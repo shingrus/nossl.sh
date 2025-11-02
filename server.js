@@ -15,7 +15,10 @@ app.set('trust proxy', true);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
 
-const dbPath = path.join(__dirname, 'counters.db');
+const dbPathEnv = process.env.SQLDB;
+const dbPath = dbPathEnv
+    ? (path.isAbsolute(dbPathEnv) ? dbPathEnv : path.resolve(__dirname, dbPathEnv))
+    : path.join(__dirname, 'counters.db');
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.exec(`
