@@ -102,90 +102,94 @@
         </dl>
       </section>
 
-      <section aria-labelledby="request-headers" class="panel panel--headers">
-        <header class="panel__header">
-          <div>
-            <h2 id="request-headers">╔═══════════════════╗
+      <div class="dashboard__columns">
+        <section aria-labelledby="request-headers" class="panel panel--headers">
+          <header class="panel__header">
+            <div>
+              <h2 id="request-headers">╔═══════════════════╗
 ║ REQUEST HEADERS   ║
 ╚═══════════════════╝</h2>
-            <p class="panel__summary">>> Compact view of the headers we saw from your device.</p>
+              <p class="panel__summary">>> Compact view of the headers we saw from your device.</p>
+            </div>
+            <button type="button" class="copy" data-copy-headers>
+              [ COPY AS JSON ]
+            </button>
+          </header>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Header</th>
+                  <th scope="col">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% headers.forEach(([key, value]) => { %>
+                <tr>
+                  <th scope="row"><%= key %></th>
+                  <td><%= value %></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
           </div>
-          <button type="button" class="copy" data-copy-headers>
-            [ COPY AS JSON ]
-          </button>
-        </header>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Header</th>
-                <th scope="col">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% headers.forEach(([key, value]) => { %>
-              <tr>
-                <th scope="row"><%= key %></th>
-                <td><%= value %></td>
-              </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      </section>
+        </section>
 
-      <section aria-labelledby="how-to" class="panel panel--actions">
-        <header class="panel__header">
-          <h2 id="how-to">╔══════════════════╗
+        <div class="dashboard__right-column">
+          <section aria-labelledby="how-to" class="panel panel--actions">
+            <header class="panel__header">
+              <h2 id="how-to">╔══════════════════╗
 ║ QUICK ACTIONS    ║
 ╚══════════════════╝</h2>
-        </header>
-        <div class="actions-grid">
-          <div>
-            <h3>┌─[ TEST WITH CURL ]─┐</h3>
-            <p>>> Verify plain HTTP access from your shell:</p>
-            <div class="code-snippet" data-curl-snippet>
-              <button
-                type="button"
-                class="copy copy--snippet"
-                data-copy-curl
-                aria-label="Copy curl command"
-              >
-                [ COPY ]
-              </button>
-              <pre><code>$ curl http://nossl.sh</code></pre>
+            </header>
+            <div class="actions-grid">
+              <div>
+                <h3>┌─[ TEST WITH CURL ]─┐</h3>
+                <p>>> Verify plain HTTP access from your shell:</p>
+                <div class="code-snippet" data-curl-snippet>
+                  <button
+                    type="button"
+                    class="copy copy--snippet"
+                    data-copy-curl
+                    aria-label="Copy curl command"
+                  >
+                    [ COPY ]
+                  </button>
+                  <pre><code>$ curl http://nossl.sh</code></pre>
+                </div>
+              </div>
+              <div>
+                <h3>┌─[ UP NEXT ]─┐</h3>
+                <p class="panel__summary">
+                  >> Geo IP lookups, connection speed checks, and other insight cards will live here soon. The layout is ready for more
+                  data without adding clutter.
+                </p>
+              </div>
             </div>
-          </div>
-          <div>
-            <h3>┌─[ UP NEXT ]─┐</h3>
-            <p class="panel__summary">
-              >> Geo IP lookups, connection speed checks, and other insight cards will live here soon. The layout is ready for more
-              data without adding clutter.
-            </p>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <section aria-labelledby="usage-information" class="panel panel--support">
-        <header class="panel__header">
-          <h2 id="usage-information">╔═══════════════════════╗
+          <section aria-labelledby="usage-information" class="panel panel--support">
+            <header class="panel__header">
+              <h2 id="usage-information">╔═══════════════════════╗
 ║ WHY THIS PAGE EXISTS  ║
 ╚═══════════════════════╝</h2>
-        </header>
-        <div class="panel__body">
-          <p>
-            >> Inspired by NeverSSL, nossl.sh is a quick diagnostic checkpoint when captive portals or restrictive firewalls block
-            HTTPS handshakes. Load this page to trigger splash screens and inspect what your device sends.
-          </p>
-          <p>
-            >> Still stuck? Confirm your Wi-Fi link, temporarily disable VPNs, or retry after clearing custom DNS profiles.
-          </p>
-          <p>
-            >> Keep this URL handy for smart TVs, consoles, or travel routers that need an HTTP-only landing page to finish login
-            flows.
-          </p>
+            </header>
+            <div class="panel__body">
+              <p>
+                >> Inspired by NeverSSL, nossl.sh is a quick diagnostic checkpoint when captive portals or restrictive firewalls block
+                HTTPS handshakes. Load this page to trigger splash screens and inspect what your device sends.
+              </p>
+              <p>
+                >> Still stuck? Confirm your Wi-Fi link, temporarily disable VPNs, or retry after clearing custom DNS profiles.
+              </p>
+              <p>
+                >> Keep this URL handy for smart TVs, consoles, or travel routers that need an HTTP-only landing page to finish login
+                flows.
+              </p>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </main>
 
     <footer>

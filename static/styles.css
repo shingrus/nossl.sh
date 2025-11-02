@@ -116,6 +116,20 @@ pre {
   margin-top: 1rem;
 }
 
+.dashboard__columns {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.dashboard__columns > * {
+  min-width: 0;
+}
+
+.dashboard__right-column {
+  display: grid;
+  gap: 1.5rem;
+}
+
 .panel {
   background: #1a1a1a;
   border: 2px solid #6b7280;
@@ -407,17 +421,9 @@ footer p {
    ═══════════════════════════════════════════════════════════ */
 
 @media (min-width: 960px) {
-  .dashboard {
+  .dashboard__columns {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-    grid-auto-flow: dense;
-  }
-
-  .panel--connection {
-    grid-column: 1 / -1;
-  }
-
-  .panel--headers {
-    grid-row: span 2;
+    align-items: start;
   }
 }
 
