@@ -89,7 +89,7 @@ const pruneHoneypotStmt = db.prepare(`
     WHERE ip IN (
         SELECT ip
         FROM honeypot_ips
-        ORDER BY last_seen ASC
+        ORDER BY last_seen 
         LIMIT ?
     )
 `);
@@ -184,7 +184,7 @@ const collectCountersForRequest = (req) => {
     const countersToBump = new Set();
     const scheme = getScheme(req);
 
-    if (req.path === '/check' || req.path === '/') {
+    if (req.path === '/check' || req.path === '/' || req.path === '/honeypot') {
         switch (scheme) {
             case 'http':
                 countersToBump.add('httpCount');
