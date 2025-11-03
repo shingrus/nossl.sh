@@ -44,6 +44,7 @@ const COUNTER_NAMES = Object.freeze([
     'healthzCount',
     'curlCount',
     'rootCount',
+    'honeypotCount',
 ]);
 
 const ensureCounterStmt = db.prepare('INSERT OR IGNORE INTO counters (name, value) VALUES (?, 0)');
@@ -123,7 +124,7 @@ const collectCountersForRequest = (req) => {
     const countersToBump = new Set();
     const scheme = getScheme(req);
 
-    if (req.path === '/check' || req.path === '/' || req.path === '/honeypot') {
+    if (req.path === '/check' || req.path === '/') {
         switch (scheme) {
             case 'http':
                 countersToBump.add('httpCount');
@@ -149,6 +150,10 @@ const collectCountersForRequest = (req) => {
 
     if (req.path === '/healthz') {
         countersToBump.add('healthzCount');
+    }
+
+    if (req.path.startsWith('/honeypot')) {
+        countersToBump.add('honeypotCount');
     }
 
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();

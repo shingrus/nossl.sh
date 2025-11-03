@@ -68,6 +68,19 @@ pre {
   display: flex;
   align-items: center;
   gap: 1rem;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.branding:hover {
+  color: #facc15;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
+}
+
+.branding:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 4px;
 }
 
 .logo {
@@ -452,6 +465,15 @@ footer p {
   .top-bar {
     border-bottom-color: #4b5563;
     background: #ffffff;
+  }
+
+  .branding:hover {
+    color: #92400e;
+    text-shadow: none;
+  }
+
+  .branding:focus-visible {
+    outline-color: #92400e;
   }
 
   .logo,
