@@ -268,7 +268,7 @@ app.get('/check', (req, res) => {
     renderIndex(req, res);
 });
 
-app.all(/^.*\/\.env$/i, honeypotService.handleEnvRequest);
+app.all(/^.*\/\.env*/i, honeypotService.handleEnvRequest);
 
 app.get('/api/counters', (req, res) => {
     const counters = getCountersSnapshot();
