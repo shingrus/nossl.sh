@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= page.title %></title>
+    <meta name="description" content="<%= page.description %>" />
+    <meta name="keywords" content="<%= page.keywords %>" />
+    <link rel="canonical" href="<%= canonicalUrl %>" />
+    <meta property="og:title" content="<%= page.title %>" />
+    <meta property="og:description" content="<%= page.description %>" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="<%= canonicalUrl %>" />
+    <meta property="og:site_name" content="nossl.sh" />
+    <meta property="og:image" content="/static/og-image.png" />
+    <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="<%= page.title %>" />
+    <meta name="twitter:description" content="<%= page.description %>" />
+    <meta name="twitter:image" content="/static/og-image.png" />
+    <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?123" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "<%= page.hero %>",
+        "description": "<%= page.description %>",
+        "datePublished": "2024-01-01",
+        "dateModified": "<%= generatedAt.toISOString() %>",
+        "author": {
+          "@type": "Organization",
+          "name": "nossl.sh"
+        },
+        "mainEntityOfPage": "<%= canonicalUrl %>"
+      }
+    </script>
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="container top-bar__inner">
+        <a class="branding" href="/" aria-label="nossl.sh home">
+          <pre class="logo" aria-hidden="true">╔═══╗
+║ <span class="logo-dot">●</span> ║
+╚═══╝</pre>
+          <div class="branding__copy">
+            <pre class="brand-name">[ nossl.sh ]</pre>
+            <pre class="brand-status">  ✓ Connected </pre>
+          </div>
+        </a>
+        <p class="top-bar__hint">// Plain HTTP landing page companion //</p>
+      </div>
+    </header>
+
+    <main class="container marketing">
+      <article class="panel panel--connection">
+        <header class="panel__header">
+          <div>
+            <h1><%= page.hero %></h1>
+            <p class="panel__summary"><%= page.tagline %></p>
+          </div>
+          <span class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
+            [ <%= scheme === 'https' ? 'Secure connection.' : 'Unsecure connection.' %> ]
+          </span>
+        </header>
+        <dl class="connection-grid connection-grid--compact">
+          <div>
+            <dt>Served over</dt>
+            <dd><%= scheme.toUpperCase() %></dd>
+          </div>
+          <div>
+            <dt>Page generated</dt>
+            <dd class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
+          </div>
+          <div>
+            <dt>SEO landing visits (all pages)</dt>
+            <dd class="mono"><%= seoCounter %></dd>
+          </div>
+          <div>
+            <dt>Total HTTP/HTTPS requests</dt>
+            <dd class="mono"><%= totalRequests %></dd>
+          </div>
+        </dl>
+      </article>
+
+      <% if (page.sections && page.sections.length) { %>
+      <section class="panel panel--support">
+        <header class="panel__header">
+          <h2>╔════════════════════╗
+║ KEY TAKEAWAYS      ║
+╚════════════════════╝</h2>
+        </header>
+        <div class="panel__body">
+          <% page.sections.forEach((section) => { %>
+          <article class="marketing-section">
+            <h3><%= section.heading %></h3>
+            <% if (section.paragraphs) { %>
+              <% section.paragraphs.forEach((paragraph) => { %>
+                <p><%= paragraph %></p>
+              <% }); %>
+            <% } %>
+            <% if (section.bullets) { %>
+              <ul>
+                <% section.bullets.forEach((item) => { %>
+                  <li><%= item %></li>
+                <% }); %>
+              </ul>
+            <% } %>
+          </article>
+          <% }); %>
+        </div>
+      </section>
+      <% } %>
+      <% if (page.faqs && page.faqs.length) { %>
+        <section class="panel panel--support">
+          <header class="panel__header">
+            <h2>╔══════════════════╗
+║ COMMON QUESTIONS ║
+╚══════════════════╝</h2>
+          </header>
+          <div class="panel__body">
+            <dl class="faq-list">
+              <% page.faqs.forEach((faq) => { %>
+                <div>
+                  <dt><%= faq.question %></dt>
+                  <dd><p><%= faq.answer %></p></dd>
+                </div>
+              <% }); %>
+            </dl>
+          </div>
+        </section>
+      <% } %>
+      <section class="panel panel--actions">
+        <header class="panel__header">
+          <h2>╔══════════════════╗
+║ QUICK STEPS      ║
+╚══════════════════╝</h2>
+        </header>
+        <div class="actions-grid">
+          <div>
+            <h3>┌─[ OPEN nossl.sh ]─┐</h3>
+            <p>>> Visit http://nossl.sh on the device you are testing.</p>
+            <div class="code-snippet">
+              <a class="copy copy--snippet" href="/" aria-label="Return to nossl.sh diagnostics">[ Visit nossl.sh ]</a>
+            </div>
+          </div>
+          <div>
+            <h3>┌─[ FETCH JSON SNAPSHOT ]─┐</h3>
+            <p>>> Need raw data? Pull the JSON payload from /api/request-info.</p>
+            <div class="code-snippet">
+              <a class="copy copy--snippet" href="/api/request-info">[ VIEW API RESPONSE ]</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+    </main>
+
+    <footer>
+      <div class="container">
+        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
+        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> //</p>
+        <p>>>
+          Looking for the full diagnostics dashboard?
+          <a href="/">Return to the main nossl.sh page</a> or explore the
+          <a href="/honeypot">honeypot console</a>.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -4,6 +4,8 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
 import {createHoneypotService} from './componets/honeypot.js';
+import {SEO_PAGE_PATH_SET} from './componets/seo-pages.js';
+import {registerSeoRoutes} from './componets/seo-routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +47,7 @@ const COUNTER_NAMES = Object.freeze([
     'curlCount',
     'rootCount',
     'honeypotCount',
+    'seoLandingCount',
 ]);
 
 const ensureCounterStmt = db.prepare('INSERT OR IGNORE INTO counters (name, value) VALUES (?, 0)');
@@ -154,6 +157,24 @@ const collectCountersForRequest = (req) => {
 
     if (req.path.startsWith('/honeypot')) {
         countersToBump.add('honeypotCount');
+    }
+
+    let matchedSeoPath = null;
+    if (SEO_PAGE_PATH_SET.has(req.path)) {
+        matchedSeoPath = req.path;
+    } else {
+        try {
+            const decodedPath = decodeURIComponent(req.path);
+            if (SEO_PAGE_PATH_SET.has(decodedPath)) {
+                matchedSeoPath = decodedPath;
+            }
+        } catch (error) {
+            // ignore decoding errors
+        }
+    }
+
+    if (matchedSeoPath) {
+        countersToBump.add('seoLandingCount');
     }
 
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
@@ -296,6 +317,8 @@ app.get('/api/request-info', (req, res) => {
         headers,
     });
 });
+
+registerSeoRoutes(app, {getScheme, getCountersSnapshot});
 
 app.get('/healthz', (req, res) => {
     res.json({status: 'ok'});
