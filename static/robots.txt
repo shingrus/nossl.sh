@@ -8,11 +8,11 @@ Allow: /check-wifi-login
 Allow: /nossl-page
 Allow: /check-wifi-connection
 Allow: /get-captive-portal
-Allow: /get%20captive%20portal%20url
-Allow: /how%20to%20get%20captive%20portal
-Allow: /help%20connect%20you%20to%20wifi
-Allow: /captive%20portal
-Allow: /apple%20captive%20portal
-Allow: /iphone%20wifi%20connect
+Allow: /get-captive-portal-url
+Allow: /how-to-get-captive-portal
+Allow: /help-connect-you-to-wifi
+Allow: /captive-portal
+Allow: /apple-captive-portal
+Allow: /iphone-wifi-connect
 
 Sitemap: http://nossl.sh/sitemap.xml

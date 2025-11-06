@@ -314,7 +314,7 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/get captive portal url',
+        path: '/get-captive-portal-url',
         title: 'Find the captive portal URL your network uses',
         description:
             'Learn how to expose the captive portal URL by starting on nossl.sh, then watching the redirect chain from the network gateway.',
@@ -346,7 +346,7 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/how to get captive portal',
+        path: '/how-to-get-captive-portal',
         title: 'How to get the captive portal to show up',
         description:
             'Practical steps to make captive portals appear, including DNS resets and HTTP-only checks through nossl.sh.',
@@ -376,7 +376,7 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/help connect you to wifi',
+        path: '/help-connect-you-to-wifi',
         title: 'Help connecting to Wi-Fi with captive portal tips',
         description:
             'Use nossl.sh and the included troubleshooting checklist to help friends, guests, or customers connect to Wi-Fi quickly.',
@@ -412,7 +412,7 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/captive portal',
+        path: '/captive-portal',
         title: 'Captive portal troubleshooting and diagnostics',
         description:
             'Learn how captive portals work, why they block HTTPS traffic, and how nossl.sh helps you authenticate quickly.',
@@ -443,7 +443,7 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/apple captive portal',
+        path: '/apple-captive-portal',
         title: 'Apple captive portal troubleshooting with nossl.sh',
         description:
             'Resolve issues with Apple\'s captive portal assistant by manually visiting nossl.sh and reviewing the connection snapshot.',
@@ -474,7 +474,7 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/iphone wifi connect',
+        path: '/iphone-wifi-connect',
         title: 'Help your iPhone connect to Wi-Fi captive portals',
         description:
             'Guide to solving iPhone Wi-Fi captive portal problems by using nossl.sh and basic network resets.',
