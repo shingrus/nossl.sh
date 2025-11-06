@@ -251,6 +251,16 @@ pre {
   margin-bottom: 0.35rem;
 }
 
+.seo-links ul {
+  margin: 0.5rem 0 0 1.25rem;
+  padding: 0;
+  list-style: square;
+}
+
+.seo-links li {
+  margin: 0.35rem 0;
+}
+
 .faq-list {
   margin: 0;
 }
@@ -374,6 +384,10 @@ table tbody tr:hover {
   font-size: 0.9rem;
   color: #9ca3af;
   line-height: 1.6;
+}
+
+.panel--actions + .panel {
+  margin-top: 1rem;
 }
 
 .code-snippet {
