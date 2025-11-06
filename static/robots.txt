@@ -1,4 +1,18 @@
 User-agent: *
 Allow: /
+Allow: /what-is-nossl
+Allow: /never-ssl-alternative
+Allow: /wifi-login-page
+Allow: /mobile-wifi
+Allow: /check-wifi-login
+Allow: /nossl-page
+Allow: /check-wifi-connection
+Allow: /get-captive-portal
+Allow: /get%20captive%20portal%20url
+Allow: /how%20to%20get%20captive%20portal
+Allow: /help%20connect%20you%20to%20wifi
+Allow: /captive%20portal
+Allow: /apple%20captive%20portal
+Allow: /iphone%20wifi%20connect
 
 Sitemap: http://nossl.sh/sitemap.xml

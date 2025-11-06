@@ -233,6 +233,42 @@ pre {
   color: #f5f5f5;
 }
 
+.connection-grid--compact {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.marketing-section + .marketing-section {
+  margin-top: 1.5rem;
+}
+
+.marketing-section ul {
+  margin: 0.75rem 0 0 1.5rem;
+  padding: 0;
+  list-style: disc;
+}
+
+.marketing-section li {
+  margin-bottom: 0.35rem;
+}
+
+.faq-list {
+  margin: 0;
+}
+
+.faq-list > div + div {
+  margin-top: 1.5rem;
+}
+
+.faq-list dt {
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.faq-list dd {
+  margin: 0.35rem 0 0;
+  color: #d1d5db;
+}
+
 .mono {
   font-family: inherit;
   font-size: 0.95rem;
