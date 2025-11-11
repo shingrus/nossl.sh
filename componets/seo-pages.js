@@ -509,6 +509,53 @@ export const SEO_PAGES = Object.freeze([
             },
         ],
     },
+    {
+        path: '/captive-portal',
+        title: 'Captive portal detection and diagnostics',
+        description:
+            'Figure out how captive portals behave and fix issues faster with nossl.sh. It’s a simple tool that helps devices trigger those Wi-Fi login pages every time, without any fuss.',
+        keywords:
+            'captive portal, wifi login, captive portal test, captive portal detection, captive portal troubleshooting, nossl',
+        hero: 'Debug captive portals with confidence',
+        tagline:
+            'nossl.sh lets you trigger and troubleshoot captive portals on public Wi-Fi, enterprise networks, or even tiny embedded systems.',
+        sections: [
+            {
+                heading: 'Reliable captive portal triggers',
+                paragraphs: [
+                    'Most operating systems check for internet by making plain old HTTP requests. nossl.sh gives you a clean, predictable endpoint that acts just like these checks, making sure your network’s splash page pops up when it should.',
+                ],
+                bullets: [
+                    'Works out of the box with macOS, iOS, Windows, Android, and Linux.',
+                    'Perfect for hotels, airports, guest Wi-Fi, or custom access gateways.',
+                    'Fast, lightweight responses — great for embedded or low-power devices.',
+                ],
+            },
+            {
+                heading: 'Capture and analyze connection flow',
+                paragraphs: [
+                    'With nossl.sh, you can see exactly how DNS, redirects, and HTTP requests behave during captive portal logins. Spot problems like broken proxies or endless authentication loops in no time.',
+                ],
+                bullets: [
+                    'Check the raw headers to debug captive network intercepts.',
+                    'Works with curl, wget, or straight from your browser.',
+                    'Turn on optional analytics to see how real users (and bots) reach your splash page.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'What is a captive portal?',
+                answer:
+                    'A captive portal is that web page you get when you connect to public Wi-Fi and have to sign in or agree to terms before you can actually get online.',
+            },
+            {
+                question: 'Can I use nossl.sh to test captive portal detection?',
+                answer:
+                    'Absolutely. nossl.sh is built to copy the endpoints devices use to trigger login pages, so it’s perfect for testing Wi-Fi networks and router setups.',
+            },
+        ],
+    },
 ]);
 
 export const SEO_PAGE_PATH_SET = new Set(SEO_PAGES.map((page) => page.path));
