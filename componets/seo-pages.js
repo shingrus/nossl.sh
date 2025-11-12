@@ -107,65 +107,6 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/never-ssl-alternative',
-        title: 'NeverSSL alternative for captive portal diagnostics',
-        description:
-            'Here’s a hands-on guide to swapping out NeverSSL for nossl.sh when you need reliable captive portal triggers and deeper network insights.',
-        keywords:
-            'never ssl alternative , neverssl alternative workflow, captive portal diagnostics, nossl guide',
-        hero: 'NeverSSL alternative troubleshooting guide',
-        tagline:
-            'Switch to nossl.sh as your NeverSSL alternative—follow repeatable steps and get built-in visibility for your ops team.',
-        sections: [
-            {
-                heading: 'Why teams switch from NeverSSL',
-                paragraphs: [
-                    'Every load shows the connection scheme, timestamp, and request headers so you can close tickets faster without waiting for end users to collect data.',
-                ],
-                bullets: [
-                    'Lightweight HTML renders on kiosk browsers and travel routers.',
-                    'No trackers, ads, or marketing pixels that raise red flags on guest Wi-Fi.',
-                    'Counters reveal how many HTTP vs HTTPS requests land on the helper each day.',
-                ],
-            },
-            {
-                heading: 'Playbook for validating captive portals',
-                paragraphs: [
-                    'Open http://nossl.sh on the problem device, confirm the status shows “Unsecure connection,” then capture the headers for your records.',
-                    'If the venue injects a captive portal, reload the SEO page after authentication to ensure the scheme flips and the SEO counter increments.',
-                ],
-                bullets: [
-                    'Compare header snapshots between successful and failed attempts.',
-                    'Use /api/request-info for scripted regression tests in CI or monitoring.',
-                    'Reference the honeypot dashboard to show how bots probe for /.env leaks.',
-                ],
-            },
-            {
-                heading: 'Shareable NeverSSL alternative checklist',
-                paragraphs: [
-                    'Bundle this guide into onboarding docs so traveling teammates have a repeatable process any time hotel or airport Wi-Fi misbehaves.',
-                ],
-                bullets: [
-                    'Step 1: Disable VPN or private relay, then join the Wi-Fi.',
-                    'Step 2: Visit nossl.sh and copy the diagnostics block.',
-                    'Step 3: Retry after login to verify the connection opens for other sites.',
-                ],
-            },
-        ],
-        faqs: [
-            {
-                question: 'Is nossl.sh compatible with the same devices as NeverSSL?',
-                answer:
-                    'Yes. Anything that can reach a plain HTTP endpoint—including e-readers, embedded controllers, or airplane seatback browsers—can use nossl.sh.',
-            },
-            {
-                question: 'Can I automate NeverSSL-style checks?',
-                answer:
-                    'Absolutely. Script curl against /api/request-info or track the counters endpoint to alert your team when captive portals stop responding.',
-            },
-        ],
-    },
-    {
         path: '/wifi-login-page',
         title: 'Wi-Fi login page tester for captive networks',
         description:
