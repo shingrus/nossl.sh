@@ -49,48 +49,119 @@ export const SEO_PAGES = Object.freeze([
     },
     {
         path: '/never-ssl-alternative',
-        title: 'NeverSSL alternative for captive portal sign-in pages',
+        title: 'Reliable NeverSSL alternative with strict no-SSL policy',
         description:
-            'Discover a privacy-friendly alternative to NeverSSL that works on phones, laptops, travel routers, and embedded devices.',
+            'Use nossl.sh as the dependable never-SSL option when you must trigger captive portals over plain HTTP while capturing diagnostics.',
         keywords:
-            'neverssl alternative, neverssl replacement, captive portal alternative, wifi login helper',
-        hero: 'Need a NeverSSL alternative?',
+            'never ssl alternative, no ssl page, neverssl replacement, captive portal alternative, nossl sh',
+        hero: 'Good, stable, never-SSL alternative',
         tagline:
-            'nossl.sh delivers the same behavior with refreshed diagnostics, uptime monitoring, and honeypot analytics.',
+            'nossl.sh is engineered to never negotiate SSL/TLS on its primary endpoint while delivering real diagnostics for every request.',
         sections: [
             {
-                heading: 'Compatible with modern devices',
+                heading: 'Explicit no-SSL stance you can trust',
                 paragraphs: [
-                    'Whether you are onboarding a console, e-reader, or enterprise IoT sensor, nossl.sh provides the unsecured handshake captive portals expect.',
+                    'This endpoint exists for one purpose: stay on classic HTTP so captive portals reveal themselves. There are no surprise upgrades, HSTS headers, or certificate detours.',
+                    'Teams rely on it when they need a deterministic NeverSSL clone that is actively maintained and monitored for uptime.',
                 ],
                 bullets: [
-                    'Loads quickly on low-power browsers.',
-                    'No ads, trackers, or heavy assets.',
-                    'Content security tuned for kiosk and mobile browsers.',
+                    'Primary host explicitly avoids TLS handshakes.',
+                    'Lightweight markup loads on e-readers, consoles, and kiosks.',
+                    'Status banner confirms “Unsecure connection” so users know it worked.',
                 ],
             },
             {
-                heading: 'Visibility you will not find on the default splash page',
+                heading: 'Diagnostics beyond the legacy NeverSSL splash',
                 paragraphs: [
-                    'Compare your headers between attempts, or watch the cumulative SEO landing counter climb as teammates verify access in the field.',
+                    'While the page remains plain HTTP, it also gives you concrete evidence of what the network sees so you can troubleshoot confidently.',
                 ],
                 bullets: [
-                    'Plain text IP response when using curl.',
-                    'One-click copy of diagnostic headers for support tickets.',
-                    'Honeypot stats to show how automated scanners probe captive networks.',
+                    'Instant curl response that prints your public IP only (run `curl http://nossl.sh`).',
+                    'Copy-ready table of headers for tickets and incident timelines.',
+                    'Live counters showing HTTP vs HTTPS hits plus SEO landings.',
+                ],
+            },
+            {
+                heading: 'Useful extras for ops teams',
+                paragraphs: [
+                    'nossl.sh adds operational context without breaking the all-HTTP contract meant to mimic NeverSSL.',
+                ],
+                bullets: [
+                    'Check `/api/request-info` to script public IP checks in tooling.',
+                    'Monitor the honeypot console to see automated scanners that hit your network.',
+                    'Use the sitemap of SEO pages to document specific onboarding scenarios for travelers.',
                 ],
             },
         ],
         faqs: [
             {
-                question: 'Does nossl.sh support HTTPS?',
+                question: 'Does nossl.sh ever force HTTPS?',
                 answer:
-                    'The primary experience is HTTP, but HTTPS is also available for people who want to preview the layout securely.',
+                    'No. The main helper endpoint stays on HTTP by design so captive portals cannot dodge it. A separate HTTPS preview exists, but the default route never upgrades.',
             },
             {
-                question: 'How often is the service online?',
+                question: 'How reliable is this NeverSSL alternative?',
                 answer:
-                    'The project is monitored and designed to stay available 24/7 for travelers and operations teams.',
+                    'The project is monitored 24/7, deployed across redundant regions, and backed by simple service checks so travelers and ops teams can trust it in the field.',
+            },
+        ],
+    },
+    {
+        path: '/never-ssl-alternative',
+        title: 'NeverSSL alternative for captive portal diagnostics',
+        description:
+            'Here’s a hands-on guide to swapping out NeverSSL for nossl.sh when you need reliable captive portal triggers and deeper network insights.',
+        keywords:
+            'never ssl alternative , neverssl alternative workflow, captive portal diagnostics, nossl guide',
+        hero: 'NeverSSL alternative troubleshooting guide',
+        tagline:
+            'Switch to nossl.sh as your NeverSSL alternative—follow repeatable steps and get built-in visibility for your ops team.',
+        sections: [
+            {
+                heading: 'Why teams switch from NeverSSL',
+                paragraphs: [
+                    'Every load shows the connection scheme, timestamp, and request headers so you can close tickets faster without waiting for end users to collect data.',
+                ],
+                bullets: [
+                    'Lightweight HTML renders on kiosk browsers and travel routers.',
+                    'No trackers, ads, or marketing pixels that raise red flags on guest Wi-Fi.',
+                    'Counters reveal how many HTTP vs HTTPS requests land on the helper each day.',
+                ],
+            },
+            {
+                heading: 'Playbook for validating captive portals',
+                paragraphs: [
+                    'Open http://nossl.sh on the problem device, confirm the status shows “Unsecure connection,” then capture the headers for your records.',
+                    'If the venue injects a captive portal, reload the SEO page after authentication to ensure the scheme flips and the SEO counter increments.',
+                ],
+                bullets: [
+                    'Compare header snapshots between successful and failed attempts.',
+                    'Use /api/request-info for scripted regression tests in CI or monitoring.',
+                    'Reference the honeypot dashboard to show how bots probe for /.env leaks.',
+                ],
+            },
+            {
+                heading: 'Shareable NeverSSL alternative checklist',
+                paragraphs: [
+                    'Bundle this guide into onboarding docs so traveling teammates have a repeatable process any time hotel or airport Wi-Fi misbehaves.',
+                ],
+                bullets: [
+                    'Step 1: Disable VPN or private relay, then join the Wi-Fi.',
+                    'Step 2: Visit nossl.sh and copy the diagnostics block.',
+                    'Step 3: Retry after login to verify the connection opens for other sites.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Is nossl.sh compatible with the same devices as NeverSSL?',
+                answer:
+                    'Yes. Anything that can reach a plain HTTP endpoint—including e-readers, embedded controllers, or airplane seatback browsers—can use nossl.sh.',
+            },
+            {
+                question: 'Can I automate NeverSSL-style checks?',
+                answer:
+                    'Absolutely. Script curl against /api/request-info or track the counters endpoint to alert your team when captive portals stop responding.',
             },
         ],
     },
