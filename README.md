@@ -40,13 +40,3 @@ npm start
 docker build -t gcr.io/PROJECT-ID/nossl-sh:latest .
 ```
 
-## Deploy to Cloud Run
-
-```bash
-gcloud run deploy nossl-sh \
-  --source . \
-  --region REGION \
-  --allow-unauthenticated
-```
-
-Adjust `PROJECT-ID` and `REGION` to match your Google Cloud project.
