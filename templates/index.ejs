@@ -204,7 +204,7 @@
     <footer>
       <div class="container">
         <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
-        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> //</p>
+        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
         <p>
           >> Prefer JSON? Try the
           <a href="/api/request-info" rel="nofollow">[ request info API endpoint ]</a>.

@@ -9,11 +9,11 @@ const requireHelper = (value, name) => {
     return value;
 };
 
-const createSeoPageRenderer = ({getScheme, getCountersSnapshot}) => (page) => (req, res) => {
+const createSeoPageRenderer = ({getScheme, getCountersSnapshot, getRenderMeta}) => (page) => (req, res) => {
     const scheme = getScheme(req);
     const counters = getCountersSnapshot();
     const totalRequests = counters.httpCount + counters.httpsCount;
-    const generatedAt = new Date();
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
     const canonicalUrl = new URL(page.path, CANONICAL_BASE_URL);
 
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
@@ -26,6 +26,7 @@ const createSeoPageRenderer = ({getScheme, getCountersSnapshot}) => (page) => (r
         counters,
         totalRequests,
         generatedAt,
+        generationTimeMs,
         seoCounter: counters.seoLandingCount,
         canonicalUrl: canonicalUrl.toString(),
     });
@@ -38,7 +39,8 @@ export const registerSeoRoutes = (app, helpers = {}) => {
 
     const getScheme = requireHelper(helpers.getScheme, 'getScheme');
     const getCountersSnapshot = requireHelper(helpers.getCountersSnapshot, 'getCountersSnapshot');
-    const renderSeoPage = createSeoPageRenderer({getScheme, getCountersSnapshot});
+    const getRenderMeta = requireHelper(helpers.getRenderMeta, 'getRenderMeta');
+    const renderSeoPage = createSeoPageRenderer({getScheme, getCountersSnapshot, getRenderMeta});
 
     SEO_PAGES.forEach((page) => {
         app.get(page.path, renderSeoPage(page));

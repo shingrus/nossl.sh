@@ -161,7 +161,7 @@
     <footer>
       <div class="container">
         <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
-        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> //</p>
+        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
         <p>>>
           Looking for the full diagnostics dashboard?
           <a href="/">Return to the main nossl.sh page</a> or explore the

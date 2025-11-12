@@ -17,6 +17,11 @@ app.set('trust proxy', true);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
 
+app.use((req, res, next) => {
+    res.locals.requestStartTime = process.hrtime.bigint();
+    next();
+});
+
 const dbPathEnv = process.env.SQLDB;
 const dbPath = dbPathEnv
     ? (path.isAbsolute(dbPathEnv) ? dbPathEnv : path.resolve(__dirname, dbPathEnv))
@@ -74,6 +79,18 @@ const getCountersSnapshot = () => {
         snapshot[name] = value;
     });
     return snapshot;
+};
+
+const getRenderMeta = (res) => {
+    const generatedAt = new Date();
+    let generationTimeMs = null;
+    const start = res?.locals?.requestStartTime;
+    if (typeof start === 'bigint') {
+        const durationNs = process.hrtime.bigint() - start;
+        generationTimeMs = Number(durationNs) / 1e6;
+    }
+
+    return {generatedAt, generationTimeMs};
 };
 
 app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}));
@@ -253,7 +270,7 @@ const renderIndex = (req, res) => {
     const scheme = getScheme(req);
     const status = scheme === 'https' ? 'Secure connection.' : 'Unsecure connection.';
     const headers = normalizeHeaders(req.headers);
-    const generatedAt = new Date();
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
     const counters = getCountersSnapshot();
     const totalRequests = counters.httpCount + counters.httpsCount;
 
@@ -263,6 +280,7 @@ const renderIndex = (req, res) => {
         clientIp,
         headers,
         generatedAt,
+        generationTimeMs,
         counters,
         totalRequests,
     });
@@ -318,7 +336,7 @@ app.get('/api/request-info', (req, res) => {
     });
 });
 
-registerSeoRoutes(app, {getScheme, getCountersSnapshot});
+registerSeoRoutes(app, {getScheme, getCountersSnapshot, getRenderMeta});
 
 app.get('/healthz', (req, res) => {
     res.json({status: 'ok'});
@@ -341,6 +359,7 @@ app.get('/honeypot', (req, res) => {
         index: index + 1,
         ...item,
     }));
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
 
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
     res.render('honeypot', {
@@ -348,6 +367,8 @@ app.get('/honeypot', (req, res) => {
         uniqueIpCount: summary.uniqueIpCount,
         maxRecords: honeypotService.maxRecords,
         rows,
+        generatedAt,
+        generationTimeMs,
     });
 });
 
