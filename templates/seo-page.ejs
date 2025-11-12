@@ -115,23 +115,21 @@
       </section>
       <% } %>
       <% if (page.faqs && page.faqs.length) { %>
-        <section class="panel panel--support">
-          <header class="panel__header">
-            <h2>╔══════════════════╗
-║ COMMON QUESTIONS ║
-╚══════════════════╝</h2>
-          </header>
-          <div class="panel__body">
-            <dl class="faq-list">
-              <% page.faqs.forEach((faq) => { %>
-                <div>
-                  <dt><%= faq.question %></dt>
-                  <dd><p><%= faq.answer %></p></dd>
-                </div>
-              <% }); %>
-            </dl>
-          </div>
-        </section>
+      <section class="panel panel--support">
+        <header class="panel__header">
+          <h2>╔════════════════════╗
+║ COMMON QUESTIONS   ║
+╚════════════════════╝</h2>
+        </header>
+        <div class="panel__body">
+          <% page.faqs.forEach((faq) => { %>
+          <article class="marketing-section">
+            <h3><%= faq.question %></h3>
+            <p><%= faq.answer %></p>
+          </article>
+          <% }); %>
+        </div>
+      </section>
       <% } %>
       <section class="panel panel--actions">
         <header class="panel__header">

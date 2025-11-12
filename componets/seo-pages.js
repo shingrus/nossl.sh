@@ -412,37 +412,6 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
-        path: '/captive-portal',
-        title: 'Captive portal troubleshooting and diagnostics',
-        description:
-            'Learn how captive portals work, why they block HTTPS traffic, and how nossl.sh helps you authenticate quickly.',
-        keywords: 'captive portal, captive portal help, wifi captive portal fix',
-        hero: 'Captive portal diagnostics',
-        tagline:
-            'Understand the flow from DNS interception to HTTP authentication and how to validate each step.',
-        sections: [
-            {
-                heading: 'How captive portals intercept traffic',
-                paragraphs: [
-                    'They hijack HTTP requests and redirect you to a login domain. By serving HTTP intentionally, nossl.sh gives the network a predictable request to capture.',
-                ],
-            },
-            {
-                heading: 'Tools built into nossl.sh',
-                paragraphs: [
-                    'Use the copyable JSON to feed into scripts or ticketing systems, keeping a record of what each captive session looked like.',
-                ],
-            },
-        ],
-        faqs: [
-            {
-                question: 'Why does HTTPS sometimes work after login?',
-                answer:
-                    'Once authenticated, the network stops intercepting requests, allowing HTTPS to pass through as normal.',
-            },
-        ],
-    },
-    {
         path: '/apple-captive-portal',
         title: 'Apple captive portal troubleshooting with nossl.sh',
         description:
