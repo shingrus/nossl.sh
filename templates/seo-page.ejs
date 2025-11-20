@@ -66,33 +66,10 @@
             [ <%= scheme === 'https' ? 'Secure connection.' : 'Unsecure connection.' %> ]
           </span>
         </header>
-        <dl class="connection-grid connection-grid--compact">
-          <div>
-            <dt>Served over</dt>
-            <dd><%= scheme.toUpperCase() %></dd>
-          </div>
-          <div>
-            <dt>Page generated</dt>
-            <dd class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
-          </div>
-          <div>
-            <dt>SEO landing visits (all pages)</dt>
-            <dd class="mono"><%= seoCounter %></dd>
-          </div>
-          <div>
-            <dt>Total HTTP/HTTPS requests</dt>
-            <dd class="mono"><%= totalRequests %></dd>
-          </div>
-        </dl>
       </article>
 
       <% if (page.sections && page.sections.length) { %>
       <section class="panel panel--support">
-        <header class="panel__header">
-          <h2>╔════════════════════╗
-║ KEY TAKEAWAYS      ║
-╚════════════════════╝</h2>
-        </header>
         <div class="panel__body">
           <% page.sections.forEach((section) => { %>
           <article class="marketing-section">
@@ -116,11 +93,6 @@
       <% } %>
       <% if (page.faqs && page.faqs.length) { %>
       <section class="panel panel--support">
-        <header class="panel__header">
-          <h2>╔════════════════════╗
-║ COMMON QUESTIONS   ║
-╚════════════════════╝</h2>
-        </header>
         <div class="panel__body">
           <% page.faqs.forEach((faq) => { %>
           <article class="marketing-section">

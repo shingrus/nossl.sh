@@ -537,6 +537,561 @@ export const SEO_PAGES = Object.freeze([
             },
         ],
     },
+    {
+        path: '/marriott-wifi-login',
+        title: 'Marriott Wi-Fi login guide for hotels and resorts',
+        description:
+            'Trigger the Marriott Bonvoy captive portal, verify room or conference access, and capture your connection details with nossl.sh.',
+        keywords: 'marriott wifi login, marriott captive portal, marriott bonvoy wifi, marriott internet help',
+        hero: 'Marriott Wi-Fi login help',
+        tagline:
+            'Use nossl.sh to make the Marriott captive portal appear, record headers, and prove you are online.',
+        sections: [
+            {
+                heading: 'Bring up the Bonvoy captive portal',
+                paragraphs: [
+                    'Join the hotel Wi-Fi and open http://nossl.sh to force the Marriott login splash to load if it is stuck.',
+                ],
+                bullets: [
+                    'Check whether the network rewrote your HTTP request.',
+                    'Confirm the portal sets your room or conference credentials.',
+                    'Keep a timestamped snapshot for the front desk.',
+                ],
+            },
+            {
+                heading: 'After you authenticate',
+                paragraphs: [
+                    'Reload the page to ensure the connection switches to open internet instead of staying quarantined.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Why does the portal keep looping?',
+                answer:
+                    'Disable VPN apps and content blockers, then retry from nossl.sh so the gateway can see an HTTP request.',
+            },
+            {
+                question: 'Can I share proof with the lobby tech?',
+                answer:
+                    'Yes. Copy the headers and IP from the page and send them to Marriott support staff for faster whitelisting.',
+            },
+        ],
+    },
+    {
+        path: '/starbucks-wifi-login',
+        title: 'Starbucks Wi-Fi login and captive portal tips',
+        description:
+            'Force the Starbucks Wi-Fi splash screen to appear and verify your device is cleared to browse using nossl.sh.',
+        keywords: 'starbucks wifi login, starbucks wifi portal, starbucks internet, coffee shop wifi help',
+        hero: 'Starbucks Wi-Fi login steps',
+        tagline:
+            'Great for travelers who need the Starbucks portal to load reliably while grabbing a coffee.',
+        sections: [
+            {
+                heading: 'Trigger the coffee shop splash',
+                paragraphs: [
+                    'Connect to Starbucks Wi-Fi, then visit nossl.sh to provide the plain HTTP handshake the captive portal expects.',
+                ],
+                bullets: [
+                    'Confirms the network is not blocking HTTP.',
+                    'Shows your public IP for support chats.',
+                    'Fast enough for low-power devices and e-readers.',
+                ],
+            },
+            {
+                heading: 'If you stay stuck',
+                paragraphs: [
+                    'Forget the network, toggle Wi-Fi, and retry from nossl.sh. The counters prove the request reached the gateway.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Is Starbucks Wi-Fi safe to use?',
+                answer:
+                    'Stick to HTTPS sites after you log in and consider a VPN once the captive portal releases you.',
+            },
+            {
+                question: 'Does Starbucks require an account?',
+                answer:
+                    'Some locations ask for an email acknowledgment. Use nossl.sh first to get the prompt.',
+            },
+        ],
+    },
+    {
+        path: '/mcdonalds-wifi-login',
+        title: 'McDonald’s Wi-Fi login troubleshooting',
+        description:
+            'Bring up the McDonald’s Wi-Fi splash page, confirm the captive gateway, and capture the network headers for support.',
+        keywords: 'mcdonalds wifi login, mcdonalds wifi portal, mcd wifi help, mcdonalds internet',
+        hero: 'McDonald’s Wi-Fi login help',
+        tagline:
+            'Use nossl.sh as your clean HTTP landing page when the McDonald’s portal will not load.',
+        sections: [
+            {
+                heading: 'Make the splash screen appear',
+                paragraphs: [
+                    'Load nossl.sh to trigger the captive portal that some McDonald’s locations require before browsing.',
+                ],
+                bullets: [
+                    'Check if DNS resolves correctly on the public network.',
+                    'Copy the request snapshot for the restaurant manager.',
+                    'Verify the connection scheme switches to HTTP after login.',
+                ],
+            },
+            {
+                heading: 'Stuck on a redirect loop?',
+                paragraphs: [
+                    'Turn off VPN or private relay, refresh nossl.sh, and watch the headers for any proxy rewriting.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Can I use this on in-store kiosks?',
+                answer:
+                    'Yes. The page is lightweight and works on most kiosk browsers to prove the network path.',
+            },
+            {
+                question: 'How do I share my findings?',
+                answer:
+                    'Copy the headers from the page or export the JSON at /api/request-info for support.',
+            },
+        ],
+    },
+    {
+        path: '/subway-wifi-login',
+        title: 'Subway Wi-Fi login page helper',
+        description:
+            'Launch the Subway Wi-Fi captive portal and confirm internet access using nossl.sh diagnostics.',
+        keywords: 'subway wifi login, subway wifi portal, subway internet access, sandwich shop wifi',
+        hero: 'Subway Wi-Fi login tips',
+        tagline:
+            'Ideal when the sandwich shop network needs an HTTP nudge before letting you browse.',
+        sections: [
+            {
+                heading: 'Start with a clean HTTP request',
+                paragraphs: [
+                    'Open nossl.sh after joining the Subway Wi-Fi SSID so the gateway can present its terms page.',
+                ],
+                bullets: [
+                    'Shows whether HTTPS forced redirects are blocking you.',
+                    'Records a timestamped connection snapshot.',
+                    'Quick to load even on older phones.',
+                ],
+            },
+            {
+                heading: 'If the portal times out',
+                paragraphs: [
+                    'Forget the network, reconnect, and retry nossl.sh. Share the headers with staff if it still fails.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does every Subway offer Wi-Fi?',
+                answer:
+                    'Availability varies by location, but nossl.sh can still confirm whether the SSID responds at all.',
+            },
+        ],
+    },
+    {
+        path: '/burger-king-wifi-login',
+        title: 'Burger King Wi-Fi login and captive portal check',
+        description:
+            'Force the Burger King Wi-Fi splash to load and verify the connection path with nossl.sh diagnostics.',
+        keywords: 'burger king wifi login, bk wifi portal, burger king internet, cafeteria wifi help',
+        hero: 'Burger King Wi-Fi login help',
+        tagline:
+            'Great for travelers relying on Burger King Wi-Fi while on the road.',
+        sections: [
+            {
+                heading: 'Open the splash reliably',
+                paragraphs: [
+                    'Visit nossl.sh right after connecting so the captive portal sees a plain HTTP request.',
+                ],
+                bullets: [
+                    'Confirms the network is issuing an IP address.',
+                    'Captures headers that may include the gateway hostname.',
+                    'Helps spot adblockers that interfere with the redirect.',
+                ],
+            },
+            {
+                heading: 'After accepting the terms',
+                paragraphs: [
+                    'Reload the page to ensure the scheme reads HTTP and the counters increment, proving you are off the walled garden.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Why does the portal take long to load?',
+                answer:
+                    'During busy hours the gateway can be slow; nossl.sh lets you confirm the request reached it without cached assets.',
+            },
+        ],
+    },
+    {
+        path: '/taco-bell-wifi-login',
+        title: 'Taco Bell Wi-Fi login tips',
+        description:
+            'Load the Taco Bell Wi-Fi captive page, verify internet release, and capture connection info with nossl.sh.',
+        keywords: 'taco bell wifi login, taco bell portal, taco bell internet, fast food wifi help',
+        hero: 'Taco Bell Wi-Fi helper',
+        tagline:
+            'A dependable HTTP landing page that makes the Taco Bell captive portal surface.',
+        sections: [
+            {
+                heading: 'Trigger the captive check',
+                paragraphs: [
+                    'Open nossl.sh immediately after joining the Taco Bell network to prompt the login acknowledgment.',
+                ],
+                bullets: [
+                    'Shows whether HTTPS enforcement blocks the redirect.',
+                    'Provides a copyable IP and header set for troubleshooting.',
+                    'Lightweight for budget Android devices.',
+                ],
+            },
+            {
+                heading: 'Stay online after login',
+                paragraphs: [
+                    'If browsing drops, revisit nossl.sh to confirm whether the gateway moved you back behind the splash page.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Do I need to disable VPN?',
+                answer:
+                    'Yes, VPNs can hide HTTP traffic from the captive portal. Turn it off, log in, then re-enable if desired.',
+            },
+        ],
+    },
+    {
+        path: '/kfc-wifi-login',
+        title: 'KFC Wi-Fi login helper',
+        description:
+            'Unstick the KFC Wi-Fi captive portal and gather a shareable connection snapshot using nossl.sh.',
+        keywords: 'kfc wifi login, kfc portal, kfc internet access, quick service wifi',
+        hero: 'KFC Wi-Fi login steps',
+        tagline:
+            'Use nossl.sh to get the Colonel’s Wi-Fi portal to appear and verify you are clear to browse.',
+        sections: [
+            {
+                heading: 'Kick off the captive flow',
+                paragraphs: [
+                    'Load nossl.sh to send a plain HTTP request that typically triggers the KFC splash page.',
+                ],
+                bullets: [
+                    'Confirms DNS and routing from the restaurant network.',
+                    'Provides a timestamped record for the store manager.',
+                    'Helps identify blockers like content filters.',
+                ],
+            },
+            {
+                heading: 'If the splash loops',
+                paragraphs: [
+                    'Disable private relay, refresh the page, and check the scheme indicator for signs of HTTPS interception.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Can I test with curl?',
+                answer:
+                    'Yes. `curl http://nossl.sh` returns your IP only—handy for CLI validation while on KFC Wi-Fi.',
+            },
+        ],
+    },
+    {
+        path: '/wendys-wifi-login',
+        title: 'Wendy’s Wi-Fi login and captive portal guide',
+        description:
+            'Prompt the Wendy’s Wi-Fi splash screen and verify open internet access using nossl.sh diagnostics.',
+        keywords: 'wendys wifi login, wendys wifi portal, wendys internet, fast food wifi',
+        hero: 'Wendy’s Wi-Fi helper',
+        tagline:
+            'A quick way to show the store’s gateway your device is ready for the portal.',
+        sections: [
+            {
+                heading: 'Trigger the login page',
+                paragraphs: [
+                    'Connect to the Wendy’s SSID and hit nossl.sh to send the plain HTTP request the captive portal expects.',
+                ],
+                bullets: [
+                    'Confirms the gateway assigns you an IP.',
+                    'Shows headers the network receives for ticketing.',
+                    'Great for tablets used in the dining area.',
+                ],
+            },
+            {
+                heading: 'Document the result',
+                paragraphs: [
+                    'Copy the header table or JSON output if you need to ask staff to reset the access point.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does Wendy’s Wi-Fi timeout quickly?',
+                answer:
+                    'Some stores enforce session limits. Reload nossl.sh to see if you have been pushed back behind the captive portal.',
+            },
+        ],
+    },
+    {
+        path: '/panera-wifi-login',
+        title: 'Panera Wi-Fi login helper for cafes',
+        description:
+            'Get the Panera Bread Wi-Fi login page to load, confirm speed, and capture your connection headers with nossl.sh.',
+        keywords: 'panera wifi login, panera wifi portal, panera bread internet, cafe wifi help',
+        hero: 'Panera Wi-Fi login steps',
+        tagline:
+            'Use nossl.sh while you work from the cafe to keep the captive portal honest.',
+        sections: [
+            {
+                heading: 'Force the splash to appear',
+                paragraphs: [
+                    'Open nossl.sh on laptops or tablets to trigger the Panera captive portal if it stalls.',
+                ],
+                bullets: [
+                    'Verifies whether the network blocks HTTP to certain domains.',
+                    'Provides latency measurements for your workstation.',
+                    'Copyable diagnostics for remote IT teams.',
+                ],
+            },
+            {
+                heading: 'Stay connected between sessions',
+                paragraphs: [
+                    'If Panera rotates login tokens, revisit nossl.sh to refresh the session and ensure you are routed to open internet.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Can I preload this in a QR code?',
+                answer:
+                    'Yes. A QR to http://nossl.sh lets teammates trigger the Panera portal immediately.',
+            },
+        ],
+    },
+    {
+        path: '/dunkin-wifi-login',
+        title: 'Dunkin’ Wi-Fi login page tips',
+        description:
+            'Bring up the Dunkin’ Wi-Fi captive portal, verify HTTP access, and export diagnostics using nossl.sh.',
+        keywords: 'dunkin wifi login, dunkin donuts wifi, dunkin internet portal, coffee wifi help',
+        hero: 'Dunkin’ Wi-Fi helper',
+        tagline:
+            'Perfect for commuters hopping on Dunkin’ Wi-Fi between stops.',
+        sections: [
+            {
+                heading: 'Trigger the captive prompt',
+                paragraphs: [
+                    'Visit nossl.sh to give the Dunkin’ gateway the HTTP request it needs to show the login page.',
+                ],
+                bullets: [
+                    'Confirms whether your device is blocked by MAC filtering.',
+                    'Captures the gateway headers for support calls.',
+                    'Works on budget Chromebooks often used by students.',
+                ],
+            },
+            {
+                heading: 'If the page will not load',
+                paragraphs: [
+                    'Toggle Wi-Fi, disable VPN, and retry nossl.sh. Share the timestamped snapshot with staff if it still hangs.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Is it safe to log in on public Wi-Fi?',
+                answer:
+                    'Use the network to reach the portal, then switch to HTTPS sites or a VPN once authenticated.',
+            },
+        ],
+    },
+    {
+        path: '/chick-fil-a-wifi-login',
+        title: 'Chick-fil-A Wi-Fi login walkthrough',
+        description:
+            'Prompt the Chick-fil-A Wi-Fi login page, validate the connection release, and gather diagnostics via nossl.sh.',
+        keywords: 'chick fil a wifi login, chick fil a portal, cfa wifi, chicken wifi help',
+        hero: 'Chick-fil-A Wi-Fi helper',
+        tagline:
+            'Use nossl.sh when the Chick-fil-A captive portal stalls during a meal.',
+        sections: [
+            {
+                heading: 'Start with nossl.sh',
+                paragraphs: [
+                    'Open the page to generate the HTTP request most captive portals look for before granting access.',
+                ],
+                bullets: [
+                    'Shows whether the gateway is intercepting HTTPS instead.',
+                    'Provides counters proving the request landed.',
+                    'Lightweight enough for in-app browsers on phones.',
+                ],
+            },
+            {
+                heading: 'Share proof with staff',
+                paragraphs: [
+                    'Copy the header table and present it to store team members if you need a quick AP reboot.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does Chick-fil-A throttle speeds?',
+                answer:
+                    'Some markets rate-limit guest Wi-Fi. Use the latency indicator on the page to spot slowdowns.',
+            },
+        ],
+    },
+    {
+        path: '/hilton-wifi-login',
+        title: 'Hilton Wi-Fi login troubleshooting',
+        description:
+            'Force the Hilton hotel Wi-Fi captive portal to load and confirm billing or room access flows via nossl.sh.',
+        keywords: 'hilton wifi login, hilton captive portal, hilton honors wifi, hotel wifi help',
+        hero: 'Hilton Wi-Fi login help',
+        tagline:
+            'Great for Hilton Honors guests who need a reliable HTTP trigger for the login page.',
+        sections: [
+            {
+                heading: 'Trigger the Hilton splash',
+                paragraphs: [
+                    'Join the Hilton SSID, then hit nossl.sh to send the unencrypted request most gateways wait for.',
+                ],
+                bullets: [
+                    'Shows whether the portal injects your room number prompt.',
+                    'Captures headers for the front desk IT partner.',
+                    'Useful for conference center access points too.',
+                ],
+            },
+            {
+                heading: 'Confirm open internet',
+                paragraphs: [
+                    'After authentication, reload to ensure the scheme remains HTTP and not trapped behind SSL interception.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Why do I get certificate warnings?',
+                answer:
+                    'Some Hilton portals intercept HTTPS. Stick to nossl.sh first so you can safely accept the captive portal flow.',
+            },
+        ],
+    },
+    {
+        path: '/hyatt-wifi-login',
+        title: 'Hyatt Wi-Fi login helper',
+        description:
+            'Prompt the Hyatt guest Wi-Fi login screen, verify your device is cleared, and retain diagnostics using nossl.sh.',
+        keywords: 'hyatt wifi login, hyatt captive portal, hyatt wifi help, hotel wifi troubleshoot',
+        hero: 'Hyatt Wi-Fi login tips',
+        tagline:
+            'Designed for Hyatt guests who need a clean HTTP page to wake the captive portal.',
+        sections: [
+            {
+                heading: 'Kickstart the captive portal',
+                paragraphs: [
+                    'Open nossl.sh after joining Hyatt Wi-Fi to send the simple HTTP request the gateway expects.',
+                ],
+                bullets: [
+                    'Confirms DNS and routing through the hotel network.',
+                    'Offers copyable headers for the concierge desk.',
+                    'Works on Chromebooks used in conference rooms.',
+                ],
+            },
+            {
+                heading: 'If elite login fails',
+                paragraphs: [
+                    'Disable VPN, clear cached redirects, and reload nossl.sh. Share the JSON output with Hyatt support for whitelisting.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Can I save the URL for offline help?',
+                answer:
+                    'Yes. Bookmark http://nossl.sh so you can open it immediately after connecting to Hyatt Wi-Fi.',
+            },
+        ],
+    },
+    {
+        path: '/holiday-inn-wifi-login',
+        title: 'Holiday Inn Wi-Fi login guide',
+        description:
+            'Get the Holiday Inn captive portal to appear, check routing, and document the connection using nossl.sh.',
+        keywords: 'holiday inn wifi login, ihg wifi portal, holiday inn internet, hotel wifi help',
+        hero: 'Holiday Inn Wi-Fi helper',
+        tagline:
+            'A straightforward HTTP page to make the IHG captive portal show up.',
+        sections: [
+            {
+                heading: 'Launch the portal',
+                paragraphs: [
+                    'Visit nossl.sh after joining the Holiday Inn SSID so the gateway can redirect you to the login form.',
+                ],
+                bullets: [
+                    'Captures whether cookies are being set by the portal.',
+                    'Provides timestamps for support tickets.',
+                    'Helps diagnose if custom DNS is blocking the portal.',
+                ],
+            },
+            {
+                heading: 'Verify access afterward',
+                paragraphs: [
+                    'Reload the page to check that the scheme stays HTTP and the counters climb, indicating open internet.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'What if my loyalty perks do not apply?',
+                answer:
+                    'Share the header snapshot with the front desk so they can validate your room and plan selection.',
+            },
+        ],
+    },
+    {
+        path: '/best-western-wifi-login',
+        title: 'Best Western Wi-Fi login troubleshooting',
+        description:
+            'Force the Best Western guest Wi-Fi portal to load and capture diagnostics for hotel staff with nossl.sh.',
+        keywords: 'best western wifi login, best western portal, hotel wifi help, best western internet',
+        hero: 'Best Western Wi-Fi helper',
+        tagline:
+            'Use nossl.sh as your no-SSL landing page before calling the front desk.',
+        sections: [
+            {
+                heading: 'Trigger the captive gate',
+                paragraphs: [
+                    'Open nossl.sh immediately after connecting so the Best Western gateway can show its sign-in prompt.',
+                ],
+                bullets: [
+                    'Verifies IP assignment from the hotel network.',
+                    'Lightweight for older laptops and budget phones.',
+                    'Copyable diagnostics for regional support teams.',
+                ],
+            },
+            {
+                heading: 'If speeds stay slow',
+                paragraphs: [
+                    'Check the latency indicator and headers to see if you are still quarantined behind the splash page.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Can I test multiple devices?',
+                answer:
+                    'Yes. Open nossl.sh on each device to gather timestamps the hotel can use to whitelist MAC addresses.',
+            },
+        ],
+    },
 ]);
 
 export const SEO_PAGE_PATH_SET = new Set(SEO_PAGES.map((page) => page.path));
