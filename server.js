@@ -6,12 +6,18 @@ import Database from 'better-sqlite3';
 import {createHoneypotService} from './componets/honeypot.js';
 import {SEO_PAGE_PATH_SET} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
+import {createSharedReportService} from './componets/shared-report.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TTL_SECONDS ?? '', 10))
+    ? Number.parseInt(process.env.REPORT_TTL_SECONDS, 10)
+    : 24 * 60 * 60;
+const REDIS_CONNECT_TIMEOUT_MS = 1000;
 
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
@@ -53,6 +59,7 @@ const COUNTER_NAMES = Object.freeze([
     'rootCount',
     'honeypotCount',
     'seoLandingCount',
+    'reportCount',
 ]);
 
 const ensureCounterStmt = db.prepare('INSERT OR IGNORE INTO counters (name, value) VALUES (?, 0)');
@@ -91,6 +98,36 @@ const getRenderMeta = (res) => {
     }
 
     return {generatedAt, generationTimeMs};
+};
+
+const sharedReportService = createSharedReportService({
+    redisUrl: REDIS_URL,
+    ttlSeconds: REPORT_TTL_SECONDS,
+    connectTimeoutMs: REDIS_CONNECT_TIMEOUT_MS,
+});
+const shareReportStore = sharedReportService.store;
+const buildShareSnapshot = (baseData) => sharedReportService.buildSnapshot(baseData);
+const getShareUrl = (req, reportId) => sharedReportService.getShareUrl(req, reportId);
+
+const getBaseRequestData = (req, res) => {
+    const scheme = getScheme(req);
+    const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
+    const headers = normalizeHeaders(req.headers);
+    const clientIp = getClientIp(req);
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
+    const counters = getCountersSnapshot();
+    const totalRequests = counters.httpCount + counters.httpsCount;
+
+    return {
+        scheme,
+        status,
+        clientIp,
+        headers,
+        generatedAt,
+        generationTimeMs,
+        counters,
+        totalRequests,
+    };
 };
 
 app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}));
@@ -155,6 +192,7 @@ const collectCountersForRequest = (req) => {
         }
     }
 
+    if (req.path === '/') {}
     if (req.path.startsWith('/api')) {
         countersToBump.add('apiCount');
     }
@@ -174,6 +212,9 @@ const collectCountersForRequest = (req) => {
 
     if (req.path.startsWith('/honeypot')) {
         countersToBump.add('honeypotCount');
+    }
+    else if (req.path.startsWith('/report')) {
+        countersToBump.add('reportCount');
     }
 
     let matchedSeoPath = null;
@@ -253,7 +294,7 @@ const randomSubdomain = () => {
     return words[crypto.randomInt(0, words.length)];
 };
 
-const renderIndex = (req, res) => {
+const renderIndex = async (req, res) => {
     const clientIp = getClientIp(req);
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
 
@@ -267,12 +308,33 @@ const renderIndex = (req, res) => {
         return;
     }
 
-    const scheme = getScheme(req);
-    const status = scheme === 'https' ? 'Secure connection.' : 'Unsecure connection.';
-    const headers = normalizeHeaders(req.headers);
-    const {generatedAt, generationTimeMs} = getRenderMeta(res);
-    const counters = getCountersSnapshot();
-    const totalRequests = counters.httpCount + counters.httpsCount;
+    let shareReportUrl = null;
+    let shareReportId = null;
+
+    const baseData = getBaseRequestData(req, res);
+    const {
+        scheme,
+        status,
+        headers,
+        generatedAt,
+        generationTimeMs,
+        counters,
+        totalRequests,
+    } = baseData;
+
+    if (shareReportStore.isAvailable()) {
+        try {
+
+            const snapshot = buildShareSnapshot(baseData);
+            shareReportId = await shareReportStore.saveSnapshot(snapshot);
+            if (shareReportId) {
+                shareReportUrl = getShareUrl(req, shareReportId);
+            }
+        } catch (error) {
+            shareReportId = null;
+            shareReportUrl = null;
+        }
+    }
 
     res.render('index', {
         scheme,
@@ -283,10 +345,13 @@ const renderIndex = (req, res) => {
         generationTimeMs,
         counters,
         totalRequests,
+        shareReportEnabled: Boolean(shareReportUrl),
+        shareReportId,
+        shareReportUrl,
     });
 };
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     const scheme = getScheme(req);
     if (scheme === 'https') {
         const subdomain = randomSubdomain();
@@ -300,11 +365,11 @@ app.get('/', (req, res) => {
         return;
     }
 
-    renderIndex(req, res);
+    await renderIndex(req, res);
 });
 
-app.get('/check', (req, res) => {
-    renderIndex(req, res);
+app.get('/check', async (req, res) => {
+    await renderIndex(req, res);
 });
 
 app.all(/^.*\/\.env*/i, honeypotService.handleEnvRequest);
@@ -350,6 +415,32 @@ app.get('/api/honeypot', (req, res) => {
         uniqueIpCount: summary.uniqueIpCount,
         maxRecords: honeypotService.maxRecords,
         counts: summary.counts,
+    });
+});
+
+app.get('/report/:reportId', async (req, res) => {
+    const {reportId} = req.params;
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
+
+    let report = null;
+    if (reportId) {
+        try {
+            report = await shareReportStore.readSnapshot(reportId);
+        } catch (error) {
+            report = null;
+        }
+    }
+
+    if (!report) {
+        res.status(410);
+    }
+
+    res.render('report', {
+        reportId,
+        report,
+        generatedAt,
+        generationTimeMs,
     });
 });
 
