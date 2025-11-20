@@ -70,9 +70,7 @@
     <main class="container dashboard">
       <section aria-labelledby="connection-info" class="panel panel--connection">
         <header class="panel__header">
-          <h2 id="connection-info">╔═══════════════════════╗
-║ CONNECTION SNAPSHOT   ║
-╚═══════════════════════╝</h2>
+          <h2 id="connection-info">Connection snapshot</h2>
           <% if (shareReportEnabled) { %>
           <button type="button" class="copy" data-share-report data-share-url="<%= shareReportUrl %>">
             [ SHARE REPORT ]
@@ -107,9 +105,7 @@
         <section aria-labelledby="request-headers" class="panel panel--headers">
           <header class="panel__header">
           <div>
-            <h2 id="request-headers">
- REQUEST HEADERS
-</h2>
+            <h2 id="request-headers">Request headers</h2>
               <p class="panel__summary">>> Compact view of the headers we saw from your device.</p>
           </div>
             <button type="button" class="copy" data-copy-headers>
@@ -140,13 +136,11 @@
         <div class="dashboard__right-column">
           <section aria-labelledby="how-to" class="panel panel--actions">
             <header class="panel__header">
-              <h2 id="how-to">╔══════════════════╗
-║ QUICK ACTIONS    ║
-╚══════════════════╝</h2>
+              <h2 id="how-to">Quick actions</h2>
             </header>
             <div class="actions-grid">
               <div>
-                <h3>┌─[ TEST WITH CURL ]─┐</h3>
+                <h3>Test with curl</h3>
                 <p>>> Get you real IP with curl:</p>
                 <div class="code-snippet" data-curl-snippet>
                   <button
@@ -161,7 +155,7 @@
                 </div>
               </div>
               <div>
-                <h3>┌─[ HONEYPOT DASHBOARD ]─┐</h3>
+                <h3>Honeypot dashboard</h3>
                 <p>>> Review suspicious requests hitting the /.env honeypot endpoint.</p>
                 <div class="code-snippet">
                   <a class="copy copy--snippet" href="/honeypot">[ OPEN CONSOLE ]</a>
@@ -172,9 +166,7 @@
 
           <section aria-labelledby="usage-information" class="panel panel--support">
             <header class="panel__header">
-              <h2 id="usage-information">╔═══════════════════════╗
-║ WHY THIS PAGE EXISTS  ║
-╚═══════════════════════╝</h2>
+              <h2 id="usage-information">Why this page exists</h2>
             </header>
             <div class="panel__body">
               <p>

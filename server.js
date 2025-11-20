@@ -3,10 +3,10 @@ import express from 'express';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
-import {createClient as createRedisClient} from 'redis';
 import {createHoneypotService} from './componets/honeypot.js';
 import {SEO_PAGE_PATH_SET} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
+import {createSharedReportService} from './componets/shared-report.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,11 +25,6 @@ app.set('views', path.join(__dirname, 'templates'));
 
 app.use((req, res, next) => {
     res.locals.requestStartTime = process.hrtime.bigint();
-    next();
-});
-
-app.use((req, res, next) => {
-    res.locals.shareReportEnabled = shareReportStore.isAvailable();
     next();
 });
 
@@ -105,133 +100,18 @@ const getRenderMeta = (res) => {
     return {generatedAt, generationTimeMs};
 };
 
-const createShareReportStore = () => {
-    let client = null;
-    let connectPromise = null;
-    let available = false;
-
-    const resetClient = () => {
-        const current = client;
-        client = null;
-        connectPromise = null;
-        if (current) {
-            current.quit().catch(() => {
-                // ignore cleanup errors
-            });
-        }
-    };
-
-    const startConnection = () => {
-        if (connectPromise) {
-            return connectPromise;
-        }
-
-        const nextClient = createRedisClient({
-            url: REDIS_URL,
-            socket: {
-                connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
-            },
-        });
-        client = nextClient;
-        nextClient.on('error', () => {
-            available = false;
-            resetClient();
-        });
-
-        connectPromise = nextClient
-            .connect()
-            .then(() => {
-                available = true;
-                return nextClient;
-            })
-            .catch(() => {
-                available = false;
-                resetClient();
-                return null;
-            });
-
-        return connectPromise;
-    };
-
-    const getClient = async () => {
-        const activeClient = await startConnection();
-        if (!activeClient) {
-            available = false;
-            return null;
-        }
-        return activeClient;
-    };
-
-    const saveSnapshot = async (snapshot) => {
-        try {
-            const redis = await getClient();
-            if (!redis) {
-                return null;
-            }
-
-            const reportId = crypto.randomUUID();
-            await redis.set(`shared_report:${reportId}`, JSON.stringify(snapshot), {
-                EX: REPORT_TTL_SECONDS,
-
-            });
-            available = true;
-            return reportId;
-        } catch (error) {
-            available = false;
-            resetClient();
-            return null;
-        }
-    };
-
-    const readSnapshot = async (reportId) => {
-        try {
-            const redis = await getClient();
-            if (!redis) {
-                return null;
-            }
-
-            const raw = await redis.get(`shared_report:${reportId}`);
-            if (!raw) {
-                return null;
-            }
-
-            try {
-                return JSON.parse(raw);
-            } catch (error) {
-                return null;
-            }
-        } catch (error) {
-            available = false;
-            resetClient();
-            return null;
-        }
-    };
-
-    const isAvailable = () => {
-        if (!available && !connectPromise) {
-            startConnection().catch(() => {
-                available = false;
-            });
-        }
-        return available;
-    };
-
-    startConnection().catch(() => {
-        available = false;
-    });
-
-    return {
-        isAvailable,
-        saveSnapshot,
-        readSnapshot,
-    };
-};
-
-const shareReportStore = createShareReportStore();
+const sharedReportService = createSharedReportService({
+    redisUrl: REDIS_URL,
+    ttlSeconds: REPORT_TTL_SECONDS,
+    connectTimeoutMs: REDIS_CONNECT_TIMEOUT_MS,
+});
+const shareReportStore = sharedReportService.store;
+const buildShareSnapshot = (baseData) => sharedReportService.buildSnapshot(baseData);
+const getShareUrl = (req, reportId) => sharedReportService.getShareUrl(req, reportId);
 
 const getBaseRequestData = (req, res) => {
     const scheme = getScheme(req);
-    const status = scheme === 'https' ? 'Secure connection.' : 'Unsecure connection.';
+    const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
     const headers = normalizeHeaders(req.headers);
     const clientIp = getClientIp(req);
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
@@ -247,14 +127,6 @@ const getBaseRequestData = (req, res) => {
         generationTimeMs,
         counters,
         totalRequests,
-    };
-};
-
-const buildShareSnapshot = (req, res) => {
-    const baseData = getBaseRequestData(req, res);
-    return {
-        ...baseData,
-        generatedAt: baseData.generatedAt.toISOString(),
     };
 };
 
@@ -439,6 +311,7 @@ const renderIndex = async (req, res) => {
     let shareReportUrl = null;
     let shareReportId = null;
 
+    const baseData = getBaseRequestData(req, res);
     const {
         scheme,
         status,
@@ -447,15 +320,15 @@ const renderIndex = async (req, res) => {
         generationTimeMs,
         counters,
         totalRequests,
-    } = getBaseRequestData(req, res);
+    } = baseData;
 
     if (shareReportStore.isAvailable()) {
         try {
-            const snapshot = buildShareSnapshot(req, res);
+
+            const snapshot = buildShareSnapshot(baseData);
             shareReportId = await shareReportStore.saveSnapshot(snapshot);
             if (shareReportId) {
-                const host = req.get('host') || 'nossl.sh';
-                shareReportUrl = `http://${host}/report/${shareReportId}`;
+                shareReportUrl = getShareUrl(req, shareReportId);
             }
         } catch (error) {
             shareReportId = null;
