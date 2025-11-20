@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nossl.sh Wi-Fi guide index</title>
+    <meta
+      name="description"
+      content="Browse every nossl.sh scenario-specific Wi-Fi and captive portal guide in one place, organized by category."
+    />
+    <meta
+      name="keywords"
+      content="wifi login guide, captive portal guide, nossl guides, hotel wifi help, coffee shop wifi help, apple captive portal"
+    />
+    <link rel="canonical" href="<%= canonicalUrl %>" />
+    <meta property="og:title" content="nossl.sh Wi-Fi guide index" />
+    <meta
+      property="og:description"
+      content="All nossl.sh scenario guides for captive portals, hotels, cafes, and mobile devices."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="<%= canonicalUrl %>" />
+    <meta property="og:site_name" content="nossl.sh" />
+    <meta property="og:image" content="/static/og-image.png" />
+    <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="nossl.sh Wi-Fi guide index" />
+    <meta
+      name="twitter:description"
+      content="Explore all nossl.sh scenario-specific guides grouped by category."
+    />
+    <meta name="twitter:image" content="/static/og-image.png" />
+    <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?123" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="container top-bar__inner">
+        <a class="branding" href="/" aria-label="nossl.sh home">
+          <pre class="logo" aria-hidden="true">╔═══╗
+║ <span class="logo-dot">●</span> ║
+╚═══╝</pre>
+          <div class="branding__copy">
+            <pre class="brand-name">[ nossl.sh ]</pre>
+            <pre class="brand-status">  ✓ Connected </pre>
+          </div>
+        </a>
+        <p class="top-bar__hint">// All scenario-specific Wi-Fi guides in one place //</p>
+      </div>
+    </header>
+
+    <main class="container marketing">
+      <article class="panel panel--connection">
+        <header class="panel__header">
+          <div>
+            <h1>Scenario-specific Wi-Fi guides</h1>
+            <p class="panel__summary">
+              Browse every nossl.sh helper page, organized by category so you can jump straight to the right captive portal tips.
+            </p>
+          </div>
+        </header>
+      </article>
+
+      <section class="panel panel--support">
+        <div class="panel__body guide-grid">
+          <% categories.forEach((category) => { %>
+            <article class="guide-card">
+              <h3><%= category.title %></h3>
+              <p class="guide-card__summary"><%= category.description %></p>
+              <ul class="guide-card__links">
+                <% category.pages.forEach((page) => { %>
+                  <li><a href="<%= page.path %>"><%= page.title %></a></li>
+                <% }); %>
+              </ul>
+            </article>
+          <% }); %>
+        </div>
+      </section>
+
+      <section class="panel panel--actions">
+        <header class="panel__header">
+          <h2>Need diagnostics instead of a guide?</h2>
+        </header>
+        <div class="actions-grid">
+          <div>
+            <h3>Return to live snapshot</h3>
+            <p>>> Head back to the main nossl.sh page for your current IP, headers, and connection status.</p>
+            <div class="code-snippet">
+              <a class="copy copy--snippet" href="/">[ OPEN MAIN PAGE ]</a>
+            </div>
+          </div>
+          <div>
+            <h3>Check the honeypot console</h3>
+            <p>>> Review suspicious /.env scans or shareable reports from recent requests.</p>
+            <div class="code-snippet">
+              <a class="copy copy--snippet" href="/honeypot">[ VIEW HONEYPOT ]</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
+        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
+        <p>
+          >> Want to trigger a specific brand or device flow? Pick a guide above or return to the
+          <a href="/">main nossl.sh diagnostics page</a>.
+        </p>
+        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
+      </div>
+    </footer>
+  </body>
+</html>

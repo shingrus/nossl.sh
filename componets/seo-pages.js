@@ -1,3 +1,26 @@
+export const SEO_PAGE_CATEGORIES = Object.freeze({
+    overview: {
+        title: 'Core HTTP helpers',
+        description: 'Understand the nossl.sh foundation and its plain-HTTP stance.',
+    },
+    troubleshooting: {
+        title: 'Captive portal troubleshooting',
+        description: 'Force captive portals to appear and capture diagnostics when Wi-Fi stalls.',
+    },
+    mobile: {
+        title: 'Mobile and Apple devices',
+        description: 'Guides tailored for phones, tablets, and Apple captive network helpers.',
+    },
+    hotels: {
+        title: 'Hotel Wi-Fi',
+        description: 'Venue-specific walkthroughs for popular hotel brands.',
+    },
+    cafes: {
+        title: 'Cafes and restaurants',
+        description: 'Quick-service and coffee shop Wi-Fi login helpers.',
+    },
+});
+
 export const SEO_PAGES = Object.freeze([
     {
         path: '/what-is-nossl',
@@ -6,6 +29,7 @@ export const SEO_PAGES = Object.freeze([
             'Understand how nossl.sh provides a modern plain HTTP landing page to trigger captive portals and verify restrictive Wi-Fi networks.',
         keywords:
             'what is nossl, nossl explained, plain http landing page, captive portal helper',
+        category: 'overview',
         hero: 'What is nossl.sh?',
         tagline:
             'A modern diagnostic splash page that mirrors NeverSSL while adding live request details.',
@@ -54,6 +78,7 @@ export const SEO_PAGES = Object.freeze([
             'Use nossl.sh as the dependable never-SSL option when you must trigger captive portals over plain HTTP while capturing diagnostics.',
         keywords:
             'never ssl alternative, no ssl page, neverssl replacement, captive portal alternative, nossl sh',
+        category: 'overview',
         hero: 'Good, stable, never-SSL alternative',
         tagline:
             'nossl.sh is engineered to never negotiate SSL/TLS on its primary endpoint while delivering real diagnostics for every request.',
@@ -112,6 +137,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Use nossl.sh to force Wi-Fi login pages to appear, confirm captive portal redirects, and capture the headers your hardware sends.',
         keywords: 'wifi login page, captive wifi test, wifi splash page, network onboarding',
+        category: 'troubleshooting',
         hero: 'Check your Wi-Fi login page',
         tagline:
             'Open this page on any device to trigger the captive portal challenge and capture connection metadata.',
@@ -154,6 +180,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Get phones and tablets online by using nossl.sh to trigger captive portals, inspect HTTP headers, and confirm open internet access.',
         keywords: 'mobile wifi captive portal, phone wifi login, tablet wifi help',
+        category: 'mobile',
         hero: 'Mobile Wi-Fi diagnostics',
         tagline:
             'Ideal for iOS, Android, and ChromeOS when the network refuses to show a login screen.',
@@ -196,6 +223,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Verify whether your Wi-Fi network redirects to a captive portal, and document the HTTP headers observed by the portal.',
         keywords: 'check wifi login, wifi redirect test, captive portal redirect',
+        category: 'troubleshooting',
         hero: 'Check your Wi-Fi login flow',
         tagline:
             'Run a manual check of the captive redirect and capture shareable diagnostics for your IT team.',
@@ -232,6 +260,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Bookmark the nossl page that hotels, airports, and enterprises rely on to bring up captive portals and expose request headers.',
         keywords: 'nossl page, plain http page, captive portal test page',
+        category: 'overview',
         hero: 'Your go-to nossl page',
         tagline:
             'One lightweight destination that always responds over HTTP and documents what the network sees.',
@@ -268,6 +297,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Confirm Wi-Fi connectivity by loading nossl.sh, reviewing HTTP headers, and capturing the timestamp of your request.',
         keywords: 'check wifi connection, wifi diagnostics, wifi captive portal check',
+        category: 'troubleshooting',
         hero: 'Check Wi-Fi connection status',
         tagline:
             'Quickly validate that DNS, routing, and captive portal flows are functioning.',
@@ -298,6 +328,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Follow simple steps to coax stubborn captive portals into loading using nossl.sh and HTTP diagnostics.',
         keywords: 'get captive portal, captive portal url, force captive portal',
+        category: 'troubleshooting',
         hero: 'Get the captive portal to load',
         tagline:
             'Troubleshoot splash screens by providing the plain HTTP request networks expect.',
@@ -331,6 +362,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Learn how to expose the captive portal URL by starting on nossl.sh, then watching the redirect chain from the network gateway.',
         keywords: 'get captive portal url, captive portal link, wifi login url',
+        category: 'troubleshooting',
         hero: 'Get the captive portal URL',
         tagline:
             'Capture the redirect address so you can share it with support teams or automate onboarding scripts.',
@@ -363,6 +395,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Practical steps to make captive portals appear, including DNS resets and HTTP-only checks through nossl.sh.',
         keywords: 'how to get captive portal, captive portal troubleshooting, wifi login help',
+        category: 'troubleshooting',
         hero: 'How to get a captive portal working',
         tagline:
             'Run through a concise checklist and use nossl.sh to confirm each fix.',
@@ -393,6 +426,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Use nossl.sh and the included troubleshooting checklist to help friends, guests, or customers connect to Wi-Fi quickly.',
         keywords: 'help connect to wifi, wifi assistance, captive portal support',
+        category: 'troubleshooting',
         hero: 'Help someone connect to Wi-Fi',
         tagline:
             'Guide others through captive portal hurdles with a repeatable process.',
@@ -429,6 +463,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Resolve issues with Apple\'s captive portal assistant by manually visiting nossl.sh and reviewing the connection snapshot.',
         keywords: 'apple captive portal, iphone captive portal, mac captive portal',
+        category: 'mobile',
         hero: 'Fix Apple captive portal issues',
         tagline:
             'Works with iPhone, iPad, and macOS to trigger the login screen when the captive assistant fails.',
@@ -460,6 +495,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Guide to solving iPhone Wi-Fi captive portal problems by using nossl.sh and basic network resets.',
         keywords: 'iphone wifi connect, iphone captive portal, iphone wifi help',
+        category: 'mobile',
         hero: 'Connect your iPhone to Wi-Fi',
         tagline:
             'Use nossl.sh as a lightweight captive portal trigger plus troubleshooting checklist.',
@@ -497,6 +533,7 @@ export const SEO_PAGES = Object.freeze([
             'Figure out how captive portals behave and fix issues faster with nossl.sh. It’s a simple tool that helps devices trigger those Wi-Fi login pages every time, without any fuss.',
         keywords:
             'captive portal, wifi login, captive portal test, captive portal detection, captive portal troubleshooting, nossl',
+        category: 'troubleshooting',
         hero: 'Debug captive portals with confidence',
         tagline:
             'nossl.sh lets you trigger and troubleshoot captive portals on public Wi-Fi, enterprise networks, or even tiny embedded systems.',
@@ -543,6 +580,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Trigger the Marriott Bonvoy captive portal, verify room or conference access, and capture your connection details with nossl.sh.',
         keywords: 'marriott wifi login, marriott captive portal, marriott bonvoy wifi, marriott internet help',
+        category: 'hotels',
         hero: 'Marriott Wi-Fi login help',
         tagline:
             'Use nossl.sh to make the Marriott captive portal appear, record headers, and prove you are online.',
@@ -584,6 +622,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Force the Starbucks Wi-Fi splash screen to appear and verify your device is cleared to browse using nossl.sh.',
         keywords: 'starbucks wifi login, starbucks wifi portal, starbucks internet, coffee shop wifi help',
+        category: 'cafes',
         hero: 'Starbucks Wi-Fi login steps',
         tagline:
             'Great for travelers who need the Starbucks portal to load reliably while grabbing a coffee.',
@@ -625,6 +664,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Bring up the McDonald’s Wi-Fi splash page, confirm the captive gateway, and capture the network headers for support.',
         keywords: 'mcdonalds wifi login, mcdonalds wifi portal, mcd wifi help, mcdonalds internet',
+        category: 'cafes',
         hero: 'McDonald’s Wi-Fi login help',
         tagline:
             'Use nossl.sh as your clean HTTP landing page when the McDonald’s portal will not load.',
@@ -666,6 +706,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Launch the Subway Wi-Fi captive portal and confirm internet access using nossl.sh diagnostics.',
         keywords: 'subway wifi login, subway wifi portal, subway internet access, sandwich shop wifi',
+        category: 'cafes',
         hero: 'Subway Wi-Fi login tips',
         tagline:
             'Ideal when the sandwich shop network needs an HTTP nudge before letting you browse.',
@@ -702,6 +743,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Force the Burger King Wi-Fi splash to load and verify the connection path with nossl.sh diagnostics.',
         keywords: 'burger king wifi login, bk wifi portal, burger king internet, cafeteria wifi help',
+        category: 'cafes',
         hero: 'Burger King Wi-Fi login help',
         tagline:
             'Great for travelers relying on Burger King Wi-Fi while on the road.',
@@ -738,6 +780,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Load the Taco Bell Wi-Fi captive page, verify internet release, and capture connection info with nossl.sh.',
         keywords: 'taco bell wifi login, taco bell portal, taco bell internet, fast food wifi help',
+        category: 'cafes',
         hero: 'Taco Bell Wi-Fi helper',
         tagline:
             'A dependable HTTP landing page that makes the Taco Bell captive portal surface.',
@@ -774,6 +817,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Unstick the KFC Wi-Fi captive portal and gather a shareable connection snapshot using nossl.sh.',
         keywords: 'kfc wifi login, kfc portal, kfc internet access, quick service wifi',
+        category: 'cafes',
         hero: 'KFC Wi-Fi login steps',
         tagline:
             'Use nossl.sh to get the Colonel’s Wi-Fi portal to appear and verify you are clear to browse.',
@@ -810,6 +854,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Prompt the Wendy’s Wi-Fi splash screen and verify open internet access using nossl.sh diagnostics.',
         keywords: 'wendys wifi login, wendys wifi portal, wendys internet, fast food wifi',
+        category: 'cafes',
         hero: 'Wendy’s Wi-Fi helper',
         tagline:
             'A quick way to show the store’s gateway your device is ready for the portal.',
@@ -846,6 +891,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Get the Panera Bread Wi-Fi login page to load, confirm speed, and capture your connection headers with nossl.sh.',
         keywords: 'panera wifi login, panera wifi portal, panera bread internet, cafe wifi help',
+        category: 'cafes',
         hero: 'Panera Wi-Fi login steps',
         tagline:
             'Use nossl.sh while you work from the cafe to keep the captive portal honest.',
@@ -882,6 +928,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Bring up the Dunkin’ Wi-Fi captive portal, verify HTTP access, and export diagnostics using nossl.sh.',
         keywords: 'dunkin wifi login, dunkin donuts wifi, dunkin internet portal, coffee wifi help',
+        category: 'cafes',
         hero: 'Dunkin’ Wi-Fi helper',
         tagline:
             'Perfect for commuters hopping on Dunkin’ Wi-Fi between stops.',
@@ -918,6 +965,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Prompt the Chick-fil-A Wi-Fi login page, validate the connection release, and gather diagnostics via nossl.sh.',
         keywords: 'chick fil a wifi login, chick fil a portal, cfa wifi, chicken wifi help',
+        category: 'cafes',
         hero: 'Chick-fil-A Wi-Fi helper',
         tagline:
             'Use nossl.sh when the Chick-fil-A captive portal stalls during a meal.',
@@ -954,6 +1002,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Force the Hilton hotel Wi-Fi captive portal to load and confirm billing or room access flows via nossl.sh.',
         keywords: 'hilton wifi login, hilton captive portal, hilton honors wifi, hotel wifi help',
+        category: 'hotels',
         hero: 'Hilton Wi-Fi login help',
         tagline:
             'Great for Hilton Honors guests who need a reliable HTTP trigger for the login page.',
@@ -990,6 +1039,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Prompt the Hyatt guest Wi-Fi login screen, verify your device is cleared, and retain diagnostics using nossl.sh.',
         keywords: 'hyatt wifi login, hyatt captive portal, hyatt wifi help, hotel wifi troubleshoot',
+        category: 'hotels',
         hero: 'Hyatt Wi-Fi login tips',
         tagline:
             'Designed for Hyatt guests who need a clean HTTP page to wake the captive portal.',
@@ -1026,6 +1076,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Get the Holiday Inn captive portal to appear, check routing, and document the connection using nossl.sh.',
         keywords: 'holiday inn wifi login, ihg wifi portal, holiday inn internet, hotel wifi help',
+        category: 'hotels',
         hero: 'Holiday Inn Wi-Fi helper',
         tagline:
             'A straightforward HTTP page to make the IHG captive portal show up.',
@@ -1062,6 +1113,7 @@ export const SEO_PAGES = Object.freeze([
         description:
             'Force the Best Western guest Wi-Fi portal to load and capture diagnostics for hotel staff with nossl.sh.',
         keywords: 'best western wifi login, best western portal, hotel wifi help, best western internet',
+        category: 'hotels',
         hero: 'Best Western Wi-Fi helper',
         tagline:
             'Use nossl.sh as your no-SSL landing page before calling the front desk.',
@@ -1093,5 +1145,15 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
 ]);
+
+export const SEO_PAGES_BY_CATEGORY = Object.freeze(
+    Object.entries(SEO_PAGE_CATEGORIES)
+        .map(([id, meta]) => ({
+            id,
+            ...meta,
+            pages: SEO_PAGES.filter((page) => page.category === id),
+        }))
+        .filter((category) => category.pages.length > 0),
+);
 
 export const SEO_PAGE_PATH_SET = new Set(SEO_PAGES.map((page) => page.path));

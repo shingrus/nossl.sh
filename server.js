@@ -4,7 +4,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
 import {createHoneypotService} from './componets/honeypot.js';
-import {SEO_PAGE_PATH_SET} from './componets/seo-pages.js';
+import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
 import {createSharedReportService} from './componets/shared-report.js';
 
@@ -18,6 +18,7 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
     ? Number.parseInt(process.env.REPORT_TTL_SECONDS, 10)
     : 24 * 60 * 60;
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
+const GUIDE_INDEX_CANONICAL_URL = 'https://nossl.sh/guides';
 
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
@@ -398,6 +399,29 @@ app.get('/api/request-info', (req, res) => {
         status: scheme === 'https' ? 'secure' : 'insecure',
         clientIp,
         headers,
+    });
+});
+
+app.get('/guides', (req, res) => {
+    const baseData = getBaseRequestData(req, res);
+    const {
+        scheme,
+        generatedAt,
+        generationTimeMs,
+        totalRequests,
+    } = baseData;
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    res.render('seo-directory', {
+        categories: SEO_PAGES_BY_CATEGORY,
+        scheme,
+        generatedAt,
+        generationTimeMs,
+        totalRequests,
+        canonicalUrl: GUIDE_INDEX_CANONICAL_URL,
     });
 });
 
