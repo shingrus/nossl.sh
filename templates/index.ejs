@@ -73,15 +73,16 @@
           <h2 id="connection-info">╔═══════════════════════╗
 ║ CONNECTION SNAPSHOT   ║
 ╚═══════════════════════╝</h2>
-          <span class="status <%= scheme === 'https' ? 'secure' : 'insecure' %>">
-            [ <%= status %> ]
-          </span>
+          <% if (shareReportEnabled) { %>
+          <button type="button" class="copy" data-share-report data-share-url="<%= shareReportUrl %>">
+            [ SHARE REPORT ]
+          </button>
+          <% } %>
         </header>
 
         <p class="panel__summary">
           >> Request served over <strong><%= scheme.toUpperCase() %></strong>. These numbers refresh each time you load the page.
         </p>
-
         <dl class="connection-grid">
           <div>
             <dt>Connection type</dt>
@@ -105,15 +106,16 @@
       <div class="dashboard__columns">
         <section aria-labelledby="request-headers" class="panel panel--headers">
           <header class="panel__header">
-            <div>
-              <h2 id="request-headers">╔═══════════════════╗
-║ REQUEST HEADERS   ║
-╚═══════════════════╝</h2>
+          <div>
+            <h2 id="request-headers">
+ REQUEST HEADERS
+</h2>
               <p class="panel__summary">>> Compact view of the headers we saw from your device.</p>
-            </div>
+          </div>
             <button type="button" class="copy" data-copy-headers>
               [ COPY AS JSON ]
             </button>
+
           </header>
           <div class="table-wrapper">
             <table>
@@ -271,6 +273,48 @@
 
         return fallbackCopyText(text);
       };
+
+      const shareButton = document.querySelector('[data-share-report]');
+      const shareStatus = document.querySelector('[data-share-status]');
+
+      const setShareStatus = (text) => {
+        if (!shareStatus) {
+          return;
+        }
+        shareStatus.textContent = text;
+      };
+
+      if (shareButton) {
+        const shareUrl = shareButton.getAttribute('data-share-url') || '';
+        if (shareUrl) {
+          setShareStatus(shareUrl);
+        } else {
+          shareButton.disabled = true;
+        }
+
+        const resetShareButton = () => {
+          shareButton.textContent = '[ SHARE REPORT ]';
+          shareButton.disabled = false;
+        };
+
+        shareButton.addEventListener('click', async () => {
+          if (!shareUrl) {
+            return;
+          }
+          shareButton.textContent = '[ COPYING... ]';
+          shareButton.disabled = true;
+          try {
+            const copied = await copyText(shareUrl);
+            shareButton.textContent = copied ? '[ LINK COPIED ]' : '[ COPY FAILED ]';
+            setShareStatus(shareUrl);
+          } catch (error) {
+            shareButton.textContent = '[ UNAVAILABLE ]';
+            setShareStatus('Sharing is temporarily unavailable.');
+          } finally {
+            setTimeout(resetShareButton, 2500);
+          }
+        });
+      }
 
       if (headersCopyButton) {
         const headerPairs = <%- JSON.stringify(headers) %>;

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shared Connection Report</title>
+    <meta name="description" content="Plain-text shared connection report from nossl.sh." />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?123" />
+  </head>
+  <body>
+    <% const formatTimestamp = (value) => { const dt = new Date(value); if (Number.isNaN(dt.getTime())) { return String(value ?? ''); } return dt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC'); }; %>
+    <header class="top-bar">
+      <div class="container top-bar__inner">
+        <a class="branding" href="/" aria-label="nossl.sh home">
+          <pre class="logo" aria-hidden="true">╔═══╗
+║ <span class="logo-dot">●</span> ║
+╚═══╝</pre>
+          <div class="branding__copy">
+            <pre class="brand-name">[ nossl.sh ]</pre>
+            <pre class="brand-status">  ✓ Connected </pre>
+          </div>
+        </a>
+        <p class="top-bar__hint">// Shared connection report   //</p>
+      </div>
+    </header>
+
+    <main class="container marketing">
+      <article class="panel panel--connection">
+          <% if (report) { %>
+        <header class="panel__header">
+          <div>
+            <h1>Shared report:  <%= reportId  %>  </h1>
+            <p class="panel__summary">A plain snapshot of one request served by nossl.sh</p>
+          </div>
+        </header><%}%>
+          <div class="panel__body">
+              <% if (!report) { %>
+            <p>Report expired.</p>
+          <% } else { %>
+            <pre class="plain-report">
+status: <%= report.status %>
+protocol: <%= (report.scheme || '').toUpperCase() %>
+client_ip: <%= report.clientIp %>
+captured_at: <%= formatTimestamp(report.generatedAt) %>
+render_time_ms: <%= typeof report.generationTimeMs === 'number' ? report.generationTimeMs.toFixed(2) : 'N/A' %>
+total_requests_served: <%= typeof report.totalRequests === 'number' ? report.totalRequests.toLocaleString('en-US') : 'N/A' %>
+
+headers:
+<% (report.headers || []).forEach(function(header) { const key = header?.[0]; const value = header?.[1]; %>  - <%= key %>: <%= value %>
+<% }); %>
+            </pre>
+          <% } %>
+        </div>
+      </article>
+    </main>
+
+    <footer>
+      <div class="container">
+        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
+        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
+        <p>>> Return to the <a href="/">main nossl.sh page</a>.</p>
+      </div>
+    </footer>
+  </body>
+</html>
