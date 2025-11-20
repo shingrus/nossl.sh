@@ -143,7 +143,7 @@ export const createSharedReportService = ({
 
     const getShareUrl = (req, reportId) => {
         const host = req.get('host') || 'nossl.sh';
-        return `https://${host}/report/${reportId}`;
+        return `http://${host}/report/${reportId}`;
     };
 
     return {
