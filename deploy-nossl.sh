@@ -5,7 +5,8 @@ set -Eeuo pipefail
 SERVICE="${SERVICE:-nossl}"
 APP_DIR="${APP_DIR:-/opt/nossl.sh/app}"                # live app dir used by systemd service
 RUN_AS="${RUN_AS:-nossl}"
-REPO_URL="${REPO_URL:-https://github.com/shingrus/nossl.sh}"
+REPO_URL="git@github.com:shingrus/nossl.sh.git"
+
 BRANCH="${BRANCH:-main}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8080/healthz}"
@@ -18,7 +19,7 @@ NPM_CACHE_DIR="${NPM_CACHE_DIR:-/var/cache/nossl-npm}" # speeds installs
 export npm_config_build_from_source=false              # prefer prebuilt binaries
 
 # ===== Helpers =====
-as_user() { sudo -u "$RUN_AS" -H bash -lc "$*"; }
+as_user() { sudo -E -u "$RUN_AS" -H bash -lc "$*"; }
 timestamp() { date +"%Y%m%d-%H%M%S"; }
 
 # Prevent concurrent runs
