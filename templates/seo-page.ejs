@@ -105,24 +105,18 @@
       <% } %>
       <section class="panel panel--actions">
         <header class="panel__header">
-          <h2>╔══════════════════╗
-║ QUICK STEPS      ║
-╚══════════════════╝</h2>
+          <h2>Quick steps to trigger captive portals</h2>
         </header>
         <div class="actions-grid">
           <div>
-            <h3>┌─[ OPEN nossl.sh ]─┐</h3>
-            <p>>> Visit http://nossl.sh on the device you are testing.</p>
-            <div class="code-snippet">
-              <a class="copy copy--snippet" href="/" aria-label="Return to nossl.sh diagnostics">[ Visit nossl.sh ]</a>
-            </div>
+            <h3>Apple captive portal check</h3>
+            <p>Open the official Apple CNA page to force the captive assistant on iOS and macOS devices.</p>
+            <a class="copy" href="http://captive.apple.com/hotspot-detect.html" rel="noopener">Open Apple captive portal</a>
           </div>
           <div>
-            <h3>┌─[ FETCH JSON SNAPSHOT ]─┐</h3>
-            <p>>> Need raw data? Pull the JSON payload from /api/request-info.</p>
-            <div class="code-snippet">
-              <a class="copy copy--snippet" href="/api/request-info">[ VIEW API RESPONSE ]</a>
-            </div>
+            <h3>Android captive portal check</h3>
+            <p>Use the Android connectivity check URL that devices call before presenting the portal dialog.</p>
+            <a class="copy" href="http://connectivitycheck.gstatic.com/generate_204" rel="noopener">Open Android captive portal</a>
           </div>
         </div>
       </section>
