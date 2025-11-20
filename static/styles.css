@@ -261,24 +261,6 @@ pre {
   margin: 0.35rem 0;
 }
 
-.faq-list {
-  margin: 0;
-}
-
-.faq-list > div + div {
-  margin-top: 1.5rem;
-}
-
-.faq-list dt {
-  font-weight: 700;
-  color: #f5f5f5;
-}
-
-.faq-list dd {
-  margin: 0.35rem 0 0;
-  color: #d1d5db;
-}
-
 .mono {
   font-family: inherit;
   font-size: 0.95rem;
