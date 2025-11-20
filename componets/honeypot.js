@@ -37,7 +37,7 @@ export const generateFakeEnvFile = () => {
     'APP_ENV=production',
     `APP_KEY=base64:${base64Key}`,
     'APP_DEBUG=false',
-    'APP_URL=https://app.acme.internal',
+    'APP_URL=http://app.acme.internal',
     'APP_TIMEZONE=UTC',
     'LOG_CHANNEL=stack',
     'LOG_LEVEL=info',
