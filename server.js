@@ -115,6 +115,7 @@ const getBaseRequestData = (req, res) => {
     const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
     const headers = normalizeHeaders(req.headers);
     const clientIp = getClientIp(req);
+    const requestMethod = req.method || 'GET';
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
     const counters = getCountersSnapshot();
     const totalRequests = counters.httpCount + counters.httpsCount;
@@ -123,6 +124,7 @@ const getBaseRequestData = (req, res) => {
         scheme,
         status,
         clientIp,
+        requestMethod,
         headers,
         generatedAt,
         generationTimeMs,
@@ -316,6 +318,7 @@ const renderIndex = async (req, res) => {
     const {
         scheme,
         status,
+        requestMethod,
         headers,
         generatedAt,
         generationTimeMs,
@@ -341,6 +344,7 @@ const renderIndex = async (req, res) => {
         scheme,
         status,
         clientIp,
+        requestMethod,
         headers,
         generatedAt,
         generationTimeMs,

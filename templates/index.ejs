@@ -1,54 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-      <script type="application/ld+json">
+    <script type="application/ld+json">
+      {
+        "@context":"https://schema.org",
+        "@type":"SoftwareApplication",
+        "name":"nossl.sh",
+        "applicationCategory":"DeveloperApplication",
+        "operatingSystem":"Windows, macOS, Linux",
+        "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+        "url":"https://nossl.sh/",
+        "publisher":{
+          "@type":"Organization",
+          "name":"nossl.sh",
+          "url":"https://nossl.sh/"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
           {
-              "@context":"https://schema.org",
-              "@type":"SoftwareApplication",
-              "name":"nossl.sh",
-              "applicationCategory":"DeveloperApplication",
-              "operatingSystem":"Windows, macOS, Linux",
-              "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
-              "url":"https://nossl.sh/",
-              "publisher":{
-                  "@type":"Organization",
-                  "name":"nossl.sh",
-                  "url":"https://nossl.sh/"
-              }
-          }
-      </script>
-      <script type="application/ld+json">
+            "@type": "Question",
+            "name": "Why won't the Wi-Fi login page load?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Captive portals sometimes block HTTPS handshakes or VPN/DNS profiles. Open http://nossl.sh in your browser, turn off VPNs, and retry so the network can show its sign-in splash screen."
+            }
+          },
           {
-              "@context": "https://schema.org",
-              "@type": "FAQPage",
-              "mainEntity": [
-                  {
-                      "@type": "Question",
-                      "name": "Why won't the Wi-Fi login page load?",
-                      "acceptedAnswer": {
-                          "@type": "Answer",
-                          "text": "Captive portals sometimes block HTTPS handshakes or VPN/DNS profiles. Open http://nossl.sh in your browser, turn off VPNs, and retry so the network can show its sign-in splash screen."
-                      }
-                  },
-                  {
-                      "@type": "Question",
-                      "name": "What is the URL to force Wi-Fi login?",
-                      "acceptedAnswer": {
-                          "@type": "Answer",
-                          "text": "Visit http://nossl.sh to trigger most captive portal login pages because it intentionally serves plain HTTP without HSTS."
-                      }
-                  },
-                  {
-                      "@type": "Question",
-                      "name": "How do I connect to the Wi-Fi login page?",
-                      "acceptedAnswer": {
-                          "@type": "Answer",
-                          "text": "Turn off VPNs, then visit http://nossl.sh in a browser to trigger the captive portal. If it does not appear, reload, try a private window, or toggle Wi-Fi off/on."
-                      }
-                  }
-              ]
+            "@type": "Question",
+            "name": "What is the URL to force Wi-Fi login?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Visit http://nossl.sh to trigger most captive portal login pages because it intentionally serves plain HTTP without HSTS."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I connect to the Wi-Fi login page?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Turn off VPNs, then visit http://nossl.sh in a browser to trigger the captive portal. If it does not appear, reload, try a private window, or toggle Wi-Fi off/on."
+            }
           }
-      </script>
+        ]
+      }
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
@@ -61,8 +61,8 @@
     />
     <meta property="og:title" content="nossl.sh - Force Wifi Login, Check IP & Headers (HTTP Only)" />
     <meta
-            property="og:description"
-            content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
+      property="og:description"
+      content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="http://nossl.sh/" />
@@ -74,157 +74,209 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="nossl.sh - Force Wifi Login, Check IP & Headers (HTTP Only)" />
     <meta
-            name="twitter:description"
-            content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
+      name="twitter:description"
+      content="nossl.sh helps you diagnose no SSL connection issues, check your Wi-Fi, verify internet access, troubleshoot captive portal login pages, and inspect the headers your device sends."
     />
     <meta name="twitter:image" content="/static/og-image.png" />
     <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
     <title>nossl.sh - Connection &amp; Header Diagnostics</title>
     <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
-    <link rel="stylesheet" href="/static/styles.css?123" />
+    <link rel="stylesheet" href="/static/styles.css?124" />
   </head>
   <body>
-    <header class="top-bar">
-      <div class="container top-bar__inner">
-        <a class="branding" href="/" aria-label="nossl.sh home">
-          <pre class="logo" aria-hidden="true">╔═══╗
-║ <span class="logo-dot">●</span> ║
-╚═══╝</pre>
-          <div class="branding__copy">
-            <pre class="brand-name">[ nossl.sh ]</pre>
-            <pre class="brand-status">  ✓ Connected </pre>
-          </div>
+    <header class="site-header">
+      <div class="container nav">
+        <a class="brand" href="/" aria-label="nossl.sh home">
+          <span class="brand__icon" aria-hidden="true">n</span>
+          <span class="brand__text">
+            <span class="brand__name">nossl.sh</span>
+            <span class="brand__tagline">HTTP Request Analyzer</span>
+          </span>
         </a>
-        <p class="top-bar__hint">// Trigger the captive hotel/airport Wi‑Fi login page, no HTTPS, no HSTS //</p>
+        <div class="nav__actions">
+          <a class="button button--ghost" href="/honeypot">Honeypot</a>
+          <% if (shareReportEnabled) { %>
+          <button type="button" class="button button--outline" data-share-report data-share-url="<%= shareReportUrl %>">
+            Copy share link
+          </button>
+          <% } %>
+          <a class="button button--primary" href="/check">Analyze Request</a>
+        </div>
       </div>
     </header>
 
-    <main class="container dashboard">
-      <section aria-labelledby="connection-info" class="panel panel--connection">
-        <header class="panel__header">
-          <h2 id="connection-info">Connection snapshot</h2>
-          <% if (shareReportEnabled) { %>
-          <button type="button" class="copy" data-share-report data-share-url="<%= shareReportUrl %>">
-            [ SHARE REPORT ]
-          </button>
-          <% } %>
-        </header>
-  <dl class="connection-grid">
-          <div>
-            <dt>Connection type</dt>
-            <dd><%= scheme.toUpperCase() %></dd>
-          </div>
-          <div>
-            <dt>Client IP</dt>
-            <dd class="mono"><%= clientIp %></dd>
-          </div>
-          <div>
-            <dt>Page timestamp</dt>
-            <dd class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
-          </div>
-          <div>
-            <dt>Ping time</dt>
-            <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
-          </div>
-        </dl>
+    <main class="container page">
+      <section class="hero">
+        <div class="eyebrow">HTTP Request Analyzer</div>
+        <h1>Your HTTP Request</h1>
+        <p class="lede">Complete analysis of your connection and request details.</p>
+        <div class="hero__meta">
+          <span class="badge">
+            <span class="badge__dot"></span>
+            <%= status %>
+          </span>
+          <span class="muted">Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></span>
+        </div>
+        <% if (shareReportEnabled) { %>
+        <p class="share-status" data-share-status></p>
+        <% } %>
       </section>
 
-      <div class="dashboard__columns">
-        <section aria-labelledby="request-headers" class="panel panel--headers">
-          <header class="panel__header">
+      <section class="stats">
+        <article class="card stat">
+          <div class="stat__label">IP Address</div>
+          <div class="stat__value mono"><%= clientIp %></div>
+          <p class="muted">Detected from your inbound request.</p>
+        </article>
+        <article class="card stat">
+          <div class="stat__label">Response Time</div>
+          <div class="stat__value" data-api-latency aria-live="polite">Measuring…</div>
+          <p class="muted">Round-trip latency to our request info API.</p>
+        </article>
+        <article class="card stat">
+          <div class="stat__label">Request Details</div>
+          <div class="stat__value"><%= scheme.toUpperCase() %></div>
+          <p class="muted">Served over <%= scheme.toUpperCase() %> without SSL enforcement.</p>
+        </article>
+        <article class="card stat">
+          <div class="stat__label">Request Method</div>
+          <div class="stat__value"><%= requestMethod %></div>
+          <p class="muted">Captured as received by the server.</p>
+        </article>
+      </section>
+
+      <section class="card">
+        <header class="card__header">
           <div>
-            <h2 id="request-headers">Request headers</h2>
-              <p class="panel__summary">>> Compact view of the headers we saw from your device.</p>
+            <p class="eyebrow">Captured</p>
+            <h2>Request Headers</h2>
+            <p class="muted">The headers we observed on this request.</p>
           </div>
-            <button type="button" class="copy" data-copy-headers>
-              [ COPY AS JSON ]
-            </button>
-
-          </header>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Header</th>
-                  <th scope="col">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <% headers.forEach(([key, value]) => { %>
-                <tr>
-                  <th scope="row"><%= key %></th>
-                  <td><%= value %></td>
-                </tr>
-                <% }) %>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <div class="dashboard__right-column">
-          <section aria-labelledby="how-to" class="panel panel--actions">
-            <header class="panel__header">
-              <h2 id="how-to">Quick actions</h2>
-            </header>
-            <div class="actions-grid">
-              <div>
-                <h3>Test with curl</h3>
-                <p>>> Get you real IP with curl:</p>
-                <div class="code-snippet" data-curl-snippet>
-                  <button
-                    type="button"
-                    class="copy copy--snippet"
-                    data-copy-curl
-                    aria-label="Copy curl command"
-                  >
-                    [ COPY ]
-                  </button>
-                  <pre><code>$ curl http://nossl.sh</code></pre>
-                </div>
-              </div>
-              <div>
-                <h3>Honeypot dashboard</h3>
-                <p>>> Review suspicious requests hitting the /.env honeypot endpoint.</p>
-                <div class="code-snippet">
-                  <a class="copy copy--snippet" href="/honeypot">[ OPEN CONSOLE ]</a>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section aria-labelledby="usage-information" class="panel panel--support">
-            <header class="panel__header">
-              <h2 id="usage-information">Why this page exists</h2>
-            </header>
-            <div class="panel__body">
-              <p>
-                >> Inspired by NeverSSL, nossl.sh is a quick diagnostic checkpoint when captive portals or restrictive firewalls block
-                HTTPS handshakes. Load this page to trigger splash screens and inspect what your device sends.
-              </p>
-              <p>
-                >> Still stuck? Confirm your Wi-Fi link, temporarily disable VPNs, or retry after clearing custom DNS profiles.
-              </p>
-              <div class="seo-links">
-                <p>>> Explore scenario-specific guides:</p>
-                <ul>
-                  <li><a href="/guides"><b>Browse all guides by category</b></a></li>
-                  <li><a href="/captive-portal">Captive portal detection and diagnostics</a></li>
-                  <li><a href="/wifi-login-page">Wi-Fi login page tester</a></li>
-                  <li><a href="/mobile-wifi">Mobile Wi-Fi captive portal troubleshooting</a></li>
-                  <li><a href="/marriott-wifi-login">Hotel Wi-Fi: Marriott walkthrough</a></li>
-                  <li><a href="/starbucks-wifi-login">Cafe Wi-Fi: Starbucks checklist</a></li>
-                </ul>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <section aria-labelledby="faq" class="panel panel--faq">
-        <header class="panel__header">
-          <h2 id="faq">Frequently Asked Questions</h2>
+          <button type="button" class="button button--outline" data-copy-headers>
+            Copy as JSON
+          </button>
         </header>
-        <div class="panel__body">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Header</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% headers.forEach(([key, value]) => { %>
+              <tr>
+                <th scope="row"><%= key %></th>
+                <td><%= value %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <header class="card__header card__header--inline">
+            <div>
+              <p class="eyebrow">Overview</p>
+              <h2>Connection snapshot</h2>
+            </div>
+            <span class="badge badge--subtle"><%= scheme.toUpperCase() %> detected</span>
+          </header>
+          <dl class="connection-grid">
+            <div>
+              <dt>Connection type</dt>
+              <dd><%= scheme.toUpperCase() %></dd>
+            </div>
+            <div>
+              <dt>Client IP</dt>
+              <dd class="mono"><%= clientIp %></dd>
+            </div>
+            <div>
+              <dt>Page timestamp</dt>
+              <dd class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></dd>
+            </div>
+            <div>
+              <dt>Total requests served</dt>
+              <dd class="mono"><%= totalRequests.toLocaleString('en-US') %></dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header">
+            <div>
+              <p class="eyebrow">Tools</p>
+              <h2>Quick actions</h2>
+              <p class="muted">Use these commands to test captive portals and APIs.</p>
+            </div>
+          </header>
+          <div class="actions-grid">
+            <div>
+              <h3>Test with curl</h3>
+              <p class="muted">Get your real IP with curl:</p>
+              <div class="code-snippet" data-curl-snippet>
+                <button
+                  type="button"
+                  class="button button--ghost copy--snippet"
+                  data-copy-curl
+                  aria-label="Copy curl command"
+                >
+                  Copy
+                </button>
+                <pre><code>$ curl http://nossl.sh</code></pre>
+              </div>
+            </div>
+            <div>
+              <h3>Honeypot dashboard</h3>
+              <p class="muted">Review suspicious requests hitting the /.env honeypot endpoint.</p>
+              <div class="code-snippet">
+                <a class="button button--ghost copy--snippet" href="/honeypot">Open console</a>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Why this page exists</p>
+            <h2>How nossl.sh helps</h2>
+          </div>
+        </header>
+        <div class="card__body">
+          <p>
+            Inspired by NeverSSL, nossl.sh is a quick diagnostic checkpoint when captive portals or restrictive firewalls block
+            HTTPS handshakes. Load this page to trigger splash screens and inspect what your device sends.
+          </p>
+          <p>
+            Still stuck? Confirm your Wi-Fi link, temporarily disable VPNs, or retry after clearing custom DNS profiles.
+          </p>
+          <div class="seo-links">
+            <p class="muted">Explore scenario-specific guides:</p>
+            <ul>
+              <li><a href="/guides"><b>Browse all guides by category</b></a></li>
+              <li><a href="/captive-portal">Captive portal detection and diagnostics</a></li>
+              <li><a href="/wifi-login-page">Wi-Fi login page tester</a></li>
+              <li><a href="/mobile-wifi">Mobile Wi-Fi captive portal troubleshooting</a></li>
+              <li><a href="/marriott-wifi-login">Hotel Wi-Fi: Marriott walkthrough</a></li>
+              <li><a href="/starbucks-wifi-login">Cafe Wi-Fi: Starbucks checklist</a></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Support</p>
+            <h2>Frequently Asked Questions</h2>
+          </div>
+        </header>
+        <div class="card__body">
           <dl class="faq-list">
             <dt class="faq-list__question">Why won't the Wi-Fi login page load?</dt>
             <dd class="faq-list__answer">
@@ -243,18 +295,13 @@
       </section>
     </main>
 
-    <footer>
+    <footer class="footer">
       <div class="container">
-        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
-        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
-        <p>
-          >> Prefer JSON? Try the
-          <a href="/api/request-info" rel="nofollow">[ request info API endpoint ]</a>.
-        </p>
-        <p>>> Overall requests served: <span class="mono"><%= totalRequests.toLocaleString('en-US') %></span></p>
-        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
+        <p>Rendered in <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %>. Total requests: <span class="mono"><%= totalRequests.toLocaleString('en-US') %></span></p>
+        <p class="muted">Prefer JSON? Try the <a href="/api/request-info" rel="nofollow">request info API endpoint</a>.</p>
       </div>
     </footer>
+
     <script>
       const latencyEl = document.querySelector('[data-api-latency]');
       const headersCopyButton = document.querySelector('[data-copy-headers]');
@@ -291,6 +338,7 @@
 
         textarea.select();
 
+        let successful = false;
         try {
           successful = document.execCommand('copy');
         } catch (error) {
@@ -333,7 +381,7 @@
         }
 
         const resetShareButton = () => {
-          shareButton.textContent = '[ SHARE REPORT ]';
+          shareButton.textContent = 'Copy share link';
           shareButton.disabled = false;
         };
 
@@ -341,14 +389,14 @@
           if (!shareUrl) {
             return;
           }
-          shareButton.textContent = '[ COPYING... ]';
+          shareButton.textContent = 'Copying…';
           shareButton.disabled = true;
           try {
             const copied = await copyText(shareUrl);
-            shareButton.textContent = copied ? '[ LINK COPIED ]' : '[ COPY FAILED ]';
+            shareButton.textContent = copied ? 'Link copied' : 'Copy failed';
             setShareStatus(shareUrl);
           } catch (error) {
-            shareButton.textContent = '[ UNAVAILABLE ]';
+            shareButton.textContent = 'Unavailable';
             setShareStatus('Sharing is temporarily unavailable.');
           } finally {
             setTimeout(resetShareButton, 2500);
@@ -369,9 +417,9 @@
 
         headersCopyButton.addEventListener('click', async () => {
           const copied = await copyText(JSON.stringify(headersPayload, null, 2));
-          headersCopyButton.textContent = copied ? '[ COPIED! ]' : '[ COPY FAILED ]';
+          headersCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
           setTimeout(() => {
-            headersCopyButton.textContent = '[ COPY AS JSON ]';
+            headersCopyButton.textContent = 'Copy as JSON';
           }, 2000);
         });
       }
@@ -379,12 +427,12 @@
       if (curlCopyButton) {
         const curlCommand =  'curl http://nossl.sh';
         const resetLabel = () => {
-          curlCopyButton.textContent = '[ COPY ]';
+          curlCopyButton.textContent = 'Copy';
         };
 
         curlCopyButton.addEventListener('click', async () => {
           const copied = await copyText(curlCommand);
-          curlCopyButton.textContent = copied ? '[ COPIED! ]' : '[ COPY FAILED ]';
+          curlCopyButton.textContent = copied ? 'Copied!' : 'Copy failed';
           setTimeout(resetLabel, 2000);
         });
       }
