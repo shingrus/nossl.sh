@@ -593,6 +593,15 @@ footer p {
     color: #4b5563;
   }
 
+  .guide-card {
+    background: #ffffff;
+    border-color: #4b5563;
+  }
+
+  .guide-card__summary {
+    color: #4b5563;
+  }
+
   .status {
     background: #f3f4f6;
     border-color: #4b5563;
