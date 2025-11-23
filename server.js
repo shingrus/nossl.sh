@@ -115,6 +115,14 @@ const getBaseRequestData = (req, res) => {
     const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
     const headers = normalizeHeaders(req.headers);
     const clientIp = getClientIp(req);
+    const requestMethod = req.method;
+    const requestPath = req.originalUrl || req.url || req.path;
+    const host = req.get('host') || '';
+    const httpVersion = req.httpVersion;
+    const remotePort = req.socket?.remotePort;
+    const localPort = req.socket?.localPort;
+    const remoteAddress = req.socket?.remoteAddress;
+    const localAddress = req.socket?.localAddress;
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
     const counters = getCountersSnapshot();
     const totalRequests = counters.httpCount + counters.httpsCount;
@@ -124,6 +132,14 @@ const getBaseRequestData = (req, res) => {
         status,
         clientIp,
         headers,
+        requestMethod,
+        requestPath,
+        host,
+        httpVersion,
+        remotePort,
+        localPort,
+        remoteAddress,
+        localAddress,
         generatedAt,
         generationTimeMs,
         counters,
@@ -321,6 +337,14 @@ const renderIndex = async (req, res) => {
         generationTimeMs,
         counters,
         totalRequests,
+        requestMethod,
+        requestPath,
+        host,
+        httpVersion,
+        remotePort,
+        localPort,
+        remoteAddress,
+        localAddress,
     } = baseData;
 
     if (shareReportStore.isAvailable()) {
@@ -349,6 +373,14 @@ const renderIndex = async (req, res) => {
         shareReportEnabled: Boolean(shareReportUrl),
         shareReportId,
         shareReportUrl,
+        requestMethod,
+        requestPath,
+        host,
+        httpVersion,
+        remotePort,
+        localPort,
+        remoteAddress,
+        localAddress,
     });
 };
 

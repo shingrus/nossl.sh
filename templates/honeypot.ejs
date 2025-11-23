@@ -5,23 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>nossl.sh - Honeypot Activity</title>
     <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
-    <link rel="stylesheet" href="/static/styles.css?1234" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
   </head>
   <body>
-    <header class="top-bar">
-      <div class="container top-bar__inner">
-        <a class="branding" href="/" aria-label="nossl.sh home">
-          <pre class="logo" aria-hidden="true">╔═══╗
-║ ● ║
-╚═══╝</pre>
-          <div class="branding__copy">
-            <pre class="brand-name">[ nossl.sh ]</pre>
-            <pre class="brand-status">  ✓ Connected </pre>
-          </div>
-        </a>
-        <p class="top-bar__hint">// Latest requests hitting /.env honeypot //</p>
-      </div>
-    </header>
+    <% 
+      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+      const headerNote = 'Latest requests hitting /.env honeypot';
+      const footerLines = [];
+    %>
+    <%- include('partials/header', {headerNote}) %>
 
     <main class="container dashboard">
       <section aria-labelledby="honeypot-table" class="panel panel--headers">
@@ -88,12 +80,6 @@
       </section>
     </main>
 
-    <footer>
-      <div class="container">
-        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
-        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
-        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
-      </div>
-    </footer>
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>
