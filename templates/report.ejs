@@ -15,18 +15,11 @@
       const headerCount = headerPairs.length;
       const schemeLabel = report?.scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
       const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
+      const formattedGeneratedAt = formatTimestamp(generatedAt);
+      const headerNote = 'Shared connection report';
+      const footerLines = ['Return to the <a href=\"/\">main nossl.sh page</a>.'];
     %>
-    <header class="top-bar">
-      <div class="container top-bar__row">
-        <a class="brand" href="/" aria-label="nossl.sh home">
-          <span class="brand-dot" aria-hidden="true"></span>
-          <div class="brand-text">
-            <span class="brand-name">nossl.sh</span>
-          </div>
-        </a>
-        <p class="top-bar__note">Shared connection report</p>
-      </div>
-    </header>
+    <%- include('partials/header', {headerNote}) %>
 
     <main class="container page">
       <% if (!report) { %>
@@ -117,12 +110,7 @@
       <% } %>
     </main>
 
-    <footer class="footer">
-      <div class="container footer__inner">
-        <p>Page generated at <span class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></span> · Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %></p>
-        <p>Return to the <a href="/">main nossl.sh page</a>.</p>
-      </div>
-    </footer>
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
 
     <script>
       (() => {

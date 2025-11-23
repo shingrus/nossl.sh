@@ -92,18 +92,12 @@
       const requestLabel = `${requestMethod} ${requestPath}`;
       const localLabel = localAddress ? `${localAddress}${localPort ? ':' + localPort : ''}` : '—';
       const remoteLabel = remoteAddress ? `${remoteAddress}${remotePort ? ':' + remotePort : ''}` : '—';
+      const headerNote = '// Trigger the captive hotel/airport Wi‑Fi login page, never HTTPS, never SSL';
+      const footerLines = [
+        `Prefer JSON? Try the <a href="/api/request-info" rel="nofollow">request info API endpoint</a>. Total requests served: <span class="mono">${totalRequests.toLocaleString('en-US')}</span>`,
+      ];
     %>
-    <header class="top-bar">
-      <div class="container top-bar__row">
-        <a class="brand" href="/" aria-label="nossl.sh home">
-          <span class="brand-dot" aria-hidden="true"></span>
-          <div class="brand-text">
-            <span class="brand-name">nossl.sh</span>
-          </div>
-        </a>
-        <p class="top-bar__note">// Trigger the captive hotel/airport Wi‑Fi login page, never HTTPS, never SSL</p>
-      </div>
-    </header>
+    <%- include('partials/header', {headerNote}) %>
 
     <main class="container page">
       <section aria-labelledby="connection-report" class="card hero">
@@ -238,12 +232,7 @@
       </div>
     </main>
 
-    <footer class="footer">
-      <div class="container footer__inner">
-        <p>Page generated at <span class="mono"><%= formattedGeneratedAt %></span> · Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %></p>
-        <p>Prefer JSON? Try the <a href="/api/request-info" rel="nofollow">request info API endpoint</a>. Total requests served: <span class="mono"><%= totalRequests.toLocaleString('en-US') %></span></p>
-      </div>
-    </footer>
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines}) %>
 
     <script>
       (() => {

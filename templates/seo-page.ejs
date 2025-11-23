@@ -40,17 +40,12 @@
     </script>
   </head>
   <body>
-    <header class="top-bar">
-      <div class="container top-bar__row">
-        <a class="brand" href="/" aria-label="nossl.sh home">
-          <span class="brand-dot" aria-hidden="true"></span>
-          <div class="brand-text">
-            <span class="brand-name">nossl.sh</span>
-          </div>
-        </a>
-        <p class="top-bar__note">Plain HTTP landing page companion</p>
-      </div>
-    </header>
+    <%
+      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+      const headerNote = 'Plain HTTP landing page companion';
+      const footerLines = ['Looking for the full diagnostics dashboard? <a href=\"/\">Return to the main nossl.sh page</a> or explore the <a href=\"/honeypot\">honeypot console</a>.'];
+    %>
+    <%- include('partials/header', {headerNote}) %>
 
     <main class="container marketing">
       <article class="panel panel--connection">
@@ -118,11 +113,6 @@
 
     </main>
 
-    <footer class="footer">
-      <div class="container footer__inner">
-        <p>Page generated at <span class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></span> · Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %></p>
-        <p>Looking for the full diagnostics dashboard? <a href="/">Return to the main nossl.sh page</a> or explore the <a href="/honeypot">honeypot console</a>.</p>
-      </div>
-    </footer>
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>
