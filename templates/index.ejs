@@ -102,7 +102,7 @@
             <span class="brand-status"><span class="status-dot" aria-hidden="true"></span> Online</span>
           </div>
         </a>
-        <p class="top-bar__note">Plain HTTP connection debug</p>
+        <p class="top-bar__note">// Trigger the captive hotel/airport Wi‑Fi login page, never HTTPS, never SSL</p>
       </div>
     </header>
 
@@ -136,10 +136,6 @@
           <div class="hero-secondary">
             <dl class="meta-grid meta-grid--compact">
               <div>
-                <dt>🕒 Generated</dt>
-                <dd><%= formattedGeneratedAt %></dd>
-              </div>
-              <div>
                 <dt>📡 Ping</dt>
                 <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
               </div>
@@ -148,8 +144,8 @@
                 <dd><%= headerCount %></dd>
               </div>
               <div>
-                <dt>📈 Total requests</dt>
-                <dd><%= totalRequests.toLocaleString('en-US') %></dd>
+                <dt>🕒 Generated</dt>
+                <dd><%= formattedGeneratedAt %></dd>
               </div>
             </dl>
           </div>
@@ -200,7 +196,6 @@
           <p class="muted">See your real IP, request method, and headers without HTTPS in the way. Great for captive portals, firewall tests, or debugging VPN/proxy quirks.</p>
           <ul class="bullets">
             <li>Open http://nossl.sh to trigger captive portal pages.</li>
-            <li>Confirm the IP and headers your device actually sends.</li>
             <li>Share a snapshot link if support needs proof.</li>
           </ul>
           <p class="muted">Need step-by-step help? Browse the <a href="/guides">full guide index</a> for hotels, cafes, and mobile walkthroughs.</p>
@@ -214,14 +209,19 @@
         <section class="card info-card" aria-labelledby="curl-examples">
           <p class="eyebrow">cURL examples</p>
           <h3 id="curl-examples" class="card__title">Quick command line checks</h3>
+          <p class="muted">Returns your public IP only — similar to <code class="mono">ifconfig.me</code>.</p>
           <div class="code-block">
             <code class="mono">$ curl http://nossl.sh</code>
             <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://nossl.sh">Copy</button>
+            <div class="code-example mono">→ <%= clientIp %></div>
           </div>
-          <div class="code-block">
-            <code class="mono">$ curl -v http://nossl.sh</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -v http://nossl.sh">Copy</button>
-          </div>
+          <p class="muted">API references:</p>
+          <ul class="bullets">
+            <li><a href="/api/request-info" rel="nofollow">/api/request-info</a> — current IP, scheme, headers.</li>
+            <li><a href="/api/counters" rel="nofollow">/api/counters</a> — request counters snapshot.</li>
+            <li><a href="/api/honeypot" rel="nofollow">/api/honeypot</a> — honeypot hits as JSON.</li>
+          </ul>
+          <p class="muted">Need the honeypot console? Visit the <a href="/honeypot">/honeypot</a> dashboard.</p>
         </section>
 
         <section class="card info-card" aria-labelledby="faq">

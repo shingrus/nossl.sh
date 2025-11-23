@@ -499,12 +499,19 @@ a:focus-visible {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .code-block code {
   font-size: 0.95rem;
   display: block;
   white-space: pre-wrap;
+}
+
+.code-example {
+  width: 100%;
+  margin-top: 6px;
+  color: #cbd5e1;
 }
 
 .code-block .btn {

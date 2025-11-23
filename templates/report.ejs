@@ -9,7 +9,13 @@
     <link rel="stylesheet" href="/static/styles.css?v=2" />
   </head>
   <body>
-    <% const formatTimestamp = (value) => { const dt = new Date(value); if (Number.isNaN(dt.getTime())) { return String(value ?? ''); } return dt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC'); }; %>
+    <% 
+      const formatTimestamp = (value) => { const dt = new Date(value); if (Number.isNaN(dt.getTime())) { return String(value ?? ''); } return dt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC'); }; 
+      const headerPairs = report?.headers || [];
+      const headerCount = headerPairs.length;
+      const schemeLabel = report?.scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
+      const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
+    %>
     <header class="top-bar">
       <div class="container top-bar__row">
         <a class="brand" href="/" aria-label="nossl.sh home">
@@ -23,63 +29,93 @@
       </div>
     </header>
 
-    <main class="container marketing">
-      <article class="panel panel--connection">
-          <% if (report) { %>
-        <header class="panel__header">
-          <div>
-            <h1>Shared report:  <%= reportId  %>  </h1>
-            <p class="panel__summary">A plain snapshot of one request served by nossl.sh</p>
+    <main class="container page">
+      <% if (!report) { %>
+        <section class="card hero">
+          <div class="card__header">
+            <div>
+              <p class="eyebrow">Shared snapshot</p>
+              <h1 class="card__title">Shared report</h1>
+              <p class="panel__summary">This report has expired.</p>
+            </div>
           </div>
-        </header><%}%>
-        <div class="panel__body">
-          <% if (!report) { %>
-            <p>Report expired.</p>
-          <% } else { %>
-            <dl class="connection-grid connection-grid--compact">
+        </section>
+      <% } else { %>
+      <section class="card hero">
+        <div class="card__header">
+          <div>
+            <p class="eyebrow">Shared snapshot</p>
+            <h1 class="card__title">Shared connection report</h1>
+            <p class="panel__summary">Captured request: <span class="mono"><%= reportId %></span></p>
+          </div>
+
+        </div>
+        <div class="hero-grid">
+          <div class="hero-primary">
+            <p class="label">Client IP</p>
+            <div class="ip-row">
+              <span class="ip-value mono"><%= report.clientIp %></span>
+              <button type="button" class="btn btn-ghost" data-copy-text="<%= report.clientIp %>">Copy</button>
+            </div>
+            <dl class="meta-grid meta-grid--compact hero-meta">
               <div>
-                <dt>Status</dt>
-                <dd><%= report.status %></dd>
+                <dt>🌐 Protocol</dt>
+                <dd class="mono"><%= httpLabel %></dd>
               </div>
+            </dl>
+          </div>
+          <div class="hero-secondary">
+            <dl class="meta-grid meta-grid--compact">
               <div>
-                <dt>Protocol</dt>
-                <dd><%= (report.scheme || '').toUpperCase() %></dd>
-              </div>
-              <div>
-                <dt>Client IP</dt>
-                <dd><%= report.clientIp %></dd>
-              </div>
-              <div>
-                <dt>Captured at</dt>
+                <dt>🕒 Captured</dt>
                 <dd><%= formatTimestamp(report.generatedAt) %></dd>
               </div>
               <div>
-                <dt>Render time</dt>
-                <dd><%= typeof report.generationTimeMs === 'number' ? report.generationTimeMs.toFixed(2) + ' ms' : 'N/A' %></dd>
+                <dt>🧾 Headers captured</dt>
+                <dd><%= headerCount %></dd>
+              </div>
+              <div>
+                <dt>📄 Status</dt>
+                <dd><%= report.status %></dd>
               </div>
             </dl>
-
-            <div class="table-wrapper" style="margin-top: 1rem;">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Header</th>
-                    <th scope="col">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% (report.headers || []).forEach(function(header) { const key = header?.[0]; const value = header?.[1]; %>
-                  <tr>
-                    <th scope="row"><%= key %></th>
-                    <td><%= value %></td>
-                  </tr>
-                  <% }); %>
-                </tbody>
-              </table>
-            </div>
-          <% } %>
+          </div>
         </div>
-      </article>
+      </section>
+
+      <section aria-labelledby="shared-headers" class="card collapsible">
+        <div class="card__header card__header--toggle">
+          <div>
+            <p class="eyebrow">Headers</p>
+            <h2 id="shared-headers" class="card__title">Request headers</h2>
+          </div>
+          <div class="header-actions">
+            <span class="pill pill-muted"><%= headerCount %> headers</span>
+            <button type="button" class="btn btn-ghost" data-copy-headers>Copy JSON</button>
+          </div>
+        </div>
+        <div class="collapsible__content" id="headers-content">
+          <div class="table-wrapper headers-table-wrapper">
+            <table class="headers-table">
+              <thead>
+                <tr>
+                  <th scope="col">Header</th>
+                  <th scope="col">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% headerPairs.forEach(([key, value]) => { %>
+                <tr>
+                  <th scope="row"><span class="mono"><%= key %></span></th>
+                  <td><span class="mono"><%= value %></span></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <% } %>
     </main>
 
     <footer class="footer">
@@ -88,5 +124,79 @@
         <p>Return to the <a href="/">main nossl.sh page</a>.</p>
       </div>
     </footer>
+
+    <script>
+      (() => {
+        const headersCopyButton = document.querySelector('[data-copy-headers]');
+
+        const fallbackCopyText = (text) => {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'absolute';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          let successful;
+          try {
+            successful = document.execCommand('copy');
+          } catch (error) {
+            successful = false;
+          }
+          document.body.removeChild(textarea);
+          return successful;
+        };
+
+        const copyText = async (text) => {
+          if (!text) return false;
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            try {
+              await navigator.clipboard.writeText(text);
+              return true;
+            } catch (error) {
+              // fallback below
+            }
+          }
+          return fallbackCopyText(text);
+        };
+
+        const flashButton = (button, label) => {
+          if (!button) return;
+          const original = button.textContent.trim();
+          button.textContent = label;
+          button.disabled = true;
+          setTimeout(() => {
+            button.textContent = original;
+            button.disabled = false;
+          }, 2000);
+        };
+
+        document.querySelectorAll('[data-copy-text]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const text = button.getAttribute('data-copy-text');
+            const copied = await copyText(text);
+            flashButton(button, copied ? 'Copied' : 'Copy failed');
+          });
+        });
+
+        if (headersCopyButton) {
+          const headerPairs = <%- JSON.stringify(headerPairs) %>;
+          const headersPayload = headerPairs.reduce((acc, [key, value]) => {
+            if (acc[key]) {
+              acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
+            } else {
+              acc[key] = value;
+            }
+            return acc;
+          }, {});
+
+          headersCopyButton.addEventListener('click', async () => {
+            const copied = await copyText(JSON.stringify(headersPayload, null, 2));
+            flashButton(headersCopyButton, copied ? 'Copied' : 'Copy failed');
+          });
+        }
+
+      })();
+    </script>
   </body>
 </html>
