@@ -42,7 +42,7 @@
   <body>
     <%
       const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
-      const headerNote = 'Plain HTTP landing page companion';
+      const headerNote = page.hero ;
       const footerLines = ['Looking for the full diagnostics dashboard? <a href=\"/\">Return to the main nossl.sh page</a> or explore the <a href=\"/honeypot\">honeypot console</a>.'];
     %>
     <%- include('partials/header', {headerNote}) %>
