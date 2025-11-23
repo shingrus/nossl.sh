@@ -113,7 +113,11 @@
             <p class="eyebrow">Live snapshot</p>
             <h1 id="connection-report" class="card__title">Connection report</h1>
           </div>
-          <p class="timestamp">Generated at <span class="mono"><%= formattedGeneratedAt %></span></p>
+          <div class="card__actions">
+            <% if (shareReportEnabled) { %>
+              <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">Share</button>
+            <% } %>
+          </div>
         </div>
         <div class="hero-grid">
           <div class="hero-primary">
@@ -122,61 +126,32 @@
               <span class="ip-value mono"><%= clientIp %></span>
               <button type="button" class="btn btn-ghost" data-copy-text="<%= clientIp %>">Copy</button>
             </div>
-            <div class="pill-row">
-              <span class="pill pill-latency" data-api-latency aria-live="polite">Latency: measuring…</span>
-              <span class="pill pill-muted"><%= httpLabel %></span>
-            </div>
-            <div class="stat-grid">
-              <div class="stat">
-                <span class="stat-label">Protocol</span>
-                <span class="stat-value"><%= httpLabel %></span>
+            <dl class="meta-grid meta-grid--compact hero-meta">
+              <div>
+                <dt>🌐 Protocol</dt>
+                <dd class="mono"><%= httpLabel %></dd>
               </div>
-              <div class="stat">
-                <span class="stat-label">Method + path</span>
-                <span class="stat-value"><%= requestLabel %></span>
-              </div>
-              <div class="stat">
-                <span class="stat-label">Host</span>
-                <span class="stat-value"><%= host || '—' %></span>
-              </div>
-            </div>
+            </dl>
           </div>
           <div class="hero-secondary">
-            <dl class="meta-grid">
+            <dl class="meta-grid meta-grid--compact">
               <div>
-                <dt>Status</dt>
-                <dd><%= status %></dd>
-              </div>
-              <div>
-                <dt>Rendered</dt>
-                <dd><%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %></dd>
-              </div>
-              <div>
-                <dt>Date &amp; time (UTC)</dt>
+                <dt>🕒 Generated</dt>
                 <dd><%= formattedGeneratedAt %></dd>
               </div>
               <div>
-                <dt>Remote endpoint</dt>
-                <dd><%= remoteLabel %></dd>
+                <dt>📡 Ping</dt>
+                <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
               </div>
               <div>
-                <dt>Local endpoint</dt>
-                <dd><%= localLabel %></dd>
+                <dt>🧾 Headers captured</dt>
+                <dd><%= headerCount %></dd>
               </div>
               <div>
-                <dt>Total requests served</dt>
+                <dt>📈 Total requests</dt>
                 <dd><%= totalRequests.toLocaleString('en-US') %></dd>
               </div>
             </dl>
-            <% if (shareReportEnabled) { %>
-            <div class="share-row">
-              <div>
-                <p class="label">Share this snapshot</p>
-                <p class="share-url mono" data-share-status aria-live="polite"></p>
-              </div>
-              <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">Copy share link</button>
-            </div>
-            <% } %>
           </div>
         </div>
       </section>
@@ -329,13 +304,13 @@
           fetch('/api/request-info', { headers: { Accept: 'application/json' } })
             .then((response) => {
               const elapsed = Math.round(performance.now() - startedAt);
-              latencyEl.textContent = `Latency: ${elapsed} ms`;
+              latencyEl.textContent = `${elapsed} ms`;
               if (!response.ok) {
                 throw new Error('Response not OK');
               }
             })
             .catch(() => {
-              latencyEl.textContent = 'Latency: unavailable';
+              latencyEl.textContent = 'Unavailable';
               latencyEl.classList.add('pill-muted');
             });
         }
@@ -391,10 +366,6 @@
 
         if (shareButton) {
           const shareUrl = shareButton.getAttribute('data-share-url') || '';
-          const shareStatus = document.querySelector('[data-share-status]');
-          if (shareStatus && shareUrl) {
-            shareStatus.textContent = shareUrl;
-          }
 
           shareButton.addEventListener('click', async () => {
             if (!shareUrl) {
@@ -405,12 +376,9 @@
             try {
               const copied = await copyText(shareUrl);
               shareButton.textContent = copied ? 'Link copied' : 'Copy failed';
-              if (shareStatus) {
-                shareStatus.textContent = shareUrl;
-              }
             } finally {
               setTimeout(() => {
-                shareButton.textContent = 'Copy share link';
+                shareButton.textContent = 'Share';
                 shareButton.disabled = false;
               }, 2000);
             }
