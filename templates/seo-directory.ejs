@@ -34,21 +34,19 @@
     <meta name="twitter:image" content="/static/og-image.png" />
     <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
     <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
-    <link rel="stylesheet" href="/static/styles.css?123" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
   </head>
   <body>
     <header class="top-bar">
-      <div class="container top-bar__inner">
-        <a class="branding" href="/" aria-label="nossl.sh home">
-          <pre class="logo" aria-hidden="true">╔═══╗
-║ <span class="logo-dot">●</span> ║
-╚═══╝</pre>
-          <div class="branding__copy">
-            <pre class="brand-name">[ nossl.sh ]</pre>
-            <pre class="brand-status">  ✓ Connected </pre>
+      <div class="container top-bar__row">
+        <a class="brand" href="/" aria-label="nossl.sh home">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <div class="brand-text">
+            <span class="brand-name">nossl.sh</span>
+            <span class="brand-status"><span class="status-dot" aria-hidden="true"></span> Online</span>
           </div>
         </a>
-        <p class="top-bar__hint">// All scenario-specific Wi-Fi guides in one place //</p>
+        <p class="top-bar__note">All scenario-specific Wi-Fi guides in one place</p>
       </div>
     </header>
 
@@ -103,15 +101,10 @@
       </section>
     </main>
 
-    <footer>
-      <div class="container">
-        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
-        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
-        <p>
-          >> Want to trigger a specific brand or device flow? Pick a guide above or return to the
-          <a href="/">main nossl.sh diagnostics page</a>.
-        </p>
-        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
+    <footer class="footer">
+      <div class="container footer__inner">
+        <p>Page generated at <span class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></span> · Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %></p>
+        <p>Want to trigger a specific brand or device flow? Pick a guide above or return to the <a href="/">main nossl.sh diagnostics page</a>.</p>
       </div>
     </footer>
   </body>

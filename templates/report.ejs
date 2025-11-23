@@ -6,22 +6,20 @@
     <title>Shared Connection Report</title>
     <meta name="description" content="Plain-text shared connection report from nossl.sh." />
     <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
-    <link rel="stylesheet" href="/static/styles.css?123" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
   </head>
   <body>
     <% const formatTimestamp = (value) => { const dt = new Date(value); if (Number.isNaN(dt.getTime())) { return String(value ?? ''); } return dt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC'); }; %>
     <header class="top-bar">
-      <div class="container top-bar__inner">
-        <a class="branding" href="/" aria-label="nossl.sh home">
-          <pre class="logo" aria-hidden="true">╔═══╗
-║ <span class="logo-dot">●</span> ║
-╚═══╝</pre>
-          <div class="branding__copy">
-            <pre class="brand-name">[ nossl.sh ]</pre>
-            <pre class="brand-status">  ✓ Connected </pre>
+      <div class="container top-bar__row">
+        <a class="brand" href="/" aria-label="nossl.sh home">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <div class="brand-text">
+            <span class="brand-name">nossl.sh</span>
+            <span class="brand-status"><span class="status-dot" aria-hidden="true"></span> Online</span>
           </div>
         </a>
-        <p class="top-bar__hint">// Shared connection report   //</p>
+        <p class="top-bar__note">Shared connection report</p>
       </div>
     </header>
 
@@ -84,11 +82,10 @@
       </article>
     </main>
 
-    <footer>
-      <div class="container">
-        <pre class="footer-art">════════════════════════════════════════════════════════════════════════════════</pre>
-        <p>// Page generated at <%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %> | Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %> //</p>
-        <p>>> Return to the <a href="/">main nossl.sh page</a>.</p>
+    <footer class="footer">
+      <div class="container footer__inner">
+        <p>Page generated at <span class="mono"><%= generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %></span> · Render time: <%= typeof generationTimeMs === 'number' ? generationTimeMs.toFixed(2) + ' ms' : 'N/A' %></p>
+        <p>Return to the <a href="/">main nossl.sh page</a>.</p>
       </div>
     </footer>
   </body>
