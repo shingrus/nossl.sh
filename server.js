@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const LISTEN_ADDRESS = process.env.LISTEN_ADDRESS || '127.0.0.1';
 const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TTL_SECONDS ?? '', 10))
     ? Number.parseInt(process.env.REPORT_TTL_SECONDS, 10)
@@ -518,8 +519,9 @@ app.get('/honeypot', (req, res) => {
         generationTimeMs,
     });
 });
+//listen to localhost and PORT
 
-app.listen(PORT, () => {
+app.listen(PORT, LISTEN_ADDRESS, () => {
     // eslint-disable-next-line no-console
-    console.log(`nossl.sh listening on port ${PORT}`);
+    console.log(`nossl.sh listening on ${LISTEN_ADDRESS}:${PORT}`);
 });
