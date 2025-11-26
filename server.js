@@ -224,7 +224,6 @@ const countryCodeToName = (countryCode) => {
 };
 
 export const lookupGeo = (ip) => {
-    ip = "143.58.136.81";
     if (!geoReader || isPrivateIp(ip)) {
         return null;
     }
@@ -234,7 +233,6 @@ export const lookupGeo = (ip) => {
         if (!record) {
             return null;
         }
-
         const countryCode = record.country?.iso_code ||
                 record.registered_country?.iso_code ||
                 record.country_code ||
