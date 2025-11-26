@@ -26,7 +26,7 @@ const GUIDE_INDEX_CANONICAL_URL = 'http://nossl.sh/guides';
 const geoDbPathEnv = process.env.GEOIP_DB_PATH;
 const geoDbPath = geoDbPathEnv
     ? (path.isAbsolute(geoDbPathEnv) ? geoDbPathEnv : path.resolve(__dirname, geoDbPathEnv))
-    : path.join(__dirname, 'ip-to-asn.mmdb');
+    : path.join(__dirname, 'ip-to-country.mmdb');
 
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
@@ -223,10 +223,13 @@ const countryCodeToName = (countryCode) => {
 };
 
 export const lookupGeo = (ip) => {
+    if (process.env.TEST_IP) {
+        ip = process.env.TEST_IP;
+    }
+
     if (!geoReader || isPrivateIp(ip)) {
         return null;
     }
-
     try {
         const record = geoReader.get(ip);
         if (!record) {

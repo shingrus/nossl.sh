@@ -15,6 +15,9 @@
       const headerCount = headerPairs.length;
       const schemeLabel = report?.scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
       const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
+      const geo = report?.geo;
+      const geoSummary = geo?.countryName ? [geo.countryFlag, geo.countryName].filter(Boolean).join(' ') : null;
+      const geoDisplay = geoSummary && geo?.orgName ? `${geoSummary} / ${geo.orgName}` : geoSummary;
       const formattedGeneratedAt = formatTimestamp(generatedAt);
       const headerNote = 'Shared connection report';
       const footerLines = ['Return to the <a href=\"/\">main nossl.sh page</a>.'];
@@ -49,6 +52,11 @@
               <span class="ip-value mono"><%= report.clientIp %></span>
               <button type="button" class="btn btn-ghost" data-copy-text="<%= report.clientIp %>">Copy</button>
             </div>
+            <% if (geoDisplay)  { %>
+              <p class="ip-location mono">
+                <%= geoDisplay %>
+              </p>
+            <% } %>
             <dl class="meta-grid meta-grid--compact hero-meta">
               <div>
                 <dt>🌐 Protocol</dt>
