@@ -20,7 +20,7 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
     ? Number.parseInt(process.env.REPORT_TTL_SECONDS, 10)
     : 24 * 60 * 60;
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
-const GUIDE_INDEX_CANONICAL_URL = 'https://nossl.sh/guides';
+const GUIDE_INDEX_CANONICAL_URL = 'http://nossl.sh/guides';
 
 const geoDbPathEnv = process.env.GEOIP_DB_PATH;
 const geoDbPath = geoDbPathEnv
