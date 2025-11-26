@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import express from 'express';
+import maxmind from 'maxmind';
+import net from 'net';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
@@ -19,6 +21,10 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
     : 24 * 60 * 60;
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
 const GUIDE_INDEX_CANONICAL_URL = 'https://nossl.sh/guides';
+const GEOIP_DB_ENV = process.env.GEOIP_DB_PATH  || "ip-to-asn.mmdb";
+const GEOIP_DB_PATH = GEOIP_DB_ENV
+    ? (path.isAbsolute(GEOIP_DB_ENV) ? GEOIP_DB_ENV : path.resolve(__dirname, GEOIP_DB_ENV))
+    : null;
 
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
@@ -101,6 +107,155 @@ const getRenderMeta = (res) => {
     return {generatedAt, generationTimeMs};
 };
 
+const loadGeoReader = async () => {
+    if (!GEOIP_DB_PATH) {
+        return null;
+    }
+
+    try {
+        return await maxmind.open(GEOIP_DB_PATH);
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load GeoIP database', error);
+        return null;
+    }
+};
+
+const geoReader = await loadGeoReader();
+
+const isPrivateIpv4 = (ip) => {
+
+    const octets = ip.split('.').map((part) => Number.parseInt(part, 10));
+    if (octets.length !== 4 || octets.some((octet) => Number.isNaN(octet))) {
+        return true;
+    }
+
+    if (octets[0] === 10) {
+        return true;
+    }
+    if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) {
+        return true;
+    }
+    if (octets[0] === 192 && octets[1] === 168) {
+        return true;
+    }
+    if (octets[0] === 127) {
+        return true;
+    }
+    if (octets[0] === 169 && octets[1] === 254) {
+        return true;
+    }
+    return octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127;
+
+
+};
+
+const isPrivateIp = (ip) => {
+    if (!ip) {
+        return true;
+    }
+    const normalized = ip.trim();
+
+    if (!maxmind.validate(normalized)) {
+        return true;
+    }
+
+    if (normalized === '::1') {
+        return true;
+    }
+
+    if (normalized.startsWith('::ffff:')) {
+        const mappedIpv4 = normalized.slice('::ffff:'.length);
+        return isPrivateIpv4(mappedIpv4);
+    }
+
+    if (net.isIP(normalized) === 4) {
+        return isPrivateIpv4(normalized);
+    }
+
+    const lower = normalized.toLowerCase();
+    return lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:');
+
+
+};
+
+function countryCodeToFlag(countryCode) {
+    // Validate the input to be exactly two characters long and all alphabetic
+    if (!countryCode || countryCode.length !== 2 || !/^[a-zA-Z]+$/.test(countryCode)) {
+        return '🏳️'; // White Flag Emoji for unknown or invalid country codes
+    }
+
+    const code = countryCode.toUpperCase();
+    const offset = 127397;
+
+    return Array.from(code).map(letter => String.fromCodePoint(letter.charCodeAt(0) + offset)).join('');
+}
+
+const regionDisplayNames = (() => {
+    try {
+        if (typeof Intl?.DisplayNames === 'function') {
+            return new Intl.DisplayNames(['en'], {type: 'region'});
+        }
+    } catch (error) {
+        // ignore
+    }
+    return null;
+})();
+
+const countryCodeToName = (countryCode) => {
+    if (!countryCode || typeof countryCode !== 'string') {
+        return null;
+    }
+
+    const normalized = countryCode.trim().toUpperCase();
+    if (normalized.length !== 2) {
+        return null;
+    }
+
+    if (!regionDisplayNames) {
+        return null;
+    }
+
+    try {
+        return regionDisplayNames.of(normalized) || null;
+    } catch (error) {
+        return null;
+    }
+};
+
+export const lookupGeo = (ip) => {
+    ip = "143.58.136.81";
+    if (!geoReader || isPrivateIp(ip)) {
+        return null;
+    }
+
+    try {
+        const record = geoReader.get(ip);
+        if (!record) {
+            return null;
+        }
+
+        const countryCode = record.country?.iso_code ||
+                record.registered_country?.iso_code ||
+                record.country_code ||
+                null;
+        return {
+            countryCode:
+                countryCode,
+            countryFlag: countryCodeToFlag(countryCode),
+            countryName:
+                record.country?.names?.en ||
+                record.registered_country?.names?.en ||
+                record.country_name ||
+                countryCodeToName(countryCode) ||
+                null,
+            orgName: record.org || null,
+        };
+    } catch (error) {
+        return null;
+    }
+};
+
 const sharedReportService = createSharedReportService({
     redisUrl: REDIS_URL,
     ttlSeconds: REPORT_TTL_SECONDS,
@@ -115,6 +270,7 @@ const getBaseRequestData = (req, res) => {
     const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
     const headers = normalizeHeaders(req.headers);
     const clientIp = getClientIp(req);
+    const geo = lookupGeo(clientIp);
     const requestMethod = req.method;
     const requestPath = req.originalUrl || req.url || req.path;
     const host = req.get('host') || '';
@@ -144,6 +300,7 @@ const getBaseRequestData = (req, res) => {
         generationTimeMs,
         counters,
         totalRequests,
+        geo,
     };
 };
 
@@ -345,6 +502,7 @@ const renderIndex = async (req, res) => {
         localPort,
         remoteAddress,
         localAddress,
+        geo,
     } = baseData;
 
     if (shareReportStore.isAvailable()) {
@@ -381,6 +539,7 @@ const renderIndex = async (req, res) => {
         localPort,
         remoteAddress,
         localAddress,
+        geo,
     });
 };
 
@@ -421,6 +580,7 @@ app.get('/api/counters', (req, res) => {
 app.get('/api/request-info', (req, res) => {
     const scheme = getScheme(req);
     const clientIp = getClientIp(req);
+    const geo = lookupGeo(clientIp);
     const headers = normalizeHeaders(req.headers).reduce((acc, [key, value]) => {
         acc[key] = value;
         return acc;
@@ -431,6 +591,7 @@ app.get('/api/request-info', (req, res) => {
         status: scheme === 'https' ? 'secure' : 'insecure',
         clientIp,
         headers,
+        geo,
     });
 });
 

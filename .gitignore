@@ -8,3 +8,4 @@ counters.db-wal
 
 npm-debug.log*
 *.log
+*.mmdb
