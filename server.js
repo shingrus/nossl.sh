@@ -264,6 +264,26 @@ const sharedReportService = createSharedReportService({
 const shareReportStore = sharedReportService.store;
 const buildShareSnapshot = (baseData) => sharedReportService.buildSnapshot(baseData);
 const getShareUrl = (req, reportId) => sharedReportService.getShareUrl(req, reportId);
+const buildShareLinkForRequest = async (req, baseData) => {
+    if (!shareReportStore.isAvailable() || !baseData) {
+        return {shareReportUrl: null, shareReportId: null};
+    }
+
+    try {
+        const snapshot = buildShareSnapshot(baseData);
+        const shareReportId = await shareReportStore.saveSnapshot(snapshot);
+        if (!shareReportId) {
+            return {shareReportUrl: null, shareReportId: null};
+        }
+
+        return {
+            shareReportId,
+            shareReportUrl: getShareUrl(req, shareReportId),
+        };
+    } catch (error) {
+        return {shareReportUrl: null, shareReportId: null};
+    }
+};
 
 const getBaseRequestData = (req, res) => {
     const scheme = getScheme(req);
@@ -482,9 +502,6 @@ const renderIndex = async (req, res) => {
         return;
     }
 
-    let shareReportUrl = null;
-    let shareReportId = null;
-
     const baseData = getBaseRequestData(req, res);
     const {
         scheme,
@@ -504,20 +521,7 @@ const renderIndex = async (req, res) => {
         localAddress,
         geo,
     } = baseData;
-
-    if (shareReportStore.isAvailable()) {
-        try {
-
-            const snapshot = buildShareSnapshot(baseData);
-            shareReportId = await shareReportStore.saveSnapshot(snapshot);
-            if (shareReportId) {
-                shareReportUrl = getShareUrl(req, shareReportId);
-            }
-        } catch (error) {
-            shareReportId = null;
-            shareReportUrl = null;
-        }
-    }
+    const {shareReportId, shareReportUrl} = await buildShareLinkForRequest(req, baseData);
 
     res.render('index', {
         scheme,
@@ -618,7 +622,7 @@ app.get('/guides', (req, res) => {
     });
 });
 
-registerSeoRoutes(app, {getScheme, getCountersSnapshot, getRenderMeta});
+registerSeoRoutes(app, {getBaseRequestData, buildShareLinkForRequest});
 
 app.get('/healthz', (req, res) => {
     res.json({status: 'ok'});

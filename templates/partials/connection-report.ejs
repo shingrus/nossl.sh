@@ -1,0 +1,125 @@
+<%
+  const connectionReport = (() => {
+    const headerPairs = Array.isArray(headers) ? headers : [];
+    const headerCount = headerPairs.length;
+    const schemeLabel = scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
+    const httpLabel = (httpVersion ? `HTTP/${httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
+    const generatedDate =
+      generatedAt instanceof Date
+        ? generatedAt
+        : (() => {
+            const parsed = new Date(generatedAt || Date.now());
+            return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+          })();
+    const formattedGeneratedAt = generatedDate.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+    let geoSummary = null;
+    if (geo && geo.countryName) {
+        geoSummary = [geo.countryFlag, geo.countryName].filter(Boolean).join(' ');
+    }
+    if (geoSummary && geo.orgName) {
+        geoSummary += ' / ' + geo.orgName;
+    }
+
+    return {
+      formattedGeneratedAt,
+      geoSummary,
+      headerCount,
+      headerPairs,
+      httpLabel,
+    };
+  })();
+%>
+
+<section aria-labelledby="connection-report" class="card hero">
+  <div class="card__header">
+    <div>
+      <p class="eyebrow">Live snapshot</p>
+      <h1 id="connection-report" class="card__title">Connection report</h1>
+    </div>
+    <div class="card__actions">
+      <% if (shareReportEnabled) { %>
+        <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">Share</button>
+      <% } %>
+    </div>
+  </div>
+  <div class="hero-grid">
+    <div class="hero-primary">
+      <p class="label">IP address</p>
+      <div class="ip-row">
+        <span class="ip-value mono"><%= clientIp %></span>
+        <button type="button" class="btn btn-ghost" data-copy-text="<%= clientIp %>">Copy</button>
+      </div>
+      <% if (connectionReport.geoSummary) { %>
+        <p class="ip-location mono">
+          <%= connectionReport.geoSummary %>
+        </p>
+      <% } %>
+      <dl class="meta-grid meta-grid--compact hero-meta">
+        <div>
+          <dt>🌐 Protocol</dt>
+          <dd class="mono"><%= connectionReport.httpLabel %></dd>
+        </div>
+      </dl>
+    </div>
+    <div class="hero-secondary">
+      <dl class="meta-grid meta-grid--compact">
+        <div>
+          <dt>📡 Ping</dt>
+          <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
+        </div>
+        <div>
+          <dt>🧾 Headers captured</dt>
+          <dd><%= connectionReport.headerCount %></dd>
+        </div>
+        <div>
+          <dt>🕒 Generated</dt>
+          <dd><%= connectionReport.formattedGeneratedAt %></dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="request-headers" class="card collapsible">
+  <div class="card__header card__header--toggle">
+    <div>
+      <p class="eyebrow">Headers</p>
+      <h2 id="request-headers" class="card__title">Request headers</h2>
+    </div>
+    <div class="header-actions">
+      <span class="pill pill-muted"><%= connectionReport.headerCount %> headers</span>
+      <button
+        type="button"
+        class="btn btn-outline toggle"
+        data-toggle-headers
+        aria-expanded="false"
+        data-expanded="false"
+        aria-controls="headers-content"
+      >
+        <span data-toggle-label>Show</span>
+        <span class="chevron" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="btn btn-ghost" data-copy-headers>Copy JSON</button>
+    </div>
+  </div>
+  <div class="collapsible__content" id="headers-content" hidden>
+    <div class="table-wrapper headers-table-wrapper">
+      <table class="headers-table">
+        <thead>
+          <tr>
+            <th scope="col">Header</th>
+            <th scope="col">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% connectionReport.headerPairs.forEach(([key, value]) => { %>
+            <tr>
+              <th scope="row"><span class="mono"><%= key %></span></th>
+              <td><span class="mono"><%= value %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

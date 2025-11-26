@@ -79,7 +79,7 @@ export const SEO_PAGES = Object.freeze([
         keywords:
             'never ssl alternative, no ssl page, neverssl replacement, captive portal alternative, nossl sh',
         category: 'overview',
-        hero: 'Good, stable, never-SSL alternative',
+        hero: 'Good, stable, never-SSL alternative - nossl.sh',
         tagline:
             'nossl.sh is engineered to never negotiate SSL/TLS on its primary endpoint while delivering real diagnostics for every request.',
         sections: [
