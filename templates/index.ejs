@@ -94,8 +94,20 @@
       const remoteLabel = remoteAddress ? `${remoteAddress}${remotePort ? ':' + remotePort : ''}` : '—';
       const headerNote = '// Trigger the captive hotel/airport Wi‑Fi login page, never HTTPS, never SSL';
       const footerLines = [
-        `Prefer JSON? Try the <a href="/api/request-info" rel="nofollow">request info API endpoint</a>. Total requests served: <span class="mono">${totalRequests.toLocaleString('en-US')}</span>`,
+        `Prefer JSON? Try the <a href="/api/request-info" rel="nofollow">request info API endpoint</a>. Total requests served: <span class="mono">${totalRequests.toLocaleString('en-US')}</span>`
       ];
+      var geoSummary = (geo && geo.countryName)
+        ? [
+            geo.countryFlag,
+                  // geo.countryCode ? `(${geo.countryCode})` : null,
+            geo.countryName
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : null;
+      if (geoSummary && geo.orgName) {
+          geoSummary += " / " + geo.orgName;
+      }
     %>
     <%- include('partials/header', {headerNote}) %>
 
@@ -119,7 +131,12 @@
               <span class="ip-value mono"><%= clientIp %></span>
               <button type="button" class="btn btn-ghost" data-copy-text="<%= clientIp %>">Copy</button>
             </div>
-            <dl class="meta-grid meta-grid--compact hero-meta">
+              <% if (geoSummary )  { %>
+            <p class="ip-location mono">
+                <%= geoSummary %>
+            </p>
+              <% } %>
+              <dl class="meta-grid meta-grid--compact hero-meta">
               <div>
                 <dt>🌐 Protocol</dt>
                 <dd class="mono"><%= httpLabel %></dd>
@@ -289,7 +306,7 @@
 
         if (latencyEl) {
           const startedAt = performance.now();
-          fetch('/api/request-info', { headers: { Accept: 'application/json' } })
+          fetch('/healthz', { headers: { Accept: 'application/json' } })
             .then((response) => {
               const elapsed = Math.round(performance.now() - startedAt);
               latencyEl.textContent = `${elapsed} ms`;

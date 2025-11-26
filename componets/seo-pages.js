@@ -575,6 +575,68 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/how-captive-portals-work',
+        title: 'How captive portals work (simple explanation)',
+        description:
+            'Learn how captive portals function, why Wi-Fi shows a login page, and how nossl.sh provides the clean HTTP request they expect.',
+        keywords:
+            'how captive portals work, what is a captive portal, wifi login explained, captive portal meaning',
+        category: 'overview',
+        hero: 'How captive portals work',
+        tagline:
+            'Plain-language walkthrough of the Wi-Fi login screens you see in hotels, cafes, campuses, and airports.',
+        sections: [
+            {
+                heading: 'What a captive portal is doing',
+                paragraphs: [
+                    'A captive portal sits between you and the open internet until you accept terms, enter a room or voucher, or acknowledge an acceptable-use policy.',
+                    'Businesses use it to register guests, comply with regulations, and keep track of who is online.',
+                ],
+                bullets: [
+                    'Appears right after you join Wi-Fi but before other sites load.',
+                    'Common on hotel, cafe, campus, and airport networks.',
+                    'Usually clears you once you tap Accept or sign in.',
+                ],
+            },
+            {
+                heading: 'How devices trigger the portal',
+                paragraphs: [
+                    'Laptops and phones send a tiny plain-HTTP request to check if the internet is reachable. Gateways intercept that request and redirect you to the portal page.',
+                    'nossl.sh mirrors those HTTP checks so the portal sees a predictable, easy-to-catch request.',
+                ],
+                bullets: [
+                    'HTTP is used instead of HTTPS so the network can intercept it.',
+                    'The gateway rewrites the request to the login or terms page.',
+                    'If nothing appears, a VPN, custom DNS, or content blocker may be hiding the check.',
+                ],
+            },
+            {
+                heading: 'Why captive portals get stuck',
+                paragraphs: [
+                    'Portals rely on redirects, cookies, and DNS. If any of those fail, the splash page can loop or stall.',
+                    'Opening nossl.sh gives you a timestamped header snapshot you can share with staff when the portal refuses to load.',
+                ],
+                bullets: [
+                    'Private relay or VPN tools can prevent interception.',
+                    'Stale device profiles or cached redirects keep you quarantined.',
+                    'Corporate HTTPS enforcement can block the plain HTTP handshake.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Is a captive portal the same as a firewall?',
+                answer:
+                    'No. A captive portal is a temporary gate used for sign-in or acknowledgment. After you pass it, the network’s normal firewall rules take over.',
+            },
+            {
+                question: 'How can I get through a captive portal faster?',
+                answer:
+                    'Join the Wi-Fi, disable VPNs or custom DNS briefly, open http://nossl.sh, follow the login prompt, then refresh the page to confirm open internet access.',
+            },
+        ],
+    },
+    {
         path: '/marriott-wifi-login',
         title: 'Marriott Wi-Fi login guide for hotels and resorts',
         description:
