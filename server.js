@@ -21,10 +21,11 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
     : 24 * 60 * 60;
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
 const GUIDE_INDEX_CANONICAL_URL = 'https://nossl.sh/guides';
-const GEOIP_DB_ENV = process.env.GEOIP_DB_PATH  || "ip-to-asn.mmdb";
-const GEOIP_DB_PATH = GEOIP_DB_ENV
-    ? (path.isAbsolute(GEOIP_DB_ENV) ? GEOIP_DB_ENV : path.resolve(__dirname, GEOIP_DB_ENV))
-    : null;
+
+const geoDbPathEnv = process.env.GEOIP_DB_PATH;
+const geoDbPath = geoDbPathEnv
+    ? (path.isAbsolute(geoDbPathEnv) ? geoDbPathEnv : path.resolve(__dirname, geoDbPathEnv))
+    : path.join(__dirname, 'ip-to-asn.mmdb');
 
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
@@ -108,12 +109,9 @@ const getRenderMeta = (res) => {
 };
 
 const loadGeoReader = async () => {
-    if (!GEOIP_DB_PATH) {
-        return null;
-    }
 
     try {
-        return await maxmind.open(GEOIP_DB_PATH);
+        return await maxmind.open(geoDbPath);
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Failed to load GeoIP database', error);
