@@ -52,11 +52,13 @@
         <header class="panel__header">
           <div>
             <h1><%= page.hero %></h1>
-            <p class="panel__summary"><%= page.tagline %></p>
+            <p class="panel__summary"><%= page.tagline %> </p>
           </div>
         </header>
       </article>
 
+      <%- include('partials/connection-report') %>
+      
       <% if (page.sections && page.sections.length) { %>
       <section class="panel panel--support">
         <div class="panel__body">
@@ -114,5 +116,6 @@
     </main>
 
     <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/connection-report-script') %>
   </body>
 </html>

@@ -1,0 +1,140 @@
+<script>
+  (() => {
+    const latencyEl = document.querySelector('[data-api-latency]');
+    const headersCopyButton = document.querySelector('[data-copy-headers]');
+    const headersToggleButton = document.querySelector('[data-toggle-headers]');
+    const shareButton = document.querySelector('[data-share-report]');
+
+    const fallbackCopyText = (text) => {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'absolute';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+
+      let successful;
+      try {
+        successful = document.execCommand('copy');
+      } catch (error) {
+        successful = false;
+      }
+
+      document.body.removeChild(textarea);
+      return successful;
+    };
+
+    const copyText = async (text) => {
+      if (!text) {
+        return false;
+      }
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (error) {
+          // fall back to execCommand
+        }
+      }
+      return fallbackCopyText(text);
+    };
+
+    const flashButton = (button, label) => {
+      if (!button) return;
+      const originalLabel = button.textContent.trim();
+      button.textContent = label;
+      button.disabled = true;
+      setTimeout(() => {
+        button.textContent = originalLabel;
+        button.disabled = false;
+      }, 2000);
+    };
+
+    if (latencyEl) {
+      const startedAt = performance.now();
+      fetch('/healthz', { headers: { Accept: 'application/json' } })
+        .then((response) => {
+          const elapsed = Math.round(performance.now() - startedAt);
+          latencyEl.textContent = `${elapsed} ms`;
+          if (!response.ok) {
+            throw new Error('Response not OK');
+          }
+        })
+        .catch(() => {
+          latencyEl.textContent = 'Unavailable';
+          latencyEl.classList.add('pill-muted');
+        });
+    }
+
+    document.querySelectorAll('[data-copy-text]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const text = button.getAttribute('data-copy-text');
+        const copied = await copyText(text);
+        flashButton(button, copied ? 'Copied' : 'Copy failed');
+      });
+    });
+
+    if (headersCopyButton) {
+      const headerPairs = <%- JSON.stringify(headers || []) %>;
+      const headersPayload = headerPairs.reduce((acc, [key, value]) => {
+        if (acc[key]) {
+          acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+
+      headersCopyButton.addEventListener('click', async () => {
+        const copied = await copyText(JSON.stringify(headersPayload, null, 2));
+        flashButton(headersCopyButton, copied ? 'Copied' : 'Copy failed');
+      });
+    }
+
+    if (headersToggleButton) {
+      const targetId = headersToggleButton.getAttribute('aria-controls');
+      const content = document.getElementById(targetId);
+      const labelEl = headersToggleButton.querySelector('[data-toggle-label]');
+
+      const setState = (expanded) => {
+        headersToggleButton.setAttribute('aria-expanded', String(expanded));
+        headersToggleButton.dataset.expanded = String(expanded);
+        if (content) {
+          content.hidden = !expanded;
+        }
+        if (labelEl) {
+          labelEl.textContent = expanded ? 'Hide' : 'Show';
+        }
+      };
+
+      setState(false);
+
+      headersToggleButton.addEventListener('click', () => {
+        const isExpanded = headersToggleButton.getAttribute('aria-expanded') === 'true';
+        setState(!isExpanded);
+      });
+    }
+
+    if (shareButton) {
+      const shareUrl = shareButton.getAttribute('data-share-url') || '';
+
+      shareButton.addEventListener('click', async () => {
+        if (!shareUrl) {
+          return;
+        }
+        shareButton.textContent = 'Copying...';
+        shareButton.disabled = true;
+        try {
+          const copied = await copyText(shareUrl);
+          shareButton.textContent = copied ? 'Link copied' : 'Copy failed';
+        } finally {
+          setTimeout(() => {
+            shareButton.textContent = 'Share';
+            shareButton.disabled = false;
+          }, 2000);
+        }
+      });
+    }
+  })();
+</script>
