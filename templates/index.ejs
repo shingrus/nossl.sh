@@ -306,7 +306,7 @@
 
         if (latencyEl) {
           const startedAt = performance.now();
-          fetch('/api/request-info', { headers: { Accept: 'application/json' } })
+          fetch('/healthz', { headers: { Accept: 'application/json' } })
             .then((response) => {
               const elapsed = Math.round(performance.now() - startedAt);
               latencyEl.textContent = `${elapsed} ms`;
