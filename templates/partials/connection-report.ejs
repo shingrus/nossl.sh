@@ -49,6 +49,13 @@
         <span class="ip-value mono"><%= clientIp %></span>
         <button type="button" class="btn btn-ghost" data-copy-text="<%= clientIp %>">Copy</button>
       </div>
+      <div class="ip6-block" data-ipv6-row hidden>
+        <p class="label">IP6 address</p>
+        <div class="ip-row">
+          <span class="ip-value mono" data-ipv6-value></span>
+          <button type="button" class="btn btn-ghost" data-copy-text="">Copy</button>
+        </div>
+      </div>
       <% if (connectionReport.geoSummary) { %>
         <p class="ip-location mono">
           <%= connectionReport.geoSummary %>
