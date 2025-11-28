@@ -102,6 +102,27 @@ const createShareReportStore = ({redisUrl, ttlSeconds, connectTimeoutMs = 1000})
         }
     };
 
+    const updateSnapshot = async (reportId, snapshot) => {
+        if (!reportId || !snapshot) {
+            return false;
+        }
+        try {
+            const redis = await getClient();
+            if (!redis) {
+                return false;
+            }
+            await redis.set(`shared_report:${reportId}`, JSON.stringify(snapshot), {
+                EX: ttlSeconds,
+            });
+            available = true;
+            return true;
+        } catch (error) {
+            available = false;
+            resetClient();
+            return false;
+        }
+    };
+
     const isAvailable = () => {
         if (!available && !connectPromise) {
             startConnection().catch(() => {
@@ -119,6 +140,7 @@ const createShareReportStore = ({redisUrl, ttlSeconds, connectTimeoutMs = 1000})
         isAvailable,
         saveSnapshot,
         readSnapshot,
+        writeSnapshot: updateSnapshot,
     };
 };
 
