@@ -4,6 +4,10 @@
     const headersCopyButton = document.querySelector('[data-copy-headers]');
     const headersToggleButton = document.querySelector('[data-toggle-headers]');
     const shareButton = document.querySelector('[data-share-report]');
+    const ipv6Block = document.querySelector('[data-ipv6-row]');
+    const ipv6ValueEl = ipv6Block?.querySelector('[data-ipv6-value]');
+    const ipv6CopyButton = ipv6Block?.querySelector('[data-copy-text]');
+    const mainIp = (<%- JSON.stringify(clientIp || '') %>).trim();
 
     const fallbackCopyText = (text) => {
       const textarea = document.createElement('textarea');
@@ -115,6 +119,46 @@
         setState(!isExpanded);
       });
     }
+
+    const revealIpv6 = (ip) => {
+      if (!ipv6Block || !ipv6ValueEl || !ip) {
+        return;
+      }
+      ipv6ValueEl.textContent = ip;
+      if (ipv6CopyButton) {
+        ipv6CopyButton.setAttribute('data-copy-text', ip);
+      }
+      ipv6Block.hidden = false;
+    };
+
+    const fetchIpv6 = async () => {
+      if (!ipv6Block) {
+        return;
+      }
+      try {
+        const response = await fetch('http://v6.nossl.sh/api/request-info', {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+          mode: 'cors',
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        const ipv6 = (payload?.clientIp || '').trim();
+        if (!ipv6 || ipv6 === mainIp) {
+          return;
+        }
+
+        revealIpv6(ipv6);
+      } catch (error) {
+        // Ignore errors; IPv6 info is optional.
+      }
+    };
+
+    fetchIpv6();
 
     if (shareButton) {
       const shareUrl = shareButton.getAttribute('data-share-url') || '';

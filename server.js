@@ -582,6 +582,11 @@ app.get('/api/counters', (req, res) => {
 });
 
 app.get('/api/request-info', (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.vary('Origin');
+
     const scheme = getScheme(req);
     const clientIp = getClientIp(req);
     const geo = lookupGeo(clientIp);
@@ -597,6 +602,13 @@ app.get('/api/request-info', (req, res) => {
         headers,
         geo,
     });
+});
+
+app.options('/api/request-info', (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.sendStatus(204);
 });
 
 app.get('/guides', (req, res) => {
