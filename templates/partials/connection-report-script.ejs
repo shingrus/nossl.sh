@@ -46,6 +46,18 @@
 
     const flashButton = (button, label) => {
       if (!button) return;
+      const useOverlay = button.dataset.flashMode === 'overlay';
+      if (useOverlay) {
+        button.dataset.flashLabel = label;
+        button.classList.add('is-flashing');
+        button.disabled = true;
+        setTimeout(() => {
+          button.classList.remove('is-flashing');
+          button.dataset.flashLabel = '';
+          button.disabled = false;
+        }, 1800);
+        return;
+      }
       const originalLabel = button.textContent.trim();
       button.textContent = label;
       button.disabled = true;

@@ -48,10 +48,11 @@
         <div class="hero-grid">
           <div class="hero-primary">
             <p class="label">Client IP</p>
-            <div class="ip-row">
+            <button type="button" class="ip-row ip-copy" data-copy-text="<%= report.clientIp %>" data-flash-mode="overlay">
               <span class="ip-value mono"><%= report.clientIp %></span>
-              <button type="button" class="btn btn-ghost" data-copy-text="<%= report.clientIp %>">Copy</button>
-            </div>
+              <span class="ip-copy-icon" aria-hidden="true">⧉</span>
+              <span class="sr-only">Copy IP address</span>
+            </button>
             <% if (geoDisplay)  { %>
               <p class="ip-location mono">
                 <%= geoDisplay %>
@@ -157,6 +158,18 @@
 
         const flashButton = (button, label) => {
           if (!button) return;
+          const useOverlay = button.dataset.flashMode === 'overlay';
+          if (useOverlay) {
+            button.dataset.flashLabel = label;
+            button.classList.add('is-flashing');
+            button.disabled = true;
+            setTimeout(() => {
+              button.classList.remove('is-flashing');
+              button.dataset.flashLabel = '';
+              button.disabled = false;
+            }, 1800);
+            return;
+          }
           const original = button.textContent.trim();
           button.textContent = label;
           button.disabled = true;

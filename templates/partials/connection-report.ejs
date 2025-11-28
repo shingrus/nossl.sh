@@ -45,9 +45,18 @@
   <div class="hero-grid">
     <div class="hero-primary">
       <p class="label">IP address</p>
-      <div class="ip-row">
+      <button type="button" class="ip-row ip-copy" data-copy-text="<%= clientIp %>" data-flash-mode="overlay">
         <span class="ip-value mono"><%= clientIp %></span>
-        <button type="button" class="btn btn-ghost" data-copy-text="<%= clientIp %>">Copy</button>
+        <span class="ip-copy-icon" aria-hidden="true">⧉</span>
+        <span class="sr-only">Copy IP address</span>
+      </button>
+      <div class="ip6-block" data-ipv6-row hidden>
+        <p class="label">IP6 address</p>
+        <button type="button" class="ip-row ip-copy" data-copy-text="" data-flash-mode="overlay">
+          <span class="ip6-value mono" data-ipv6-value></span>
+          <span class="ip-copy-icon" aria-hidden="true">⧉</span>
+          <span class="sr-only">Copy IP6 address</span>
+        </button>
       </div>
       <div class="ip6-block" data-ipv6-row hidden>
         <p class="label">IP6 address</p>

@@ -230,11 +230,77 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+.ip-copy {
+  position: relative;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.ip-copy:hover,
+.ip-copy:focus-visible {
+  border-color: #cbd5e1;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+  outline: none;
+}
+
+.ip-copy:active {
+  transform: translateY(1px);
+}
+
 .ip-value {
   font-size: 1.9rem;
   letter-spacing: 0.02em;
   word-break: break-all;
 }
+
+.ip6-value {
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+    word-break: break-all;
+}
+
+.ip-copy .ip-value,
+.ip-copy .ip6-value {
+  flex: 1;
+}
+
+.ip-copy-icon {
+  font-size: 1.2rem;
+  color: var(--muted);
+}
+
+.ip-copy.is-flashing::after {
+  content: attr(data-flash-label);
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  padding: 2px 8px;
+  background: #e7f6ed;
+  border: 1px solid #d7ecde;
+  border-radius: 999px;
+  color: #14532d;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 
 .pill-row {
   display: flex;
