@@ -3,6 +3,10 @@ export const SEO_PAGE_CATEGORIES = Object.freeze({
         title: 'Core HTTP helpers',
         description: 'Understand the nossl.sh foundation and its plain-HTTP stance.',
     },
+    ipTools: {
+        title: 'IP checks and CLI helpers',
+        description: 'See your public IPv4/IPv6 and use curl-friendly endpoints.',
+    },
     troubleshooting: {
         title: 'Captive portal troubleshooting',
         description: 'Force captive portals to appear and capture diagnostics when Wi-Fi stalls.',
@@ -128,6 +132,242 @@ export const SEO_PAGES = Object.freeze([
                 question: 'How reliable is this NeverSSL alternative?',
                 answer:
                     'The project is monitored 24/7, deployed across redundant regions, and backed by simple service checks so travelers and ops teams can trust it in the field.',
+            },
+        ],
+    },
+    {
+        path: '/check-my-ip',
+        title: 'Check my IP address (IPv4 and IPv6) instantly',
+        description:
+            'Use nossl.sh to view both your public IPv4 and IPv6 plus request headers on a plain HTTP page built for captive portals and diagnostics.',
+        keywords: 'check my ip, whats my ip http, ipv4 ipv6 checker, public ip lookup, dual stack ip',
+        category: 'ipTools',
+        hero: 'Check my IP address',
+        tagline:
+            'See both public IPs, copy them, and share a full request snapshot without leaving HTTP.',
+        sections: [
+            {
+                heading: 'See both addresses side by side',
+                paragraphs: [
+                    'The main nossl.sh page shows your IPv4 immediately and calls v6.nossl.sh in the background to reveal IPv6 when available.',
+                    'Everything stays on simple HTTP so captive portals and constrained devices can still display the report.',
+                ],
+                bullets: [
+                    'Copy IPv4 or IPv6 with one tap.',
+                    'Share a support-ready snapshot with the built-in report link.',
+                    'Verify dual-stack reachability without running shell tools.',
+                ],
+            },
+            {
+                heading: 'Built for quick triage',
+                paragraphs: [
+                    'Refresh the page after login attempts to confirm whether the network is still intercepting traffic.',
+                ],
+                bullets: [
+                    'Counters show overall usage to prove the service is up.',
+                    'Header tables expose proxies, VPNs, or custom DNS rewrites.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Will the page show IPv6 automatically?',
+                answer:
+                    'Yes. If your network hands out IPv6, the page fetches v6.nossl.sh and displays the address alongside IPv4 so you can prove dual-stack routing.',
+            },
+            {
+                question: 'Is the data cached?',
+                answer:
+                    'No. Responses disable caching so every refresh returns a fresh timestamp and the latest IP info.',
+            },
+        ],
+    },
+    {
+        path: '/check-my-ipv6',
+        title: 'Check my IPv6 address over HTTP',
+        description:
+            'Verify IPv6 connectivity with nossl.sh using the v6.nossl.sh probe and compare it to your IPv4 address for captive portal testing.',
+        keywords: 'check my ipv6, ipv6 address lookup, ipv6 test http, dual stack ipv6',
+        category: 'ipTools',
+        hero: 'Check my IPv6 address',
+        tagline:
+            'Confirm dual-stack reachability with a lightweight page that also shows your IPv4 details.',
+        sections: [
+            {
+                heading: 'Confirm IPv6 reachability',
+                paragraphs: [
+                    'Load nossl.sh to see IPv4 immediately, then let the built-in v6 probe surface your IPv6 address when the network provides one.',
+                    'The page stays minimal so it still works behind captive portals that block heavier IPv6 testers.',
+                ],
+                bullets: [
+                    'Shows IPv6 only when the network announces it.',
+                    'Copies IPv6 to the clipboard for tickets or chats.',
+                    'Uses HTTP only to avoid TLS hiccups during onboarding.',
+                ],
+            },
+            {
+                heading: 'Why this beats generic IPv6 testers',
+                paragraphs: [
+                    'Most IPv6 tools assume HTTPS. nossl.sh keeps things plain while still providing shareable reports and header captures.',
+                ],
+                bullets: [
+                    'Optional JSON API for automation.',
+                    'Share link bundles both IPs and headers.',
+                    'Works in kiosk, console, and smart TV browsers.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'What if no IPv6 appears?',
+                answer:
+                    'You will still see your IPv4. If IPv6 stays blank, your network likely has no native IPv6 or is blocking the v6.nossl.sh probe.',
+            },
+            {
+                question: 'Can I check IPv6 from the terminal?',
+                answer:
+                    'Yes. Run curl http://v6.nossl.sh to print your IPv6 address with a trailing newline.',
+            },
+        ],
+    },
+    {
+        path: '/check-my-public-ip',
+        title: 'Check my public IP with shareable IPv4 and IPv6 snapshot',
+        description:
+            'Get your public IPv4 and IPv6 plus a timestamped header dump that is ready to share with help desks and network teams.',
+        keywords: 'check public ip, my public ip, public ipv6, public ip lookup, share ip snapshot',
+        category: 'ipTools',
+        hero: 'Check my public IP',
+        tagline:
+            'Copy IPv4, IPv6, and request headers from one refresh-ready diagnostics page.',
+        sections: [
+            {
+                heading: 'Copy-and-share diagnostics',
+                paragraphs: [
+                    'Use the copy buttons or the share link to send a full report—including both public IPs—to your support channels.',
+                ],
+                bullets: [
+                    'Share link preserves IPv6 once detected.',
+                    'Headers and timestamps travel with the snapshot.',
+                    'Geo hint shows which ISP or NAT is in play.',
+                ],
+            },
+            {
+                heading: 'Know exactly what the network sees',
+                paragraphs: [
+                    'The page shows scheme, ports, and headers so you can confirm whether a proxy or VPN is rewriting your traffic.',
+                ],
+                bullets: [
+                    'Great for ticket attachments and incident timelines.',
+                    'Plain HTTP keeps it accessible on locked-down Wi-Fi.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Can I hand this to support?',
+                answer:
+                    'Yes. Send the share link or copy the IPs directly. Everything needed for triage lives in the snapshot.',
+            },
+            {
+                question: 'Does the page expose private device details?',
+                answer:
+                    'It only echoes what the request already sends—IP, headers, and timing—and is intended for diagnostics.',
+            },
+        ],
+    },
+    {
+        path: '/curl-ifconfig',
+        title: 'curl ifconfig alternative using nossl.sh',
+        description:
+            'Use curl against nossl.sh to print your public IPv4 or IPv6 as a drop-in ifconfig.me replacement with no TLS overhead.',
+        keywords: 'curl ifconfig, curl ifconfig.me alternative, curl ifocong, curl ip address, curl ipv6',
+        category: 'ipTools',
+        hero: 'curl ifconfig alternative',
+        tagline:
+            'Run one curl command to grab IPv4 or IPv6 from nossl.sh with nothing but plain text.',
+        sections: [
+            {
+                heading: 'One-line commands to copy',
+                paragraphs: [
+                    'Use curl http://nossl.sh for IPv4 and curl http://v6.nossl.sh for IPv6. Each responds with just the address and a trailing newline.',
+                    'Need more detail? Hit /api/request-info with curl to get JSON headers alongside your IP.',
+                ],
+                bullets: [
+                    'curl http://nossl.sh',
+                    'curl http://v6.nossl.sh',
+                    'curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                ],
+            },
+            {
+                heading: 'Why use this over ifconfig-style sites',
+                paragraphs: [
+                    'nossl.sh is intentionally plain HTTP so captive portals do not block it, while still exposing both public IP addresses.',
+                ],
+                bullets: [
+                    'Lightweight response ideal for cron and scripts.',
+                    'Dual-stack coverage with matching endpoints.',
+                    'Shareable report if you need UI context later.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does the curl output include IPv6?',
+                answer:
+                    'Use the v6 endpoint for IPv6-only output; the main host stays on IPv4 so there is no ambiguity.',
+            },
+            {
+                question: 'Can I force HTTPS instead?',
+                answer:
+                    'HTTPS is available, but the HTTP endpoints avoid captive portal issues and keep the commands shorter.',
+            },
+        ],
+    },
+    {
+        path: '/curl-my-public-ip',
+        title: 'curl my public IP (IPv4 and IPv6) with nossl.sh',
+        description:
+            'Grab your public IPv4 and IPv6 in scripts using curl against nossl.sh plain-text or JSON endpoints.',
+        keywords: 'curl my public ip, curl public ip, curl ipv6 address, command line ip check',
+        category: 'ipTools',
+        hero: 'curl my public IP',
+        tagline:
+            'Script-friendly endpoints that return your IPv4 or IPv6 without extra markup.',
+        sections: [
+            {
+                heading: 'Use curl for automation',
+                paragraphs: [
+                    'Add nossl.sh to shell scripts to record the IP each job uses when running from VPNs, CI/CD, or edge nodes.',
+                    'Choose the plain-text or JSON endpoints depending on what your tooling needs.',
+                ],
+                bullets: [
+                    'Plain text IPv4: curl http://nossl.sh',
+                    'Plain text IPv6: curl http://v6.nossl.sh',
+                    'JSON with headers: curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                ],
+            },
+            {
+                heading: 'Validate dual-stack egress',
+                paragraphs: [
+                    'Paired IPv4 and IPv6 endpoints confirm which path your traffic takes and make it easy to share with network teams.',
+                ],
+                bullets: [
+                    'Useful for NAT64/464XLAT and tunnel troubleshooting.',
+                    'Refresh to capture a new timestamp before filing tickets.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'What does the response look like?',
+                answer:
+                    'The root endpoints return only the IP and a newline, making them safe for shell parsing. The API endpoint returns structured JSON.',
+            },
+            {
+                question: 'Is there a rate limit?',
+                answer:
+                    'nossl.sh is intended for lightweight diagnostics; reasonable automation is fine, but avoid high-frequency scraping.',
             },
         ],
     },
