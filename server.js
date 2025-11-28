@@ -290,6 +290,7 @@ const getBaseRequestData = (req, res) => {
     const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
     const headers = normalizeHeaders(req.headers);
     const clientIp = getClientIp(req);
+    const clientIpv6 = extractClientIpv6(clientIp);
     const geo = lookupGeo(clientIp);
     const requestMethod = req.method;
     const requestPath = req.originalUrl || req.url || req.path;
@@ -307,6 +308,7 @@ const getBaseRequestData = (req, res) => {
         scheme,
         status,
         clientIp,
+        clientIpv6,
         headers,
         requestMethod,
         requestPath,
@@ -359,6 +361,14 @@ const getClientIp = (req) => {
         return realIp;
     }
     return req.ip;
+};
+
+const extractClientIpv6 = (ip) => {
+    const normalized = (ip || '').trim();
+    if (!normalized || normalized.startsWith('::ffff:')) {
+        return null;
+    }
+    return net.isIP(normalized) === 6 ? normalized : null;
 };
 
 const getScheme = (req) => {
@@ -581,24 +591,46 @@ app.get('/api/counters', (req, res) => {
     });
 });
 
-app.get('/api/request-info', (req, res) => {
+app.get('/api/request-info', async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
     res.vary('Origin');
 
+    const reportIdParam = req.query?.reportId;
+    const reportId = typeof reportIdParam === 'string' ? reportIdParam.trim() : null;
     const scheme = getScheme(req);
     const clientIp = getClientIp(req);
+    const clientIpv6 = extractClientIpv6(clientIp);
     const geo = lookupGeo(clientIp);
     const headers = normalizeHeaders(req.headers).reduce((acc, [key, value]) => {
         acc[key] = value;
         return acc;
     }, {});
 
+    if (reportId && clientIpv6 && shareReportStore?.isAvailable?.()) {
+        try {
+            const snapshot = await shareReportStore.readSnapshot(reportId);
+            if (snapshot) {
+                const currentIpv6 = snapshot.clientIpv6;
+                if (currentIpv6 !== clientIpv6) {
+                    await shareReportStore.writeSnapshot(reportId, {
+                        ...snapshot,
+                        clientIpv6,
+                    });
+                }
+            }
+        } catch (error) {
+            // Ignore report update failures to keep API responses fast.
+        }
+    }
+
     res.json({
         scheme,
         status: scheme === 'https' ? 'secure' : 'insecure',
         clientIp,
+        clientIpv6,
+        reportId,
         headers,
         geo,
     });

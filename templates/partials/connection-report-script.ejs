@@ -8,6 +8,7 @@
     const ipv6ValueEl = ipv6Block?.querySelector('[data-ipv6-value]');
     const ipv6CopyButton = ipv6Block?.querySelector('[data-copy-text]');
     const mainIp = (<%- JSON.stringify(clientIp || '') %>).trim();
+    const shareReportId = <%- JSON.stringify(shareReportId || null) %>;
 
     const fallbackCopyText = (text) => {
       const textarea = document.createElement('textarea');
@@ -148,7 +149,12 @@
         return;
       }
       try {
-        const response = await fetch('http://v6.nossl.sh/api/request-info', {
+        const apiUrl = new URL('http://v6.nossl.sh/api/request-info');
+        if (shareReportId) {
+          apiUrl.searchParams.set('reportId', shareReportId);
+        }
+
+        const response = await fetch(apiUrl.toString(), {
           headers: { Accept: 'application/json' },
           cache: 'no-store',
           mode: 'cors',
