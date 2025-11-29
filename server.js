@@ -328,11 +328,11 @@ const getBaseRequestData = (req, res) => {
 
 app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}));
 
-const faviconPath = path.join(__dirname, 'static', 'favicon.svg');
+const faviconPath = path.join(__dirname, 'static', 'favicon.ico');
 
 app.get('/favicon.ico', (req, res) => {
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
-    res.type('image/svg+xml');
+    res.type('image/x-icon');
     res.sendFile(faviconPath);
 });
 
