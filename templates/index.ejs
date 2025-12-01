@@ -127,11 +127,17 @@
                 <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://v6.nossl.sh">Copy</button>
                 <div class="code-example mono">→ ipv6</div>
             </div>
+          <div class="code-block">
+            <code class="mono">$ curl -i http://nossl.sh/status/418</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -i http://nossl.sh/status/418">Copy</button>
+            <div class="code-example mono">→ HTTP/1.1 418 I'm a Teapot</div>
+          </div>
           <p class="muted">API references:</p>
           <ul class="bullets">
             <li><a href="/api/request-info" rel="nofollow">/api/request-info</a> — current IP, scheme, headers.</li>
             <li><a href="/api/counters" rel="nofollow">/api/counters</a> — request counters snapshot.</li>
             <li><a href="/api/honeypot" rel="nofollow">/api/honeypot</a> — honeypot hits as JSON.</li>
+            <li><a href="/status/200" rel="nofollow">/status/:code</a> — return any HTTP status; add <code class="mono">?location=</code> for redirects.</li>
           </ul>
           <p class="muted">Need the honeypot console? Visit the <a href="/honeypot">/honeypot</a> dashboard.</p>
         </section>

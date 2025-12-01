@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import express from 'express';
+import http from 'http';
 import maxmind from 'maxmind';
 import net from 'net';
 import path from 'path';
@@ -329,6 +330,8 @@ const getBaseRequestData = (req, res) => {
 app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}));
 
 const faviconPath = path.join(__dirname, 'static', 'favicon.ico');
+const NO_BODY_STATUS_CODES = new Set([204, 304]);
+const REDIRECT_STATUS_CODES = new Set([300, 301, 302, 303, 307, 308]);
 
 app.get('/favicon.ico', (req, res) => {
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
@@ -641,6 +644,33 @@ app.options('/api/request-info', (req, res) => {
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
     res.sendStatus(204);
+});
+
+app.all('/status/:code', (req, res) => {
+    const statusCode = Number.parseInt(req.params.code, 10);
+    const requestedLocation = typeof req.query?.location === 'string' ? req.query.location : null;
+    const locationHeader = requestedLocation ? requestedLocation.replace(/[\r\n]/g, '').trim() : null;
+
+    if (!Number.isInteger(statusCode) || statusCode < 100 || statusCode > 599) {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+        res.status(200).json({info: 'Status code must be an integer between 100 and 599'});
+        return;
+    }
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+
+    if (locationHeader && REDIRECT_STATUS_CODES.has(statusCode)) {
+        res.set('Location', locationHeader);
+    }
+
+    if ((statusCode >= 100 && statusCode < 200) || NO_BODY_STATUS_CODES.has(statusCode)) {
+        res.status(statusCode).end();
+        return;
+    }
+
+    const description = http.STATUS_CODES[statusCode] || 'Custom Status';
+    res.type('text/plain');
+    res.status(statusCode).send(`Responding with HTTP ${statusCode}${description ? ` - ${description}` : ''}\n`);
 });
 
 app.get('/guides', (req, res) => {

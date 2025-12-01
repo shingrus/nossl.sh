@@ -372,6 +372,49 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/http-status-tester',
+        title: 'HTTP status code tester with redirect support',
+        description:
+            'Use nossl.sh/status/:code to return any HTTP status, including redirect Location headers, for client and CDN testing.',
+        keywords: 'http status tester, custom status code, curl status endpoint, redirect tester, http 418',
+        category: 'ipTools',
+        hero: 'HTTP status code tester',
+        tagline:
+            'Call /status/:code to simulate responses and redirects over plain HTTP.',
+        sections: [
+            {
+                heading: 'Simulate responses in one call',
+                paragraphs: [
+                    'Need to see how a browser, client, or load balancer reacts to a code? Hit /status/503, /status/418, or any code from 100-599.',
+                    'Bodies are omitted for 1xx, 204, and 304 so they match real servers.',
+                ],
+                bullets: [
+                    'curl -i http://nossl.sh/status/418',
+                    'curl -i http://nossl.sh/status/204',
+                    'Cache-control disabled so every request is fresh.',
+                ],
+            },
+            {
+                heading: 'Test redirects with Location',
+                paragraphs: [
+                    'Add a location query parameter to set the Location header on 3xx codes. Useful for SSO flows, CDN rules, or captive portal rewrites.',
+                ],
+                bullets: [
+                    'curl -i "http://nossl.sh/status/302?location=https://example.com"',
+                    'Supports 300, 301, 302, 303, 307, 308 status codes.',
+                    'Plain HTTP keeps captive portals and proxies from blocking the test.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'What input is allowed?',
+                answer:
+                    'Status codes must be integers between 100 and 599. Location values are sanitized to strip newlines before returning.',
+            },
+        ],
+    },
+    {
         path: '/wifi-login-page',
         title: 'Wi-Fi login page tester for captive networks',
         description:

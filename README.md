@@ -13,6 +13,7 @@ The project is packaged for deployment on Google Cloud Run.
 - **JSON API** at `/api/request-info` for programmatic use.
 - **Health endpoint** at `/healthz` for Cloud Run monitoring.
 - **Honeypot log** at `/honeypot` (HTML) and `/api/honeypot` (JSON) showing the top IPs probing `.env`, persisted in SQLite.
+- **Status helper** at `/status/:code` to return any HTTP status (optional `?location=` for redirects).
 
 ## Local development
 
