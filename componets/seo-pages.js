@@ -415,6 +415,56 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/test-http-status',
+        title: 'Test HTTP status codes with nossl.sh and curl',
+        description:
+            'Use nossl.sh to test any HTTP status in one command, like curl http://nossl.sh/status/418 for the classic teapot response.',
+        keywords:
+            'test http status, http status tool, curl status code, http status checker, http redirect test',
+        category: 'ipTools',
+        hero: 'Test HTTP status codes',
+        tagline:
+            'Quickly verify how clients handle any status from 100 to 599 with plain HTTP calls.',
+        sections: [
+            {
+                heading: 'Copy-and-run examples',
+                paragraphs: [
+                    'Answer the popular "test http status" query with simple curl commands against nossl.sh/status/:code, no setup required.',
+                    'Everything stays on HTTP so you can run these checks on captive portals, kiosks, and restricted networks.',
+                ],
+                bullets: [
+                    'curl -i http://nossl.sh/status/418',
+                    'curl -i "http://nossl.sh/status/302?location=https://example.com"',
+                    'curl http://nossl.sh/status/204 (no body by design)',
+                ],
+            },
+            {
+                heading: 'Why this tester helps',
+                paragraphs: [
+                    'Simulate redirects, client errors, and server errors without standing up a new service or editing configs.',
+                    'Responses disable caching so every request is fresh when you retest.',
+                ],
+                bullets: [
+                    'Supports any integer status code from 100 through 599.',
+                    'Strips newlines from Location headers to keep output predictable.',
+                    'Great for regression checks in CI or monitoring scripts.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Do all codes return a body?',
+                answer:
+                    '1xx, 204, and 304 responses omit the body to mirror real servers. Others include a short plain-text line.',
+            },
+            {
+                question: 'Can I test HTTPS behavior too?',
+                answer:
+                    'Yes, but start with HTTP for captive portals or constrained devices. Switch to HTTPS if you need to compare redirect handling across schemes.',
+            },
+        ],
+    },
+    {
         path: '/wifi-login-page',
         title: 'Wi-Fi login page tester for captive networks',
         description:
