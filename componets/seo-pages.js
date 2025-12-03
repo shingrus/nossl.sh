@@ -277,6 +277,240 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/get-my-ip',
+        title: 'Get my IP address instantly over HTTP',
+        description:
+            'Pull your public IPv4 and IPv6 from nossl.sh on a no-SSL helper page that also shows headers for troubleshooting.',
+        keywords: 'get my ip, get my ip address, whats my ip http, ipv4 ipv6 finder, my ip curl',
+        category: 'ipTools',
+        hero: 'Get my IP address',
+        tagline:
+            'Instant IP answer with copy buttons, shareable report links, and zero HTTPS friction.',
+        sections: [
+            {
+                heading: 'Immediate dual-stack lookup',
+                paragraphs: [
+                    'Open nossl.sh and you will see your IPv4 right away, with an automatic call to v6.nossl.sh to surface IPv6 when the network provides it.',
+                    'Everything stays lightweight and HTTP-only so captive portals cannot block it.',
+                ],
+                bullets: [
+                    'Copy IPv4 or IPv6 with a single tap.',
+                    'Refresh after login attempts to confirm the portal released you.',
+                    'Works on consoles, kiosks, and embedded browsers.',
+                ],
+            },
+            {
+                heading: 'Built to share evidence',
+                paragraphs: [
+                    'Use the share link to send a snapshot of your IPs, headers, and timestamp to help desks or teammates.',
+                ],
+                bullets: [
+                    'Header table shows what proxies and VPNs add.',
+                    'Geo hint helps confirm which ISP or exit point you are using.',
+                    'CLI-friendly with curl http://nossl.sh for plain text output.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does this work from the terminal?',
+                answer:
+                    'Yes. curl http://nossl.sh prints your IPv4 with a newline, and curl http://v6.nossl.sh prints IPv6 when available.',
+            },
+            {
+                question: 'Is any data cached?',
+                answer:
+                    'No. Responses disable caching so each load returns a fresh timestamp, IPs, and headers.',
+            },
+        ],
+    },
+    {
+        path: '/get-my-ipv6',
+        title: 'Get my IPv6 address and compare it to IPv4',
+        description:
+            'Use nossl.sh to fetch your IPv6 address quickly, verify dual-stack reachability, and capture headers for support.',
+        keywords: 'get my ipv6, ipv6 address lookup, ipv6 test http, my ipv6 address, ipv6 connectivity',
+        category: 'ipTools',
+        hero: 'Get my IPv6 address',
+        tagline:
+            'Lightweight IPv6 checker that also shows your IPv4 details on the same HTTP page.',
+        sections: [
+            {
+                heading: 'IPv6 without friction',
+                paragraphs: [
+                    'The page calls v6.nossl.sh in the background so your IPv6 address appears as soon as the network provides it.',
+                    'Because everything is plain HTTP, captive portals and legacy devices can still display the results.',
+                ],
+                bullets: [
+                    'Copy IPv6 directly for tickets or chats.',
+                    'Refresh after toggling VPNs or tunnels to compare exits.',
+                    'See IPv4 alongside IPv6 for quick dual-stack confirmation.',
+                ],
+            },
+            {
+                heading: 'Great for NAT64 and tunnel checks',
+                paragraphs: [
+                    'Use the header snapshot to see whether proxies rewrite your IPv6 traffic or downgrade you to IPv4 only.',
+                ],
+                bullets: [
+                    'Share the built-in report link with your network team.',
+                    'Geo hints reveal which ASN or region your IPv6 announces from.',
+                    'curl http://v6.nossl.sh returns IPv6 only when available.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'What if IPv6 never shows up?',
+                answer:
+                    'You will still see IPv4. If IPv6 stays blank, the network likely does not hand out IPv6 or is blocking the v6 probe.',
+            },
+            {
+                question: 'Can I force HTTPS for this page?',
+                answer:
+                    'The helper is designed for HTTP so captive portals cannot intercept it, but you can load the same path over HTTPS if you need to compare.',
+            },
+        ],
+    },
+    {
+        path: '/check-my-ip-address',
+        title: 'Check my IP address online with headers and geo hints',
+        description:
+            'Confirm the IP, scheme, and headers your device is sending, then copy everything to share with support or teammates.',
+        keywords: 'check my ip address, check my ip headers, ip checker http, http ip lookup, what is my ip header',
+        category: 'ipTools',
+        hero: 'Check my IP address with headers',
+        tagline:
+            'See your public IPs, request headers, and connection details on a single refresh-friendly page.',
+        sections: [
+            {
+                heading: 'Prove what the network sees',
+                paragraphs: [
+                    'The status banner shows whether the request arrived over HTTP or HTTPS, and the header table reveals any proxies or VPN extensions in play.',
+                ],
+                bullets: [
+                    'Copy IPv4/IPv6 plus ports for ticket attachments.',
+                    'Sorted headers make it easy to spot injected values.',
+                    'Geo data helps confirm if traffic exits where you expect.',
+                ],
+            },
+            {
+                heading: 'Ready for troubleshooting handoffs',
+                paragraphs: [
+                    'Before filing a support ticket, generate the share link so teammates can review the exact snapshot you captured.',
+                ],
+                bullets: [
+                    'Reload after sign-in attempts to see if the captive portal released you.',
+                    'Use /api/request-info for the same data in JSON.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does this page show IPv6 too?',
+                answer:
+                    'Yes. When your network provides IPv6, the page fetches v6.nossl.sh and displays it alongside IPv4.',
+            },
+            {
+                question: 'Can I automate the check?',
+                answer:
+                    'Fetch http://nossl.sh/api/request-info for structured JSON that includes IPs, headers, and geo when available.',
+            },
+        ],
+    },
+    {
+        path: '/my-ip-location',
+        title: 'My IP location lookup with plain HTTP diagnostics',
+        description:
+            'See your public IP, country flag, and organization hints on a lightweight nossl.sh page built for captive portal testing.',
+        keywords: 'my ip location, where is my ip, ip country lookup, ip geolocation http, my ip city',
+        category: 'ipTools',
+        hero: 'Find my IP location',
+        tagline:
+            'Check which country your IP appears to come from and share the snapshot with support teams.',
+        sections: [
+            {
+                heading: 'Confirm where your IP exits',
+                paragraphs: [
+                    'nossl.sh uses GeoIP data to show a country flag, name, and organization hint when available, alongside your IP addresses.',
+                ],
+                bullets: [
+                    'Validate VPN or smart DNS exit regions.',
+                    'Refresh after toggling networks to compare routes.',
+                    'Everything loads over HTTP so captive portals cannot hide it.',
+                ],
+            },
+            {
+                heading: 'Shareable proof for routing issues',
+                paragraphs: [
+                    'Copy the report link so ISPs or workplace IT can review the same IP, geo, and header data you saw.',
+                ],
+                bullets: [
+                    'Header table reveals any proxy rewriting.',
+                    'Geo hint shows country-level location without storing personal data.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'How precise is the location?',
+                answer:
+                    'Location is country-level and based on public IP data. It is useful for routing checks but not intended for street-level accuracy.',
+            },
+            {
+                question: 'Will private IPs show a location?',
+                answer:
+                    'No. Private or invalid addresses are filtered out, so the page only shows public IPs that can be geo-located.',
+            },
+        ],
+    },
+    {
+        path: '/my-request-headers',
+        title: 'See my request headers and IP over HTTP',
+        description:
+            'Echo every HTTP header your browser or device sends, alongside IP addresses and connection details, without touching HTTPS.',
+        keywords: 'request headers, view my headers, http headers checker, show my headers, my ip headers',
+        category: 'ipTools',
+        hero: 'View my request headers',
+        tagline:
+            'Copyable header list plus IP, scheme, and ports—ideal for debugging proxies, VPNs, and captive portals.',
+        sections: [
+            {
+                heading: 'Instant header echo',
+                paragraphs: [
+                    'Open the page to see a sorted table of every header the request carried, including user agent, languages, and forwarded addresses.',
+                ],
+                bullets: [
+                    'Copy headers to clipboard for tickets.',
+                    'Share a report link so others can verify the same snapshot.',
+                    'No caching to keep the data fresh on each refresh.',
+                ],
+            },
+            {
+                heading: 'Spot network rewrites quickly',
+                paragraphs: [
+                    'Compare headers before and after disabling VPNs, content filters, or custom DNS to see what changes.',
+                ],
+                bullets: [
+                    'Use /api/request-info to fetch the same data as JSON.',
+                    'Geo hint and IP fields help you confirm the egress point.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does this include my user agent?',
+                answer:
+                    'Yes. The page displays every header received, including User-Agent, Accept-Language, and any forwarded-for values.',
+            },
+            {
+                question: 'Can I load it from scripts?',
+                answer:
+                    'Yes. The JSON API returns headers and IPs in a script-friendly format while preserving the same HTTP-only behavior.',
+            },
+        ],
+    },
+    {
         path: '/curl-ifconfig',
         title: 'curl ifconfig alternative using nossl.sh',
         description:
