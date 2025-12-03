@@ -981,33 +981,57 @@ export const SEO_PAGES = Object.freeze([
             'Use nossl.sh to make the Marriott captive portal appear, record headers, and prove you are online.',
         sections: [
             {
-                heading: 'Bring up the Bonvoy captive portal',
+                heading: 'Connect to the right MarriottBonvoy network',
                 paragraphs: [
-                    'Join the hotel Wi-Fi and open http://nossl.sh to force the Marriott login splash to load if it is stuck.',
+                    'Choose the MarriottBonvoy SSID first when you join the hotel Wi-Fi. Other common names include MarriottBonvoy_Guest, brand_Guest, MarriottBonvoy_Public, Brand_Public, or Brand_Conference.',
+                    'If you do not see a matching network or you hit connection errors, clear your cache and ask the Front Desk to confirm the correct SSID and help you connect.',
                 ],
                 bullets: [
-                    'Check whether the network rewrote your HTTP request.',
-                    'Confirm the portal sets your room or conference credentials.',
-                    'Keep a timestamped snapshot for the front desk.',
+                    'Pick MarriottBonvoy if it appears; otherwise select the guest or public option that fits your stay.',
+                    'Brand_Conference networks can require coordinator instructions before you get online.',
+                    'If a password prompt appears, the Front Desk can provide it.',
                 ],
             },
             {
-                heading: 'After you authenticate',
+                heading: 'Finish the captive portal sign-in',
                 paragraphs: [
-                    'Reload the page to ensure the connection switches to open internet instead of staying quarantined.',
+                    'On phones, tablets, and Macs the connection screen usually opens automatically. On Windows PCs or if it does not appear, open a browser and go to www.marriottwifi.com to load it.',
+                    'Follow the on-screen prompts to complete your connection. You may be asked for your room number and last name and then routed to the Property Portal with hotel details.',
+                ],
+                bullets: [
+                    'Member and Non-Member options can show; Non-Members can join Marriott Bonvoy through the portal before connecting.',
+                    'If the portal stalls, toggle Wi-Fi and retry from http://nossl.sh to hand the gateway a clean HTTP request.',
+                    'Stay in touch with the Front Desk if the splash loops even after you clear cache or try again.',
+                ],
+            },
+            {
+                heading: 'Upgrades, portal links, and terms',
+                paragraphs: [
+                    'After you are online, type internetupgrade.marriott.com into your browser if you want to upgrade speed during your stay.',
+                    'To return to the Property Portal at any time, visit stay.marriottbonvoy.com.',
+                    'Review internet terms at https://www.marriott.com/marriott/internet-access/termsofuse.mi and Marriott Bonvoy program terms at https://www.marriott.com/loyalty/terms/default.mi.',
+                ],
+                bullets: [
+                    'Keep a timestamped header snapshot from nossl.sh if you need to show support what the network sees.',
+                    'Check with the Front Desk if any step is unclear or you cannot get the captive portal to finish.',
                 ],
             },
         ],
         faqs: [
             {
-                question: 'Why does the portal keep looping?',
+                question: 'How do I connect to the hotel Wi-Fi?',
                 answer:
-                    'Disable VPN apps and content blockers, then retry from nossl.sh so the gateway can see an HTTP request.',
+                    'Pick MarriottBonvoy or MarriottBonvoy_Guest from your network list (brand_Guest or Brand_Public are common backups). If you cannot find the SSID or you see errors, clear cache, forget and rejoin the network, and ask the Front Desk for the correct name or password.',
             },
             {
-                question: 'Can I share proof with the lobby tech?',
+                question: 'What if the captive portal does not appear?',
                 answer:
-                    'Yes. Copy the headers and IP from the page and send them to Marriott support staff for faster whitelisting.',
+                    'On Windows PCs open a browser and go to www.marriottwifi.com to trigger it. If it still loops, disable VPNs or custom DNS, toggle Wi-Fi, and retry from http://nossl.sh so the gateway sees a plain HTTP request.',
+            },
+            {
+                question: 'Can I share proof with Marriott staff?',
+                answer:
+                    'Yes. Copy the headers, IP, and timestamp from nossl.sh and share them with the Front Desk or meeting coordinator to speed up whitelisting or conference troubleshooting.',
             },
         ],
     },
