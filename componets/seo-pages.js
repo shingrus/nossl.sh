@@ -883,6 +883,54 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/captive-portal-test-url',
+        title: 'Captive portal test URL that always stays on HTTP',
+        description:
+            'Bookmark nossl.sh as your captive portal test URL to trigger Wi-Fi splash pages, validate redirects, and collect request headers.',
+        keywords:
+            'captive portal test url, wifi login url, captive portal check, splash page link',
+        category: 'troubleshooting',
+        hero: 'Captive portal test URL',
+        tagline:
+            'One plain-HTTP address you can open, curl, or embed in docs to wake up captive portals.',
+        sections: [
+            {
+                heading: 'Bookmark the universal trigger',
+                paragraphs: [
+                    'Captive portals expect a simple HTTP request. Loading nossl.sh gives gateways that exact handshake so they can redirect you to their login screen.',
+                ],
+                bullets: [
+                    'Works on laptops, phones, kiosks, and embedded devices.',
+                    'Lightweight markup loads even on throttled guest Wi-Fi.',
+                    'Counters prove the request landed if support asks.',
+                ],
+            },
+            {
+                heading: 'Use it in scripts and training',
+                paragraphs: [
+                    'Share the URL with teammates or wrap it in curl commands when you need repeatable captive portal tests.',
+                ],
+                bullets: [
+                    'curl http://nossl.sh',
+                    'curl -i "http://nossl.sh/status/302?location=http://example.com"',
+                    'Fetch /api/request-info for JSON snapshots.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Why does the test URL avoid HTTPS?',
+                answer:
+                    'HTTPS requests are hard to intercept, so captive portals often ignore them. HTTP ensures the gateway can catch the request and show the splash page.',
+            },
+            {
+                question: 'Will this link change over time?',
+                answer:
+                    'No. http://nossl.sh is maintained as a stable, plain-HTTP endpoint you can rely on during onboarding or documentation.',
+            },
+        ],
+    },
+    {
         path: '/mobile-wifi',
         title: 'Mobile Wi-Fi captive portal troubleshooting',
         description:
@@ -959,6 +1007,55 @@ export const SEO_PAGES = Object.freeze([
                 question: 'What if I never see the captive portal?',
                 answer:
                     'Try forgetting the network, turning off cellular failover, and reloading the page. Some venues also require you to accept terms inside a companion app.',
+            },
+        ],
+    },
+    {
+        path: '/neverssl-not-working',
+        title: 'NeverSSL not working? Use nossl.sh to trigger captive portals',
+        description:
+            'When neverssl.com fails to load or bring up the splash screen, switch to nossl.sh for a stable HTTP landing page with diagnostics.',
+        keywords:
+            'neverssl not working, neverssl alternative, captive portal not loading, neverssl down',
+        category: 'troubleshooting',
+        hero: 'NeverSSL not working',
+        tagline:
+            'Swap to nossl.sh when captive portals ignore the classic NeverSSL domain.',
+        sections: [
+            {
+                heading: 'Quick replacement that mirrors NeverSSL',
+                paragraphs: [
+                    'nossl.sh stays on plain HTTP with no HSTS or surprise upgrades, matching what most gateways expect before showing a login prompt.',
+                    'You also get a live snapshot of headers, IP, and scheme to prove what the network sees.',
+                ],
+                bullets: [
+                    'Open http://nossl.sh right after joining Wi-Fi.',
+                    'Watch for redirects to confirm the portal caught the request.',
+                    'Reload after login to verify the walled garden released you.',
+                ],
+            },
+            {
+                heading: 'Fix the usual blockers',
+                paragraphs: [
+                    'If neither NeverSSL nor nossl.sh appear, clear VPN/proxy tools, set DNS back to automatic, and forget and rejoin the network.',
+                ],
+                bullets: [
+                    'Test again with curl http://nossl.sh to rule out browser cache.',
+                    'Compare the request headers to see if a filter rewrites them.',
+                    'Share the JSON output with hotel or airport IT for whitelisting.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Why would NeverSSL stop working?',
+                answer:
+                    'Some venues block or rate-limit the legacy domain. Others intercept HTTPS only, leaving the HTTP check untouched. nossl.sh offers a maintained alternative with diagnostics.',
+            },
+            {
+                question: 'Do I need to stay on HTTP the whole time?',
+                answer:
+                    'Yes while triggering the portal. After you authenticate, move back to HTTPS sites for normal browsing or start your VPN again.',
             },
         ],
     },
@@ -1341,6 +1438,102 @@ export const SEO_PAGES = Object.freeze([
                 question: 'How can I get through a captive portal faster?',
                 answer:
                     'Join the Wi-Fi, disable VPNs or custom DNS briefly, open http://nossl.sh, follow the login prompt, then refresh the page to confirm open internet access.',
+            },
+        ],
+    },
+    {
+        path: '/airport-wifi-login',
+        title: 'Airport Wi-Fi login help and captive portal tips',
+        description:
+            'Trigger airport Wi-Fi login pages, confirm release from the walled garden, and capture diagnostics with nossl.sh.',
+        keywords:
+            'airport wifi login, airport wifi captive portal, airport wifi not working, airport internet help',
+        category: 'troubleshooting',
+        hero: 'Airport Wi-Fi login',
+        tagline:
+            'Great for layovers when the airport splash page refuses to load.',
+        sections: [
+            {
+                heading: 'Make the airport portal appear',
+                paragraphs: [
+                    'Open http://nossl.sh after joining the terminal SSID. The plain HTTP request is easy for captive gateways to intercept and redirect.',
+                ],
+                bullets: [
+                    'Shows your assigned IP and connection scheme.',
+                    'Lightweight enough for e-readers and in-flight laptops.',
+                    'Counters prove the request reached the gateway.',
+                ],
+            },
+            {
+                heading: 'Travel-day troubleshooting checklist',
+                paragraphs: [
+                    'Airports often block VPNs or private relay. Disable them briefly, forget stale SSIDs, and reload nossl.sh until the login or SMS prompt appears.',
+                ],
+                bullets: [
+                    'Toggle airplane mode, reconnect, and try again.',
+                    'If the portal asks for a code, complete it then refresh.',
+                    'Share /api/request-info output with airport IT if it still fails.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does this work with time-limited airport Wi-Fi?',
+                answer:
+                    'Yes. Use nossl.sh to start the session; after it expires, reload the page to verify whether the gateway lets you reconnect or buy more time.',
+            },
+            {
+                question: 'What if the portal keeps redirecting?',
+                answer:
+                    'Clear cached tabs, disable VPNs, and retry from nossl.sh. Persistent loops can signal the airport needs to whitelist your MAC address.',
+            },
+        ],
+    },
+    {
+        path: '/hotel-wifi-login-not-working',
+        title: 'Hotel Wi-Fi login not working? Trigger the captive portal',
+        description:
+            'Use nossl.sh to make stubborn hotel Wi-Fi portals appear, confirm room access, and capture diagnostics for the front desk.',
+        keywords:
+            'hotel wifi login not working, hotel captive portal not loading, hotel wifi help, hotel internet troubleshooting',
+        category: 'hotels',
+        hero: 'Hotel Wi-Fi login not working',
+        tagline:
+            'A quick HTTP trigger plus evidence you can share with hotel staff.',
+        sections: [
+            {
+                heading: 'Kickstart the splash screen',
+                paragraphs: [
+                    'Join the hotel SSID and immediately load http://nossl.sh. The page provides the plain HTTP request gateways expect before showing the login form.',
+                ],
+                bullets: [
+                    'Watch for redirects that ask for room details.',
+                    'Copy the header snapshot if the portal never appears.',
+                    'Reload after signing in to ensure the walled garden cleared.',
+                ],
+            },
+            {
+                heading: 'Fix common hotel blockers',
+                paragraphs: [
+                    'If you stay stuck, disable VPN or private relay, set DNS to automatic, and forget/rejoin the network. Ask the front desk to whitelist your MAC if needed.',
+                ],
+                bullets: [
+                    'Try both guest and conference SSIDs when available.',
+                    'Check the page for an internal IP that signals isolation.',
+                    'Share the JSON output with support so they can escalate quickly.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Why am I not seeing the room number prompt?',
+                answer:
+                    'The portal only appears after the gateway catches a plain HTTP request. Loading nossl.sh usually triggers it; otherwise staff may need to reset or whitelist your device.',
+            },
+            {
+                question: 'Can I prove that I attempted to connect?',
+                answer:
+                    'Yes. The connection snapshot includes a timestamp, IP, and headers you can show to the front desk or IT contractor.',
             },
         ],
     },
