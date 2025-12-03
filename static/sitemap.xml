@@ -76,6 +76,21 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>http://nossl.sh/curl-my-ip</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/curl-my-ipv6</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/curl-my-headers</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>http://nossl.sh/curl-ifconfig</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

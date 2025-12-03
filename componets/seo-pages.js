@@ -511,6 +511,147 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/curl-my-ip',
+        title: 'curl my IP address with plain-text output',
+        description:
+            'Run curl http://nossl.sh to print your public IPv4 with just a newline, or fetch JSON headers for richer diagnostics.',
+        keywords: 'curl my ip, curl my ip address, curl ipv4, curl whats my ip, curl ip command',
+        category: 'ipTools',
+        hero: 'curl my IP address',
+        tagline:
+            'One curl command returns your IP instantly; add a header for JSON diagnostics when you need more detail.',
+        sections: [
+            {
+                heading: 'One-line commands to copy',
+                paragraphs: [
+                    'Use curl against nossl.sh to grab your IPv4 address without extra markup or TLS overhead.',
+                ],
+                bullets: [
+                    'IPv4 only: curl http://nossl.sh',
+                    'IPv4 with JSON headers: curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                    'Refresh anytime for a fresh timestamp and IP.',
+                ],
+            },
+            {
+                heading: 'Shareable evidence for support',
+                paragraphs: [
+                    'Pair the curl output with the onscreen share link if you need to prove what headers and geo data the network sees.',
+                ],
+                bullets: [
+                    'Great for scripts, cron jobs, or CI runners.',
+                    'Plain HTTP avoids captive-portal blocks.',
+                    'Geo hints help confirm the exit region.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Does the command return only the IP?',
+                answer:
+                    'Yes. The default curl response is just the IPv4 address followed by a newline, making it safe for shell parsing.',
+            },
+            {
+                question: 'Can I force HTTPS instead?',
+                answer:
+                    'You can curl the HTTPS endpoint, but the HTTP default is intentional to work on captive portals and locked-down networks.',
+            },
+        ],
+    },
+    {
+        path: '/curl-my-ipv6',
+        title: 'curl my IPv6 address with nossl.sh',
+        description:
+            'Use curl http://v6.nossl.sh to print your IPv6 address, or call the JSON API to capture headers and geo data alongside it.',
+        keywords: 'curl my ipv6, curl ipv6 address, curl ipv6 only, curl ipv6 ip, curl ipv6 http',
+        category: 'ipTools',
+        hero: 'curl my IPv6 address',
+        tagline:
+            'Quick IPv6-only curl endpoint with optional JSON headers for dual-stack troubleshooting.',
+        sections: [
+            {
+                heading: 'IPv6 in one command',
+                paragraphs: [
+                    'When your network provides IPv6, curl http://v6.nossl.sh returns it as a single line with a trailing newline.',
+                ],
+                bullets: [
+                    'IPv6 only: curl http://v6.nossl.sh',
+                    'IPv6 + headers: curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                    'Compare to IPv4 by running curl http://nossl.sh.',
+                ],
+            },
+            {
+                heading: 'Check tunnels and dual-stack paths',
+                paragraphs: [
+                    'Use the JSON output to see if proxies, tunnels, or NAT64 flows rewrite your headers or swap egress locations.',
+                ],
+                bullets: [
+                    'Geo hint shows where your IPv6 route exits.',
+                    'Plain HTTP keeps captive portals from blocking the request.',
+                    'Great for CI jobs that need to log IPv6 reachability.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'What if no IPv6 is assigned?',
+                answer:
+                    'The v6 host will not respond if your network lacks IPv6. You can still use the main host to capture IPv4 and headers.',
+            },
+            {
+                question: 'Is the IPv6 response also just one line?',
+                answer:
+                    'Yes. The v6 endpoint returns only the IPv6 address plus a newline to stay script-friendly.',
+            },
+        ],
+    },
+    {
+        path: '/curl-my-headers',
+        title: 'curl my headers and IP in JSON',
+        description:
+            'Fetch every header your request sends with curl, alongside IP and geo hints, using the nossl.sh JSON endpoint.',
+        keywords: 'curl my headers, curl headers checker, curl request headers, curl show headers, curl my ip headers',
+        category: 'ipTools',
+        hero: 'curl my headers',
+        tagline:
+            'One curl call returns structured JSON with your IPs, headers, and connection scheme for quick debugging.',
+        sections: [
+            {
+                heading: 'Grab headers from the CLI',
+                paragraphs: [
+                    'Use the API endpoint to see exactly what your client transmits, including user agent, languages, and forwarded values.',
+                ],
+                bullets: [
+                    'curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                    'Includes IPv4, IPv6 when available, and scheme info.',
+                    'Sorted headers make diffs easy when comparing runs.',
+                ],
+            },
+            {
+                heading: 'Ideal for proxy and VPN checks',
+                paragraphs: [
+                    'Run the command before and after toggling VPNs or split tunnel configs to see how headers change.',
+                ],
+                bullets: [
+                    'No caching—every call is fresh.',
+                    'Use jq to script assertions against specific headers.',
+                    'Plain HTTP keeps the request usable on captive portals.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Can I get plain text instead?',
+                answer:
+                    'Yes. curl http://nossl.sh returns just the IPv4 address, and curl http://v6.nossl.sh returns IPv6 when present.',
+            },
+            {
+                question: 'Does the JSON include geo?',
+                answer:
+                    'When available, the API returns basic geo hints like country and organization alongside your headers.',
+            },
+        ],
+    },
+    {
         path: '/curl-ifconfig',
         title: 'curl ifconfig alternative using nossl.sh',
         description:
