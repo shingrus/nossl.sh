@@ -198,5 +198,17 @@
         }
       });
     }
+
+    document.querySelectorAll('.card__header_clickable').forEach(header => {
+      header.addEventListener('click', (e) => {
+        if (e.target.closest('a, button')) {
+          return;
+        }
+        const toggleButton = header.querySelector('[data-toggle-headers]');
+        if (toggleButton) {
+          toggleButton.click();
+        }
+      });
+    });
   })();
 </script>
