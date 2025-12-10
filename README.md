@@ -36,8 +36,4 @@ npm start
 - Control honeypot retention with `MAX_HONEYPOT` (defaults to 1024). When the table exceeds 110% of this value, the oldest rows are pruned.
 - Optional GeoIP lookup: download a IpLocate ASN database (e.g., ip-to-asn.mmdb), keep it out of version control, and point `GEOIP_DB_PATH` to the file (absolute path or relative to the project root) to enrich requests with country/region/city coordinates.
 
-## Container build
 
-```bash
-docker build -t gcr.io/PROJECT-ID/nossl-sh:latest .
-```

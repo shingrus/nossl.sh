@@ -2021,6 +2021,50 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/neverssl-login',
+        title: 'NeverSSL Login - Trigger Wi-Fi Captive Portals',
+        description:
+            'How to use a non-HTTPS page like nossl.sh or NeverSSL to force a Wi-Fi captive portal to open and get you online.',
+        keywords: 'neverssl login, nossl login, wifi login page, captive portal login, neverssl help',
+        category: 'troubleshooting',
+        hero: 'Forcing the Wi-Fi Login Page',
+        tagline: 'Use plain HTTP to make captive portals like NeverSSL and nossl.sh appear.',
+        sections: [
+            {
+                heading: 'Why plain HTTP is the key',
+                paragraphs: [
+                    'Captive portals work by intercepting your first web request and redirecting you to a login page. However, they can only intercept unencrypted, plain HTTP traffic.',
+                    'Modern websites almost all use HTTPS, which is encrypted. If you try to visit an HTTPS site, the captive portal cannot intercept it, and the login page will never appear.',
+                    'Sites like neverssl.com and nossl.sh are intentionally served over HTTP, giving the captive portal a request it can redirect.',
+                ],
+                bullets: [
+                    'Connect to the Wi-Fi network.',
+                    'Open your browser and go to http://nossl.sh or http://neverssl.com.',
+                    'The captive portal login page should appear.',
+                ],
+            },
+            {
+                heading: 'What to do if it still does not work',
+                paragraphs: [
+                    'If the login page does not appear, try disabling any VPN or private relay service you might be using. These services can also prevent the captive portal from intercepting your traffic.',
+                    'You can also try "forgetting" the Wi-Fi network and reconnecting.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Is it safe to use an HTTP website?',
+                answer:
+                    'For the purpose of triggering a captive portal, yes. These sites are not designed for sensitive information. Once you have logged in through the portal, you should use secure, HTTPS websites as usual.',
+            },
+            {
+                question: 'What is the difference between neverssl.com and nossl.sh?',
+                answer:
+                    'Both serve the same purpose. nossl.sh provides additional diagnostic information about your connection, which can be helpful for troubleshooting.',
+            },
+        ],
+    },
+    {
         path: '/hyatt-wifi-login',
         title: 'Hyatt Wi-Fi login helper',
         description:
