@@ -15,6 +15,10 @@ export const SEO_PAGE_CATEGORIES = Object.freeze({
         title: 'Mobile and Apple devices',
         description: 'Guides tailored for phones, tablets, and Apple captive network helpers.',
     },
+    gaming: {
+        title: 'Gaming consoles',
+        description: 'Guides for connecting PS5, Xbox, Nintendo Switch, and other gaming hardware to captive portals.',
+    },
     hotels: {
         title: 'Hotel Wi-Fi',
         description: 'Venue-specific walkthroughs for popular hotel brands.',
@@ -26,6 +30,252 @@ export const SEO_PAGE_CATEGORIES = Object.freeze({
 });
 
 export const SEO_PAGES = Object.freeze([
+    {
+        path: '/ps5-wifi-login',
+        title: 'PS5 Wi-Fi Login Guide for Captive Portals',
+        description: 'A step-by-step guide to connect your PS5 to Wi-Fi networks with captive portals, like in hotels, airports, or dorms. Use nossl.sh to trigger the login page.',
+        keywords: 'ps5 wifi login, ps5 captive portal, playstation 5 wifi, ps5 hotel wifi, ps5 network setup',
+        category: 'gaming',
+        hero: 'PS5 Wi-Fi Login Help',
+        tagline: 'Get your PlayStation 5 online by forcing the captive portal login page to appear.',
+        sections: [
+            {
+                heading: 'How to Access a Captive Portal on Your PS5',
+                paragraphs: ['The PlayStation 5 has a built-in web browser that should appear automatically when you connect to a Wi-Fi network that requires a login (a captive portal). If it doesn\'t, these steps will help you force it to appear.'],
+                bullets: [
+                    'Navigate to the PS5 Home Screen.',
+                    'Go to **Settings** (the gear icon in the top right).',
+                    'Select **Network**.',
+                    'Go to **Settings** > **Set Up Internet Connection**.',
+                    'Find and select the Wi-Fi network you want to join. It may show "Action Required" or a similar message.',
+                    'The captive portal login page should open automatically. If not, proceed to the next section.'
+                ]
+            },
+            {
+                heading: 'Manually Triggering the PS5 Browser for Wi-Fi Login',
+                paragraphs: ['If the login page doesn\'t appear, you can often force it by trying to access a plain HTTP website. This is where nossl.sh comes in handy.'],
+                bullets: [
+                    'Follow the steps above to get to the network details screen.',
+                    'Look for an option to test the connection or view details.',
+                    'A more reliable method is to use the User\'s Guide. Go to **Settings** > **User\'s Guide, Health & Safety, and Other Information** > **User\'s Guide**. This will open a web browser, from which you can navigate to `http://nossl.sh`.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'Why won\'t the Wi-Fi login page show up on my PS5?',
+                answer: 'This often happens because the network redirect isn\'t working correctly, or the PS5 is trying to connect to an HTTPS site first, which captive portals can\'t easily intercept. Using a non-HTTPS site like http://nossl.sh helps trigger the redirect.'
+            },
+            {
+                question: 'Can I use my PS5 on hotel or airport Wi-Fi?',
+                answer: 'Yes, but you will almost always need to authenticate through a captive portal. Following the steps on this page should allow you to connect your PS5 to these types of networks.'
+            }
+        ]
+    },
+    {
+        path: '/neverssl-ps5',
+        title: 'NeverSSL for PS5: Accessing Captive Portal Login Pages',
+        description: 'Use nossl.sh as a NeverSSL alternative on your PS5 browser to reliably trigger captive portal login pages on public Wi-Fi networks.',
+        keywords: 'neverssl ps5, ps5 neverssl, playstation 5 neverssl, ps5 wifi captive portal, ps5 http page',
+        category: 'gaming',
+        hero: 'NeverSSL for PS5',
+        tagline: 'A simple, non-HTTPS page to help your PS5 connect to restricted Wi-Fi.',
+        sections: [
+            {
+                heading: 'Using a Non-HTTPS Page to Connect Your PS5',
+                paragraphs: ['When your PS5 can\'t seem to trigger a Wi-Fi login page, the issue is often that it\'s not being properly redirected by the captive portal. Navigating to a plain HTTP site like nossl.sh in the PS5\'s browser can force the connection page to appear.'],
+                bullets: [
+                    'Access the browser via **Settings** > **User\'s Guide**.',
+                    'Type `http://nossl.sh` into the address bar.',
+                    'The captive portal should intercept this request and display the login page.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'What is NeverSSL and why would I need it for my PS5?',
+                answer: 'NeverSSL is a website that never uses SSL/HTTPS. This is useful for forcing captive portals to appear, as they can easily redirect non-encrypted traffic. nossl.sh serves the same purpose with added diagnostics.'
+            }
+        ]
+    },
+    {
+        path: '/xbox-wifi-login',
+        title: 'Xbox Wi-Fi Login Guide for Captive Portals (Series X/S & One)',
+        description: 'A guide to connecting your Xbox Series X/S or Xbox One to Wi-Fi networks with captive portals. Use the Edge browser and nossl.sh to get online.',
+        keywords: 'xbox wifi login, xbox captive portal, xbox hotel wifi, xbox series x wifi, xbox one wifi',
+        category: 'gaming',
+        hero: 'Xbox Wi-Fi Login Help',
+        tagline: 'Connect your Xbox to public Wi-Fi by manually triggering the captive portal.',
+        sections: [
+            {
+                heading: 'Connecting Your Xbox to a Captive Portal Network',
+                paragraphs: ['Your Xbox should automatically open the Microsoft Edge browser when it detects a captive portal. If it fails, you can launch it manually.'],
+                bullets: [
+                    'Go to **Settings** > **General** > **Network settings** > **Set up wireless network**.',
+                    'Select the Wi-Fi network. If a login page is required, the Edge browser should launch.',
+                    'If the browser doesn\'t open, go to **My games & apps** > **Apps** and open **Microsoft Edge**.',
+                    'In Edge, navigate to `http://nossl.sh` to force the captive portal login page.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'My Xbox says it\'s connected, but I can\'t get online.',
+                answer: 'This usually means you need to authenticate through a captive portal. Open the Microsoft Edge browser on your Xbox and navigate to a non-HTTPS site like http://nossl.sh to trigger the login screen.'
+            },
+            {
+                question: 'Can I play online games on hotel Wi-Fi?',
+                answer: 'While you can connect your Xbox to hotel Wi-Fi, the connection quality may not be suitable for online gaming due to high latency or network restrictions (NAT type).'
+            }
+        ]
+    },
+    {
+        path: '/neverssl-xbox',
+        title: 'NeverSSL for Xbox: Forcing Captive Portal Logins',
+        description: 'A NeverSSL alternative for Xbox consoles. Use nossl.sh in the Microsoft Edge browser to trigger captive portal pages on public Wi-Fi.',
+        keywords: 'neverssl xbox, xbox neverssl, xbox wifi login, xbox http page',
+        category: 'gaming',
+        hero: 'NeverSSL for Xbox',
+        tagline: 'Use a plain HTTP page to get your Xbox through tricky Wi-Fi logins.',
+        sections: [
+            {
+                heading: 'Forcing the Login Page on Your Xbox',
+                paragraphs: ['If your Xbox is connected to Wi-Fi but has no internet, you likely need to clear a captive portal. Using a NeverSSL-style page is the most reliable way to do this.'],
+                bullets: [
+                    'Open the **Microsoft Edge** app on your Xbox.',
+                    'Navigate to `http://nossl.sh`.',
+                    'The Wi-Fi network\'s login page should load, allowing you to authenticate.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'Why does my Xbox need a non-HTTPS page to log in to Wi-Fi?',
+                answer: 'Captive portals work by intercepting your web traffic and redirecting you. This is much easier for them to do with unencrypted HTTP traffic. HTTPS traffic is secure and resistant to this kind of interception.'
+            }
+        ]
+    },
+    {
+        path: '/nintendo-switch-wifi-login',
+        title: 'Nintendo Switch Wi-Fi Login Guide for Captive Portals',
+        description: 'Steps to connect your Nintendo Switch to a Wi-Fi network that requires a browser login (captive portal), common in hotels and airports.',
+        keywords: 'nintendo switch wifi login, switch captive portal, switch hotel wifi, nintendo switch network',
+        category: 'gaming',
+        hero: 'Nintendo Switch Wi-Fi Login',
+        tagline: 'A simple guide to getting your Switch connected to public Wi-Fi.',
+        sections: [
+            {
+                heading: 'Connecting Your Switch to Wi-Fi with a Login Page',
+                paragraphs: ['The Nintendo Switch has a built-in process for handling captive portals.'],
+                bullets: [
+                    'Go to **System Settings** from the Home menu.',
+                    'Select **Internet** > **Internet Settings**.',
+                    'Your Switch will search for Wi-Fi networks. Select the one you want to connect to.',
+                    'A message "Registration is required to use this network" will appear. Select **Next**.',
+                    'A browser window will open, displaying the captive portal login page. Complete the login process.'
+                ]
+            },
+            {
+                heading: 'What to Do If the Login Page Doesn\'t Open',
+                paragraphs: ['If the browser doesn\'t open automatically, you can try to trigger it by using a non-HTTPS site like nossl.sh, though the Switch\'s automatic detection is usually reliable.'],
+                 bullets: [
+                    'Try reconnecting to the network.',
+                    'If the login page still does not appear, try using another network. Some networks may not be compatible with the Switch.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'My Switch is connected to Wi-Fi, but says it has no internet.',
+                answer: 'This is the classic sign of a captive portal. The Switch should prompt you to open a login page. If it doesn\'t, try re-selecting the network in Internet Settings to trigger the prompt.'
+            }
+        ]
+    },
+    {
+        path: '/neverssl-nintendo-switch',
+        title: 'NeverSSL for Nintendo Switch: Connecting to Public Wi-Fi',
+        description: 'How to use a NeverSSL-like page (nossl.sh) if your Nintendo Switch struggles to open a captive portal login page.',
+        keywords: 'neverssl nintendo switch, switch neverssl, switch wifi login, switch http page',
+        category: 'gaming',
+        hero: 'NeverSSL for Nintendo Switch',
+        tagline: 'A fallback for when your Switch Wi-Fi login gets stuck.',
+        sections: [
+            {
+                heading: 'When The Switch Login Page Fails',
+                paragraphs: ['The Nintendo Switch is generally good at detecting captive portals. However, if it fails, you may not be able to manually navigate to a page like you can on other consoles. Your best bet is to rely on the built-in mechanism.'],
+                bullets: [
+                    'Go to **System Settings** > **Internet** > **Internet Settings**.',
+                    'Select the network.',
+                    'Wait for the "Registration is required" prompt and select **Next**.',
+                    'If this process fails, the network may not be compatible with the Switch.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'Can I open a browser on my Switch and go to nossl.sh?',
+                answer: 'The Nintendo Switch does not have a user-accessible web browser for general surfing. The browser only opens for captive portal authentication. Therefore, you cannot manually navigate to a site like nossl.sh.'
+            }
+        ]
+    },
+    {
+        path: '/steam-deck-wifi-login',
+        title: 'Steam Deck Wi-Fi Login Guide for Captive Portals',
+        description: 'How to connect your Steam Deck to public Wi-Fi networks that have a captive portal login page, using Desktop Mode.',
+        keywords: 'steam deck wifi login, steam deck captive portal, steam deck hotel wifi',
+        category: 'gaming',
+        hero: 'Steam Deck Wi-Fi Login',
+        tagline: 'Get your Steam Deck online at hotels and airports.',
+        sections: [
+            {
+                heading: 'Connecting Your Steam Deck via Desktop Mode',
+                paragraphs: ['The easiest way to handle captive portals on the Steam Deck is by switching to Desktop Mode.'],
+                bullets: [
+                    'Press the **STEAM** button.',
+                    'Go to **Power**.',
+                    'Select **Switch to Desktop**.',
+                    'In Desktop Mode, click the Wi-Fi icon in the bottom right of the taskbar and connect to the network.',
+                    'A browser window (usually Firefox) should open with the login page. If not, open a browser manually.',
+                    'In the browser, navigate to `http://nossl.sh` to force the captive portal to appear.',
+                    'Once logged in, you can return to **Gaming Mode**.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'Can I log in to a captive portal from Gaming Mode?',
+                answer: 'While Gaming Mode has some browser functionality, it can be unreliable for complex login pages. Switching to Desktop Mode provides a full-featured browser and is the most reliable method.'
+            }
+        ]
+    },
+    {
+        path: '/neverssl-steam-deck',
+        title: 'NeverSSL for Steam Deck: A Captive Portal Solution',
+        description: 'Use nossl.sh as a NeverSSL equivalent on your Steam Deck\'s Desktop Mode to easily log in to any public Wi-Fi.',
+        keywords: 'neverssl steam deck, steam deck neverssl, steam deck wifi help',
+        category: 'gaming',
+        hero: 'NeverSSL for Steam Deck',
+        tagline: 'The key to getting your Steam Deck\'s Wi-Fi working anywhere.',
+        sections: [
+            {
+                heading: 'Using a Browser in Desktop Mode to Connect',
+                paragraphs: ['Desktop Mode on the Steam Deck gives you a full Linux desktop environment, including a web browser. This is perfect for dealing with captive portals.'],
+                bullets: [
+                    'Switch to **Desktop Mode**.',
+                    'Connect to the Wi-Fi network.',
+                    'Open the **Firefox** browser.',
+                    'Navigate to `http://nossl.sh`.',
+                    'Log in through the portal page that appears.'
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'Why do I need to use Desktop Mode?',
+                answer: 'Desktop Mode gives you access to a standard web browser, which is more capable of handling the variety of login pages that captive portals use. It makes the process much more straightforward.'
+            }
+        ]
+    },
     {
         path: '/what-is-nossl',
         title: 'What is nossl.sh? Plain HTTP captive portal helper',
