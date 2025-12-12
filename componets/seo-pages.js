@@ -1,4 +1,9 @@
+
 export const SEO_PAGE_CATEGORIES = Object.freeze({
+    httpOnly: {
+        title: 'HTTP only web sites',
+        description: 'A list of web sites that only use HTTP.',
+    },
     overview: {
         title: 'Core HTTP helpers',
         description: 'Understand the nossl.sh foundation and its plain-HTTP stance.',
@@ -30,6 +35,52 @@ export const SEO_PAGE_CATEGORIES = Object.freeze({
 });
 
 export const SEO_PAGES = Object.freeze([
+    {
+        path: '/http-only-sites',
+        title: 'HTTP Only Web Sites',
+        description: 'A list of web sites that only use HTTP. These sites are useful for testing captive portals.',
+        keywords: 'http only, no https, http only site',
+        category: 'httpOnly',
+        hero: 'HTTP Only Web Sites',
+        tagline: 'A curated list of web sites that do not use HTTPS.',
+        sections: [
+            {
+                heading: 'nossl.sh',
+                paragraphs: ['A modern diagnostic splash page that mirrors NeverSSL while adding live request details.'],
+                bullets: [
+                    'Always HTTP: Stays on plain HTTP to trigger captive portals.',
+                    'Request details: Shows your IP address, headers, and more.',
+                    'Fast and reliable: Lightweight and actively maintained.',
+                ]
+            },
+            {
+                heading: 'info.cern.ch',
+                paragraphs: ['The first web site ever created. A piece of internet history.'],
+                bullets: [
+                    'Historic: The birthplace of the World Wide Web.',
+                    'Simple: A basic HTML page with no images or scripts.',
+                ]
+            },
+            {
+                heading: 'example.com',
+                paragraphs: ['A domain name reserved for use in documentation and examples.'],
+                bullets: [
+                    'Reserved: Managed by IANA for example purposes.',
+                    'Simple: A basic HTML page.',
+                ]
+            }
+        ],
+        faqs: [
+            {
+                question: 'Why would I use an HTTP only site?',
+                answer: 'HTTP only sites are useful for forcing captive portals to appear on public Wi-Fi networks. They can also be used for testing network configurations and security.'
+            },
+            {
+                question: 'Is it safe to use HTTP only sites?',
+                answer: 'HTTP is not a secure protocol. You should not enter any personal information on HTTP only sites. For testing and diagnostic purposes, they are generally safe to use.'
+            }
+        ]
+    },
     {
         path: '/ps5-wifi-login',
         title: 'PS5 Wi-Fi Login Guide for Captive Portals',

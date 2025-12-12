@@ -16,14 +16,49 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>http://nossl.sh/captive-portal</loc>
+    <loc>http://nossl.sh/http-only-sites</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
-    <loc>http://nossl.sh/how-captive-portals-work</loc>
+    <loc>http://nossl.sh/ps5-wifi-login</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/neverssl-ps5</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/xbox-wifi-login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/neverssl-xbox</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/nintendo-switch-wifi-login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/neverssl-nintendo-switch</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/steam-deck-wifi-login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/neverssl-steam-deck</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/what-is-nossl</loc>
@@ -38,37 +73,37 @@
   <url>
     <loc>http://nossl.sh/check-my-ip</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/check-my-ipv6</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/check-my-public-ip</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/get-my-ip</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/get-my-ipv6</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/check-my-ip-address</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/my-ip-location</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/my-request-headers</loc>
@@ -78,12 +113,12 @@
   <url>
     <loc>http://nossl.sh/curl-my-ip</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/curl-my-ipv6</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/curl-my-headers</loc>
@@ -106,14 +141,19 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>http://nossl.sh/never-ssl-alternative-guide</loc>
+    <loc>http://nossl.sh/test-http-status</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/wifi-login-page</loc>
     <changefreq>monthly</changefreq>
-    <priority>1</priority>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/captive-portal-test-url</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>http://nossl.sh/mobile-wifi</loc>
@@ -122,6 +162,11 @@
   </url>
   <url>
     <loc>http://nossl.sh/check-wifi-login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/neverssl-not-working</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -162,6 +207,26 @@
   </url>
   <url>
     <loc>http://nossl.sh/iphone-wifi-connect</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/captive-portal</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/how-captive-portals-work</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/airport-wifi-login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>http://nossl.sh/hotel-wifi-login-not-working</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -226,6 +291,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>http://nossl.sh/neverssl-login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>http://nossl.sh/hyatt-wifi-login</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -240,49 +310,4 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
-    <loc>http://nossl.sh/ps5-wifi-login</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>http://nossl.sh/neverssl-ps5</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>http://nossl.sh/xbox-wifi-login</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>http://nossl.sh/neverssl-xbox</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>http://nossl.sh/nintendo-switch-wifi-login</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>http://nossl.sh/neverssl-nintendo-switch</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>http://nossl.sh/steam-deck-wifi-login</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>http://nossl.sh/neverssl-steam-deck</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-    <url>
-        <loc>http://nossl.sh/neverssl-login</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.8</priority>
-    </url>
 </urlset>
