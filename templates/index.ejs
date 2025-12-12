@@ -115,18 +115,20 @@
 
         <section class="card info-card" aria-labelledby="curl-examples">
           <p class="eyebrow">cURL examples</p>
-          <h3 id="curl-examples" class="card__title">Quick command line checks</h3>
-          <p class="muted">Returns your public IP only — similar to <code class="mono">ifconfig.me</code>.</p>
+          <h3 id="curl-examples" class="card__title">Curl IPv4 IPv6, any http status</h3>
+          <p class="muted">Curl your public IP  - the alternative to <code class="mono">ifconfig.me</code>.</p>
           <div class="code-block">
             <code class="mono">$ curl http://nossl.sh</code>
             <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://nossl.sh">Copy</button>
             <div class="code-example mono">→ <%= clientIp %></div>
           </div>
+            <p class="muted">Curl your IPv6:</p>
             <div class="code-block">
                 <code class="mono">$ curl http://v6.nossl.sh</code>
                 <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://v6.nossl.sh">Copy</button>
                 <div class="code-example mono">→ ipv6</div>
             </div>
+            <p class="muted">Check any HTTP status:</p>
           <div class="code-block">
             <code class="mono">$ curl -i http://nossl.sh/status/418</code>
             <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -i http://nossl.sh/status/418">Copy</button>
