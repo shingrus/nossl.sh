@@ -252,7 +252,7 @@ export const SEO_PAGES = Object.freeze([
         tagline: 'A fallback for when your Switch Wi-Fi login gets stuck.',
         sections: [
             {
-                heading: 'When The Switch Login Page Fails',
+                heading: 'When the Switch Login Page Fails',
                 paragraphs: ['The Nintendo Switch is generally good at detecting captive portals. However, if it fails, you may not be able to manually navigate to a page like you can on other consoles. Your best bet is to rely on the built-in mechanism.'],
                 bullets: [
                     'Go to **System Settings** > **Internet** > **Internet Settings**.',
@@ -957,7 +957,7 @@ export const SEO_PAGES = Object.freeze([
         title: 'curl ifconfig alternative using nossl.sh',
         description:
             'Use curl against nossl.sh to print your public IPv4 or IPv6 as a drop-in ifconfig.me replacement with no TLS overhead.',
-        keywords: 'curl ifconfig, curl ifconfig.me alternative, curl ifocong, curl ip address, curl ipv6',
+        keywords: 'curl ifconfig, curl ifconfig.me alternative, curl ifconfig command, curl ip address, curl ipv6',
         category: 'ipTools',
         hero: 'curl ifconfig alternative',
         tagline:

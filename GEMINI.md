@@ -32,7 +32,7 @@ npm start
 *   **ES Modules:** The project uses ES modules (`"type": "module"` in `package.json`).
 *   **Project Structure:**
     *   `server.js`: The main application entry point.
-    *   `componets/`: Contains modules for different parts of the application (e.g., `honeypot.js`, `shared-report.js`).
+    *   components (in the `componets/` directory): Contains modules for different parts of the application (e.g., `honeypot.js`, `shared-report.js`).
     *   `templates/`: Contains EJS templates for rendering HTML pages.
     *   `static/`: Contains static assets like CSS, images, and `robots.txt`.
     *   `infra/`: Contains infrastructure configuration, such as the `nginx.conf` file.
