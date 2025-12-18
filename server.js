@@ -23,6 +23,7 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
     : 24 * 60 * 60;
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
 const GUIDE_INDEX_CANONICAL_URL = 'http://nossl.sh/guides';
+const DISCLAIMER_CANONICAL_URL = 'http://nossl.sh/disclaimer';
 
 const geoDbPathEnv = process.env.GEOIP_DB_PATH;
 const geoDbPath = geoDbPathEnv
@@ -693,6 +694,25 @@ app.get('/guides', (req, res) => {
         generationTimeMs,
         totalRequests,
         canonicalUrl: GUIDE_INDEX_CANONICAL_URL,
+    });
+});
+
+app.get('/disclaimer', (req, res) => {
+    const baseData = getBaseRequestData(req, res) || {};
+    const generatedAt = baseData.generatedAt || new Date();
+    const generationTimeMs = typeof baseData.generationTimeMs === 'number' ? baseData.generationTimeMs : null;
+    const scheme = baseData.scheme || 'http';
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    res.render('disclaimer', {
+        ...baseData,
+        generatedAt,
+        generationTimeMs,
+        scheme,
+        canonicalUrl: DISCLAIMER_CANONICAL_URL,
     });
 });
 

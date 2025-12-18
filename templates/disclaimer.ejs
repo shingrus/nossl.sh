@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nossl.sh HTTP-only disclaimer</title>
+    <meta
+      name="description"
+      content="Official HTTP-only disclaimer: nossl.sh will always stay plain HTTP - no SSL, no TLS, no HTTPS - on purpose for captive portal troubleshooting."
+    />
+    <meta
+      name="keywords"
+      content="nossl disclaimer, http only, no ssl, no tls, no https, captive portal testing, plain http"
+    />
+    <link rel="canonical" href="<%= canonicalUrl %>" />
+    <meta property="og:title" content="nossl.sh HTTP-only disclaimer" />
+    <meta
+      property="og:description"
+      content="This site will always be plain HTTP forever — no SSL, no TLS, no HTTPS — so captive portals and diagnostics stay predictable."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="<%= canonicalUrl %>" />
+    <meta property="og:site_name" content="nossl.sh" />
+    <meta property="og:image" content="/static/og-image.png" />
+    <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="nossl.sh HTTP-only disclaimer" />
+    <meta
+      name="twitter:description"
+      content="Always forever plain HTTP—no SSL, no TLS, no HTTPS. This page explains why."
+    />
+    <meta name="twitter:image" content="/static/og-image.png" />
+    <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+      const headerNote = 'Forever plain HTTP. No TLS. No HTTPS.';
+      const footerLines = [
+        'Need the diagnostics dashboard? <a href="/">Return to the main nossl.sh page</a> or open the <a href="/honeypot">honeypot console</a>.'
+      ];
+      const normalizedScheme = (scheme || 'http').toLowerCase();
+      const isHttps = normalizedScheme === 'https';
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container marketing">
+      <article class="panel panel--connection">
+        <header class="panel__header">
+          <div>
+            <h1>HTTP-only disclaimer</h1>
+            <p class="panel__summary">
+              nossl.sh will always, forever, infinitely stay plain HTTP - no SSL, no TLS, no HTTPS - on purpose.
+            </p>
+          </div>
+        </header>
+        <div class="panel__body">
+          <p>
+            nossl.sh exists to surface captive portals and inspect network behavior. To keep that predictable, everything here
+            lives on raw port 80 with zero TLS, zero HSTS, and zero HTTPS redirects.
+          </p>
+          <ul class="bullets">
+            <li>No SSL certificates now or later; no TLS handshakes or HTTPS endpoints at all.</li>
+            <li>No auto-redirects, no mixed modes, no accidental HSTS or preload flags.</li>
+            <li>Purpose-built for portal triggers, header checks, and IP lookups - not for sensitive data.</li>
+          </ul>
+          <p class="muted">
+            Current connection: <span class="mono"><%= normalizedScheme.toUpperCase() %></span>.
+            <%= isHttps
+              ? 'If you see HTTPS, a proxy is rewriting traffic - use http://nossl.sh directly for the intended behavior.'
+              : 'You are already on the intended plain HTTP path.' %>
+          </p>
+        </div>
+      </article>
+
+      <section class="panel panel--support">
+        <div class="panel__body">
+          <article class="marketing-section">
+            <h3>Why stay HTTP-only?</h3>
+            <p>
+              Captive portals and strict firewalls often block TLS handshakes, hide SNI, or break HSTS preloads. Staying on
+              plain HTTP keeps splash screens, login prompts, and diagnostics predictable for every device.
+            </p>
+          </article>
+          <article class="marketing-section">
+            <h3>What you should expect</h3>
+            <ul>
+              <li>No encryption. Everything you send can be observed by the network.</li>
+              <li>If a client forces HTTPS, that client or your network is rewriting the request.</li>
+              <li>APIs such as <a href="/api/request-info" rel="nofollow">/api/request-info</a> remain HTTP-only as well.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel panel--actions">
+        <header class="panel__header">
+          <h2>Keep working</h2>
+        </header>
+        <div class="actions-grid">
+          <div>
+            <h3>Main diagnostics</h3>
+            <p>See your live IP, headers, and counters on the HTTP-only dashboard.</p>
+            <div class="code-snippet">
+              <a class="copy copy--snippet" href="/">[ OPEN MAIN PAGE ]</a>
+            </div>
+          </div>
+          <div>
+            <h3>JSON snapshot</h3>
+            <p>Grab your current scheme, IP, and headers via the API for scripts or support.</p>
+            <div class="code-snippet">
+              <a class="copy copy--snippet" href="/api/request-info" rel="nofollow">[ CALL /api/request-info ]</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>
