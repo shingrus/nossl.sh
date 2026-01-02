@@ -655,7 +655,7 @@ export const SEO_PAGES = Object.freeze([
                 ],
                 bullets: [
                     'Share the built-in report link with your network team.',
-                    'Geo hints reveal which ASN or region your IPv6 announces from.',
+                    'Geo hints reveal which ASN organization or region your IPv6 announces from.',
                     'curl http://v6.nossl.sh returns IPv6 only when available.',
                 ],
             },
@@ -692,7 +692,7 @@ export const SEO_PAGES = Object.freeze([
                 bullets: [
                     'Copy IPv4/IPv6 plus ports for ticket attachments.',
                     'Sorted headers make it easy to spot injected values.',
-                    'Geo data helps confirm if traffic exits where you expect.',
+                    'Geo and ASN data help confirm if traffic exits where you expect.',
                 ],
             },
             {
@@ -733,7 +733,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 heading: 'Confirm where your IP exits',
                 paragraphs: [
-                    'nossl.sh uses GeoIP data to show a country flag, name, and organization hint when available, alongside your IP addresses.',
+                    'nossl.sh uses GeoIP data to show a country flag, name, and ASN organization hint when available, alongside your IP addresses.',
                 ],
                 bullets: [
                     'Validate VPN or smart DNS exit regions.',
