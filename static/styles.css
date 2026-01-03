@@ -177,6 +177,20 @@ a:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.support-cta {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.support-cta:hover,
+.support-cta:focus-visible {
+  text-decoration: none;
+  border-color: var(--border-hover);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
 .card__header,
 .panel__header {
   display: flex;
@@ -639,6 +653,10 @@ a:focus-visible {
 
 .info-grid > * {
   align-self: start;
+}
+
+.info-grid .support-cta {
+  grid-column: 1 / -1;
 }
 
 .info-card {
