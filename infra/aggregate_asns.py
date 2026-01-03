@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import ipaddress
 import json
 import sqlite3
 import sys
@@ -46,7 +47,11 @@ def iter_aggregated(as_dir: Path):
                 f"warning: ASN mismatch in {agg_path} (dir {entry.name}, json {asn_value})",
                 file=sys.stderr,
             )
-        entries.append((int(asn_value), data))
+        strip_ip_amounts(data)
+        ip_amount, ipv4_amount, ipv6_amount = compute_ip_amounts(data)
+        entries.append(
+            (int(asn_value), data, ip_amount, ipv4_amount, ipv6_amount)
+        )
     return sorted(entries, key=lambda item: item[0])
 
 
@@ -142,7 +147,7 @@ def rdap_lookup_domain(asn: int, timeout: float, user_agent: str):
 
 def add_domains(entries, use_rdap: bool, timeout: float, delay: float, user_agent: str):
     cache = {}
-    for asn, data in entries:
+    for asn, data, *_ in entries:
         domain = None
         if use_rdap:
             if asn in cache:
@@ -155,6 +160,100 @@ def add_domains(entries, use_rdap: bool, timeout: float, delay: float, user_agen
         data["domain"] = domain
 
 
+def extract_prefixes(data, family: str):
+    for container_key in ("subnets", "prefixes"):
+        container = data.get(container_key)
+        if isinstance(container, dict):
+            prefixes = container.get(family)
+            if isinstance(prefixes, list):
+                return prefixes
+    prefixes = data.get(family)
+    if isinstance(prefixes, list):
+        return prefixes
+    return []
+
+
+def normalize_prefix(prefix):
+    if isinstance(prefix, str):
+        return prefix
+    if isinstance(prefix, dict):
+        for key in ("prefix", "cidr", "network", "subnet"):
+            value = prefix.get(key)
+            if isinstance(value, str):
+                return value
+    return None
+
+
+def count_ip_amount(prefixes, family: str):
+    total = 0
+    for entry in prefixes:
+        prefix = normalize_prefix(entry)
+        if not prefix:
+            continue
+        try:
+            network = ipaddress.ip_network(prefix, strict=False)
+        except ValueError as exc:
+            print(
+                f"warning: invalid {family} prefix {prefix!r}: {exc}",
+                file=sys.stderr,
+            )
+            continue
+        if family == "ipv4" and network.version != 4:
+            print(
+                f"warning: unexpected ipv6 prefix in ipv4 list: {prefix!r}",
+                file=sys.stderr,
+            )
+            continue
+        if family == "ipv6" and network.version != 6:
+            print(
+                f"warning: unexpected ipv4 prefix in ipv6 list: {prefix!r}",
+                file=sys.stderr,
+            )
+            continue
+        total += int(network.num_addresses)
+    return total
+
+
+def compute_ip_amounts(data):
+    ipv4_amount = count_ip_amount(extract_prefixes(data, "ipv4"), "ipv4")
+    ipv6_amount = count_ip_amount(extract_prefixes(data, "ipv6"), "ipv6")
+    return ipv4_amount + ipv6_amount, ipv4_amount, ipv6_amount
+
+
+def strip_ip_amounts(data):
+    for key in ("ip_amount", "ipv4_amount", "ipv6_amount"):
+        data.pop(key, None)
+
+
+def extract_handle(data):
+    handle = data.get("handle")
+    if handle is None:
+        return None
+    return str(handle)
+
+
+def extract_organization(data):
+    for key in ("organization", "Organization", "description"):
+        value = data.get(key)
+        if value is not None:
+            return str(value)
+    return None
+
+
+def ensure_column(connection, table: str, name: str, ddl: str):
+    columns = {
+        row[1] for row in connection.execute(f"PRAGMA table_info({table})")
+    }
+    if name not in columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
+def format_ip_amount(value):
+    if value is None:
+        return None
+    return str(value)
+
+
 def write_sqlite(entries, output_path: Path):
     connection = sqlite3.connect(output_path)
     try:
@@ -162,19 +261,47 @@ def write_sqlite(entries, output_path: Path):
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS asn ("
                 "asn INTEGER PRIMARY KEY, "
+                "handle TEXT, "
+                "organization TEXT, "
+                "ip_amount int8, "
+                "ipv4_amount int8, "
+                "ipv6_amount int8, "
                 "json TEXT NOT NULL"
                 ")"
             )
+            ensure_column(connection, "asn", "handle", "handle TEXT")
+            ensure_column(connection, "asn", "organization", "organization TEXT")
+            ensure_column(connection, "asn", "ip_amount", "ip_amount int8")
+            ensure_column(connection, "asn", "ipv4_amount", "ipv4_amount int8")
+            ensure_column(connection, "asn", "ipv6_amount", "ipv6_amount int8")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_asn_asn ON asn(asn)"
             )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_asn_ipv4_amount ON asn(ipv4_amount)")
             rows = (
-                (asn, json.dumps(data, ensure_ascii=True))
-                for asn, data in entries
+                (
+                    asn,
+                    extract_handle(data),
+                    extract_organization(data),
+                    format_ip_amount(ip_amount),
+                    format_ip_amount(ipv4_amount),
+                    format_ip_amount(ipv6_amount),
+                    json.dumps(data, ensure_ascii=True),
+                )
+                for asn, data, ip_amount, ipv4_amount, ipv6_amount in entries
             )
             connection.executemany(
-                "INSERT INTO asn (asn, json) VALUES (?, ?) "
-                "ON CONFLICT(asn) DO UPDATE SET json=excluded.json",
+                "INSERT INTO asn "
+                "(asn, handle, organization, ip_amount, ipv4_amount, ipv6_amount, json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(asn) DO UPDATE SET "
+                "handle=excluded.handle, "
+                "organization=excluded.organization, "
+                "ip_amount=excluded.ip_amount, "
+                "ipv4_amount=excluded.ipv4_amount, "
+                "ipv6_amount=excluded.ipv6_amount, "
+                "json=excluded.json",
                 rows,
             )
     finally:
