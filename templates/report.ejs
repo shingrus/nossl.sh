@@ -68,7 +68,7 @@
                 <% if (geo?.orgName) { %>
                   /
                   <% if (geo?.asn) { %>
-                    <a href="/as/<%= geo.asn %>"><%= geo.orgName %></a>
+                    <a href="/as<%= geo.asn %>"><%= geo.orgName %></a>
                   <% } else { %>
                     <%= geo.orgName %>
                   <% } %>

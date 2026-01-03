@@ -81,7 +81,7 @@ const createAsnPageHandler =
 
             const asnParam = req.params.asn;
             const asnNumber = asnInfoStore.parseAsnNumber(asnParam);
-            const apiUrl = asnNumber ? `${apiPath}/${asnNumber}` : null;
+            const apiUrl = asnNumber ? `${apiPath}${asnNumber}` : null;
 
             if (!asnNumber) {
                 res.status(400);
@@ -201,6 +201,6 @@ export const registerAsnRoutes = (app, helpers = {}) => {
     const asPath = typeof helpers.asPath === 'string' ? helpers.asPath : '/as';
     const apiPath = typeof helpers.apiPath === 'string' ? helpers.apiPath : '/api/as';
 
-    app.get(`${apiPath}/:asn`, createAsnApiHandler({asnInfoStore}));
-    app.get(`${asPath}/:asn`, createAsnPageHandler({asnInfoStore, getRenderMeta, apiPath}));
+    app.get(`${apiPath}:asn`, createAsnApiHandler({asnInfoStore}));
+    app.get(`${asPath}:asn`, createAsnPageHandler({asnInfoStore, getRenderMeta, apiPath}));
 };

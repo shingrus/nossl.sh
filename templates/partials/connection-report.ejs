@@ -16,7 +16,7 @@
     if (geo && geo.countryName) {
         geoSummary = [geo.countryFlag, geo.countryName].filter(Boolean).join(' ');
     }
-    const orgLink = geo?.asn ? `/as/${geo.asn}` : null;
+    const orgLink = geo?.asn ? `/as${geo.asn}` : null;
 
     return {
       formattedGeneratedAt,
