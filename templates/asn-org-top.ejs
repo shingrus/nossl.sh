@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= pageTitle %></title>
+    <meta name="description" content="<%= pageDescription %>" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const formattedGeneratedAt = generatedAt instanceof Date
+        ? generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC')
+        : new Date(generatedAt || Date.now()).toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+      const headerNote = pageTitle;
+      const relatedLinks = Array.isArray(pageLinks)
+        ? pageLinks.filter((link) => !link.active).map((link) => `<a href="${link.path}">${link.label}</a>`)
+        : [];
+      const footerLines = [
+        'Return to the <a href="/">main nossl.sh page</a>.',
+        relatedLinks.length ? `Related ASN rankings: ${relatedLinks.join(', ')}.` : null,
+      ].filter(Boolean);
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container page">
+      <section class="card hero">
+        <div class="card__header">
+          <div>
+            <h1 class="card__title"><%= heroTitle %></h1>
+            <p class="panel__summary"><%= heroSubtitle %></p>
+          </div>
+        </div>
+        <% if (Array.isArray(pageLinks) && pageLinks.length) { %>
+          <div class="pill-row" style="margin-top: 12px;">
+            <% pageLinks.forEach((link) => { %>
+              <% if (link.active) { %>
+                <span class="pill"><%= link.label %></span>
+              <% } else { %>
+                <a class="pill pill-muted" href="<%= link.path %>"><%= link.label %></a>
+              <% } %>
+            <% }) %>
+          </div>
+        <% } %>
+      </section>
+
+      <% if (errorMessage) { %>
+        <section class="panel">
+          <header class="panel__header">
+            <div>
+              <p class="eyebrow">Notice</p>
+              <h2>Rankings unavailable</h2>
+              <p class="panel__summary"><%= errorMessage %></p>
+            </div>
+          </header>
+        </section>
+      <% } else { %>
+        <section class="panel">
+          <header class="panel__header">
+            <div>
+              <p class="eyebrow">Leaderboard</p>
+              <h2>Top organizations by IPv4 address space</h2>
+              <p class="panel__summary">Each organization links to its top ASNs.</p>
+            </div>
+          </header>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Rank</th>
+                  <th scope="col">Organization</th>
+                  <th scope="col">IPv4 addresses</th>
+                  <th scope="col">ASN count</th>
+                  <th scope="col">Top ASNs</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (!entries.length) { %>
+                  <tr>
+                    <td colspan="5">No organization entries available.</td>
+                  </tr>
+                <% } else { %>
+                  <% entries.forEach((entry, index) => { %>
+                    <tr>
+                      <td class="mono"><%= index + 1 %></td>
+                      <td><%= entry.displayOrganization %></td>
+                      <td class="mono"><%= entry.ipv4AmountDisplay ?? 'N/A' %></td>
+                      <td class="mono"><%= entry.asnCount %></td>
+                      <td>
+                        <% if (entry.topAsns.length) { %>
+                          <div class="pill-row">
+                            <% entry.topAsns.forEach((asnEntry) => { %>
+                              <a class="pill pill-muted" href="/as<%= asnEntry.asn %>">AS<%= asnEntry.asn %></a>
+                            <% }) %>
+                          </div>
+                          <% if (entry.topAsnSummary) { %>
+                            <div class="muted mono"><%= entry.topAsnSummary %></div>
+                          <% } %>
+                        <% } else { %>
+                          <span class="muted">N/A</span>
+                        <% } %>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      <% } %>
+
+      <%- include('partials/support-block') %>
+    </main>
+
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>

@@ -9,6 +9,7 @@ import Database from 'better-sqlite3';
 import {createAsnInfoStore} from './componets/asn-info.js';
 import {createHoneypotService} from './componets/honeypot.js';
 import {registerAsnRoutes} from './componets/asn-routes.js';
+import {registerAsnTopRoutes} from './componets/asn-top-routes.js';
 import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
 import {createSharedReportService} from './componets/shared-report.js';
@@ -738,6 +739,7 @@ app.get('/disclaimer', (req, res) => {
 
 registerSeoRoutes(app, {getBaseRequestData, buildShareLinkForRequest});
 registerAsnRoutes(app, {asnInfoStore, getRenderMeta});
+registerAsnTopRoutes(app, {asnInfoStore, getRenderMeta});
 
 app.get('/healthz', (req, res) => {
     res.json({status: 'ok'});

@@ -130,6 +130,21 @@
         </section>
       <% } %>
 
+      <section class="panel">
+        <header class="panel__header">
+          <div>
+            <p class="eyebrow">Rankings</p>
+            <h2>Explore ASN leaderboards</h2>
+            <p class="panel__summary">See the largest ASNs and organizations by address space.</p>
+          </div>
+        </header>
+        <div class="pill-row">
+          <a class="pill pill-muted" href="/top-asn-by-ip-address">Top ASNs by IPv4</a>
+          <a class="pill pill-muted" href="/top-asn-by-ipv6">Top ASNs by IPv6</a>
+          <a class="pill pill-muted" href="/top-organizations-by-ip-address">Top orgs by IPv4</a>
+        </div>
+      </section>
+
       <%- include('partials/support-block') %>
     </main>
 

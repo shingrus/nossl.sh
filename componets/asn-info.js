@@ -24,10 +24,31 @@ const parseAsnJson = (jsonText) => {
     }
 };
 
+const normalizeText = (value) => {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+};
+
+const normalizeLimit = (value, fallback) => {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return fallback;
+    }
+    return parsed;
+};
+
 const createEmptyStore = () => ({
     isAvailable: () => false,
     parseAsnNumber,
     getAsnInfo: () => null,
+    getTopAsnsByIpv4: () => [],
+    getTopAsnsByIpv6: () => [],
+    getTopOrganizationsByIpv4: () => [],
+    getAsnsForOrg: () => [],
+    getRelatedAsnsByOrg: () => [],
 });
 
 export const createAsnInfoStore = (dbPath) => {
@@ -40,6 +61,114 @@ export const createAsnInfoStore = (dbPath) => {
             'SELECT json, CAST(ipv4_amount AS TEXT) AS ipv4_amount FROM asn WHERE asn = ?'
         );
         const selectAsnDomainStmt = db.prepare('SELECT domain FROM asn_domain WHERE asn = ?');
+        const selectTopAsnsByIpv4Stmt = db.prepare(`
+            SELECT a.asn,
+                   a.handle,
+                   NULLIF(TRIM(a.organization), '') AS organization,
+                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
+                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   d.domain AS domain
+              FROM asn a
+              LEFT JOIN asn_domain d ON a.asn = d.asn
+             WHERE a.ipv4_amount IS NOT NULL
+               AND CAST(a.ipv4_amount AS TEXT) != ''
+               AND CAST(a.ipv4_amount AS TEXT) != '0'
+             ORDER BY LENGTH(CAST(a.ipv4_amount AS TEXT)) DESC,
+                      CAST(a.ipv4_amount AS TEXT) DESC
+             LIMIT ?
+        `);
+        const selectTopAsnsByIpv6Stmt = db.prepare(`
+            SELECT a.asn,
+                   a.handle,
+                   NULLIF(TRIM(a.organization), '') AS organization,
+                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
+                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   d.domain AS domain
+              FROM asn a
+              LEFT JOIN asn_domain d ON a.asn = d.asn
+             WHERE a.ipv6_amount IS NOT NULL
+               AND CAST(a.ipv6_amount AS TEXT) != ''
+               AND CAST(a.ipv6_amount AS TEXT) != '0'
+             ORDER BY LENGTH(CAST(a.ipv6_amount AS TEXT)) DESC,
+                      CAST(a.ipv6_amount AS TEXT) DESC
+             LIMIT ?
+        `);
+        const selectTopOrganizationsByIpv4Stmt = db.prepare(`
+            SELECT NULLIF(TRIM(a.organization), '') AS organization,
+                   CAST(SUM(
+                       CASE
+                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
+                           ELSE CAST(a.ipv4_amount AS INTEGER)
+                       END
+                   ) AS TEXT) AS ipv4_amount,
+                   COUNT(*) AS asn_count
+              FROM asn a
+             WHERE a.organization IS NOT NULL
+               AND TRIM(a.organization) != ''
+             GROUP BY TRIM(a.organization)
+            HAVING SUM(
+                       CASE
+                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
+                           ELSE CAST(a.ipv4_amount AS INTEGER)
+                       END
+                   ) > 0
+             ORDER BY LENGTH(CAST(SUM(
+                       CASE
+                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
+                           ELSE CAST(a.ipv4_amount AS INTEGER)
+                       END
+                   ) AS TEXT)) DESC,
+                      SUM(
+                       CASE
+                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
+                           ELSE CAST(a.ipv4_amount AS INTEGER)
+                       END
+                   ) DESC
+             LIMIT ?
+        `);
+        const selectAsnsByOrgStmt = db.prepare(`
+            SELECT a.asn,
+                   a.handle,
+                   NULLIF(TRIM(a.organization), '') AS organization,
+                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
+                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   d.domain AS domain
+              FROM asn a
+              LEFT JOIN asn_domain d ON a.asn = d.asn
+             WHERE TRIM(a.organization) = ?
+             ORDER BY LENGTH(COALESCE(CAST(a.ipv4_amount AS TEXT), '0')) DESC,
+                      COALESCE(CAST(a.ipv4_amount AS TEXT), '0') DESC
+             LIMIT ?
+        `);
+        const selectRelatedAsnsByOrgStmt = db.prepare(`
+            SELECT a.asn,
+                   a.handle,
+                   NULLIF(TRIM(a.organization), '') AS organization,
+                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
+                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   d.domain AS domain
+              FROM asn a
+              LEFT JOIN asn_domain d ON a.asn = d.asn
+             WHERE TRIM(a.organization) = ?
+               AND a.asn != ?
+             ORDER BY LENGTH(COALESCE(CAST(a.ipv4_amount AS TEXT), '0')) DESC,
+                      COALESCE(CAST(a.ipv4_amount AS TEXT), '0') DESC
+             LIMIT ?
+        `);
+
+        const normalizeAsnRow = (row) => {
+            if (!row) {
+                return null;
+            }
+            return {
+                asn: row.asn,
+                handle: normalizeText(row.handle),
+                organization: normalizeText(row.organization),
+                ipv4Amount: row.ipv4_amount ?? null,
+                ipv6Amount: row.ipv6_amount ?? null,
+                domain: normalizeText(row.domain),
+            };
+        };
 
         const getAsnInfo = (asnNumber) => {
             const parsed = parseAsnNumber(asnNumber);
@@ -68,10 +197,91 @@ export const createAsnInfoStore = (dbPath) => {
             }
         };
 
+        const getTopAsnsByIpv4 = (limit = 25) => {
+            const safeLimit = normalizeLimit(limit, 10);
+            try {
+                return selectTopAsnsByIpv4Stmt.all(safeLimit).map(normalizeAsnRow).filter(Boolean);
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query top IPv4 ASNs', error);
+                return [];
+            }
+        };
+
+        const getTopAsnsByIpv6 = (limit = 25) => {
+            const safeLimit = normalizeLimit(limit, 10);
+            try {
+                return selectTopAsnsByIpv6Stmt.all(safeLimit).map(normalizeAsnRow).filter(Boolean);
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query top IPv6 ASNs', error);
+                return [];
+            }
+        };
+
+        const getTopOrganizationsByIpv4 = (limit = 25) => {
+            const safeLimit = normalizeLimit(limit, 10);
+            try {
+                return selectTopOrganizationsByIpv4Stmt.all(safeLimit).map((row) => {
+                    const asnCount = Number.isFinite(row.asn_count)
+                        ? row.asn_count
+                        : Number.parseInt(row.asn_count, 10);
+                    return {
+                        organization: normalizeText(row.organization),
+                        ipv4Amount: row.ipv4_amount ?? null,
+                        asnCount: Number.isFinite(asnCount) ? asnCount : 0,
+                    };
+                });
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query top organizations', error);
+                return [];
+            }
+        };
+
+        const getAsnsForOrg = (orgName, limit = 3) => {
+            const normalized = normalizeText(orgName);
+            if (!normalized) {
+                return [];
+            }
+            const safeLimit = normalizeLimit(limit, 3);
+            try {
+                return selectAsnsByOrgStmt.all(normalized, safeLimit).map(normalizeAsnRow).filter(Boolean);
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query ASNs for org', error);
+                return [];
+            }
+        };
+
+        const getRelatedAsnsByOrg = (orgName, excludeAsn, limit = 3) => {
+            const normalized = normalizeText(orgName);
+            if (!normalized) {
+                return [];
+            }
+            const safeLimit = normalizeLimit(limit, 3);
+            const exclude = parseAsnNumber(excludeAsn) ?? -1;
+            try {
+                return selectRelatedAsnsByOrgStmt
+                    .all(normalized, exclude, safeLimit)
+                    .map(normalizeAsnRow)
+                    .filter(Boolean);
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query related ASNs for org', error);
+                return [];
+            }
+        };
+
         return {
             isAvailable: () => true,
             parseAsnNumber,
             getAsnInfo,
+            getTopAsnsByIpv4,
+            getTopAsnsByIpv6,
+            getTopOrganizationsByIpv4,
+            getAsnsForOrg,
+            getRelatedAsnsByOrg,
         };
     } catch (error) {
         // eslint-disable-next-line no-console
