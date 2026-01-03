@@ -36,3 +36,7 @@ npm start
 - Control honeypot retention with `MAX_HONEYPOT` (defaults to 1024). When the table exceeds 110% of this value, the oldest rows are pruned.
 - Optional GeoIP lookup: download a country GeoIP database (e.g., `ip-to-country.mmdb`), keep it out of version control, and point `GEOIP_DB_PATH` to the file (absolute path or relative to the project root) to enrich requests with country/region/city coordinates.
 - Optional ASN lookup: download an ASN database (e.g., `ip-to-asn.mmdb`), keep it out of version control, and point `ASNIP_DB_PATH` to the file (absolute path or relative to the project root) to enrich requests with ASN org data.
+
+## Configuration
+- ASN - https://github.com/ipverse/as-ip-blocks
+- GEO-ip - https://github.com/iplocate/ip-address-databases/
