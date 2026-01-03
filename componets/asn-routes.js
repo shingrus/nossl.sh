@@ -19,7 +19,7 @@ const requireAsnStore = (value) => {
 
 const buildAsnPageTitle = (asnNumber, orgName, handle) => {
     const titleSuffix = orgName || handle;
-    return titleSuffix ? `ASN ${asnNumber} - ${titleSuffix}` : `ASN ${asnNumber}`;
+    return titleSuffix ? `AS${asnNumber} - ${titleSuffix}` : `AS${asnNumber}`;
 };
 
 const buildAsnPageDescription = (asnNumber, orgName, domain, ipv4Count, ipv6Count) => {
@@ -177,8 +177,8 @@ const createAsnPageHandler =
                     ipv4Amount: null,
                     orgName: null,
                     handle: null,
-                    pageTitle: `ASN ${asnNumber}`,
-                    pageDescription: `ASN ${asnNumber} details are unavailable because the ASN database is not configured.`,
+                    pageTitle: `AS${asnNumber}`,
+                    pageDescription: `AS${asnNumber} details are unavailable because the ASN database is not configured.`,
                     errorMessage: 'ASN database is not configured.',
                     rawJson: null,
                     apiUrl,
@@ -202,9 +202,9 @@ const createAsnPageHandler =
                     ipv4Amount: null,
                     orgName: null,
                     handle: null,
-                    pageTitle: `ASN ${asnNumber}`,
+                    pageTitle: `AS${asnNumber}`,
                     pageDescription: `No ASN record found for ${asnNumber}.`,
-                    errorMessage: `ASN ${asnNumber} not found.`,
+                    errorMessage: `AS${asnNumber} not found.`,
                     rawJson: null,
                     apiUrl,
                     generatedAt,
