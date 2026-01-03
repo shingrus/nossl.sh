@@ -17,7 +17,6 @@
       const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
       const geo = report?.geo;
       const geoSummary = geo?.countryName ? [geo.countryFlag, geo.countryName].filter(Boolean).join(' ') : null;
-      const geoDisplay = geoSummary && geo?.orgName ? `${geoSummary} / ${geo.orgName}` : geoSummary;
       const formattedGeneratedAt = formatTimestamp(generatedAt);
       const headerNote = 'Shared connection report';
       const footerLines = ['Return to the <a href=\"/\">main nossl.sh page</a>.'];
@@ -63,9 +62,17 @@
                 </button>
               </div>
             <% } %>
-            <% if (geoDisplay)  { %>
+            <% if (geoSummary)  { %>
               <p class="ip-location mono">
-                <%= geoDisplay %>
+                <%= geoSummary %>
+                <% if (geo?.orgName) { %>
+                  /
+                  <% if (geo?.asn) { %>
+                    <a href="/as/<%= geo.asn %>"><%= geo.orgName %></a>
+                  <% } else { %>
+                    <%= geo.orgName %>
+                  <% } %>
+                <% } %>
               </p>
             <% } %>
             <dl class="meta-grid meta-grid--compact hero-meta">

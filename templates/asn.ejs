@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= pageTitle %></title>
+    <meta name="description" content="<%= pageDescription %>" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const formattedGeneratedAt = generatedAt instanceof Date
+        ? generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC')
+        : new Date(generatedAt || Date.now()).toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+      const headerNote = pageTitle;
+      const footerLines = [
+        'Return to the <a href=\"/\">main nossl.sh page</a>.',
+        apiUrl ? `View as JSON: <a href=\"${apiUrl}\" rel=\"nofollow\">${apiUrl}</a>.` : null
+      ].filter(Boolean);
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container page">
+      <section class="card hero">
+        <div class="card__header">
+          <div>
+            <p class="eyebrow">Autonomous system</p>
+            <h1 class="card__title">ASN <%= asn %></h1>
+            <% if (errorMessage) { %>
+              <p class="panel__summary"><%= errorMessage %></p>
+            <% } else if (orgName || handle) { %>
+              <p class="panel__summary"><%= orgName || handle %></p>
+            <% } else { %>
+              <p class="panel__summary">ASN profile summary.</p>
+            <% } %>
+          </div>
+          <% if (apiUrl) { %>
+            <div class="card__actions">
+              <a class="btn btn-outline" href="<%= apiUrl %>" rel="nofollow">JSON</a>
+            </div>
+          <% } %>
+        </div>
+        <div class="hero-grid">
+          <div class="hero-primary">
+            <dl class="meta-grid meta-grid--compact hero-meta">
+              <div>
+                <dt>Handle</dt>
+                <dd class="mono"><%= handle || 'N/A' %></dd>
+              </div>
+              <div>
+                <dt>Organization</dt>
+                <dd><%= orgName || 'N/A' %></dd>
+              </div>
+              <div>
+                <dt>Domain</dt>
+                <dd class="mono"><%= domain || 'N/A' %></dd>
+              </div>
+            </dl>
+          </div>
+          <div class="hero-secondary">
+            <dl class="meta-grid meta-grid--compact">
+              <div>
+                <dt>IPv4 prefixes</dt>
+                <dd class="mono"><%= ipv4Count %></dd>
+              </div>
+              <div>
+                <dt>IPv6 prefixes</dt>
+                <dd class="mono"><%= ipv6Count %></dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <% if (!errorMessage) { %>
+        <section class="panel">
+          <header class="panel__header">
+            <div>
+              <p class="eyebrow">Prefixes</p>
+              <h2>Announced networks</h2>
+              <p class="panel__summary">IPv4: <%= ipv4Count %> | IPv6: <%= ipv6Count %></p>
+            </div>
+          </header>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Type</th>
+                  <th scope="col">Prefix</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (!ipv4Prefixes.length && !ipv6Prefixes.length) { %>
+                  <tr>
+                    <td colspan="2">No prefixes listed.</td>
+                  </tr>
+                <% } else { %>
+                  <% ipv4Prefixes.forEach((prefix) => { %>
+                    <tr>
+                      <td>IPv4</td>
+                      <td class="mono"><%= prefix %></td>
+                    </tr>
+                  <% }) %>
+                  <% ipv6Prefixes.forEach((prefix) => { %>
+                    <tr>
+                      <td>IPv6</td>
+                      <td class="mono"><%= prefix %></td>
+                    </tr>
+                  <% }) %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      <% } %>
+
+      <% if (rawJson) { %>
+        <section class="panel">
+          <header class="panel__header">
+            <h2>Raw record</h2>
+          </header>
+          <div class="code-snippet">
+            <pre><%= rawJson %></pre>
+          </div>
+        </section>
+      <% } %>
+    </main>
+
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>

@@ -16,9 +16,7 @@
     if (geo && geo.countryName) {
         geoSummary = [geo.countryFlag, geo.countryName].filter(Boolean).join(' ');
     }
-    if (geoSummary && geo.orgName) {
-        geoSummary += ' / ' + geo.orgName;
-    }
+    const orgLink = geo?.asn ? `/as/${geo.asn}` : null;
 
     return {
       formattedGeneratedAt,
@@ -26,6 +24,7 @@
       headerCount,
       headerPairs,
       httpLabel,
+      orgLink
     };
   })();
 %>
@@ -68,6 +67,14 @@
       <% if (connectionReport.geoSummary) { %>
         <p class="ip-location mono">
           <%= connectionReport.geoSummary %>
+          <% if (geo?.orgName) { %>
+            /
+            <% if (connectionReport.orgLink) { %>
+              <a href="<%= connectionReport.orgLink %>"><%= geo.orgName %></a>
+            <% } else { %>
+              <%= geo.orgName %>
+            <% } %>
+          <% } %>
         </p>
       <% } %>
       <dl class="meta-grid meta-grid--compact hero-meta">

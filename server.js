@@ -6,7 +6,9 @@ import net from 'net';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
+import {createAsnInfoStore} from './componets/asn-info.js';
 import {createHoneypotService} from './componets/honeypot.js';
+import {registerAsnRoutes} from './componets/asn-routes.js';
 import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
 import {createSharedReportService} from './componets/shared-report.js';
@@ -27,6 +29,7 @@ const DISCLAIMER_CANONICAL_URL = 'http://nossl.sh/disclaimer';
 
 const geoDbPathEnv = process.env.GEOIP_DB_PATH;
 const asnDbPathEnv = process.env.ASNIP_DB_PATH;
+const asnInfoDbPathEnv = process.env.ASN_INFO_DB_PATH;
 const geoDbPath = geoDbPathEnv
     ? (path.isAbsolute(geoDbPathEnv) ? geoDbPathEnv : path.resolve(__dirname, geoDbPathEnv))
     : path.join(__dirname, 'ip-to-country.mmdb');
@@ -34,6 +37,9 @@ const geoDbPath = geoDbPathEnv
 const asnDbPath = asnDbPathEnv
     ? (path.isAbsolute(asnDbPathEnv) ? asnDbPathEnv : path.resolve(__dirname, asnDbPathEnv))
     : path.join(__dirname, 'ip-to-asn.mmdb');
+const asnInfoDbPath = asnInfoDbPathEnv
+    ? (path.isAbsolute(asnInfoDbPathEnv) ? asnInfoDbPathEnv : path.resolve(__dirname, asnInfoDbPathEnv))
+    : null;
 
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
@@ -76,6 +82,7 @@ const COUNTER_NAMES = Object.freeze([
     'honeypotCount',
     'seoLandingCount',
     'reportCount',
+    'ascounter',
 ]);
 
 const ensureCounterStmt = db.prepare('INSERT OR IGNORE INTO counters (name, value) VALUES (?, 0)');
@@ -83,7 +90,7 @@ const incrementCounterStmt = db.prepare('UPDATE counters SET value = value + 1 W
 const selectCountersStmt = db.prepare(
     `SELECT name, value
      FROM counters
-     WHERE name IN (${COUNTER_NAMES.map(() => '?').join(', ')}) LIMIT 10`,
+     WHERE name IN (${COUNTER_NAMES.map(() => '?').join(', ')}) LIMIT ${COUNTER_NAMES.length}`,
 );
 
 COUNTER_NAMES.forEach((name) => {
@@ -129,6 +136,7 @@ const loadGeoReader = async (geoDb) => {
 
 const geoReader = await loadGeoReader(geoDbPath);
 const asnReader = await loadGeoReader(asnDbPath);
+const asnInfoStore = createAsnInfoStore(asnInfoDbPath);
 
 const isPrivateIpv4 = (ip) => {
 
@@ -245,6 +253,7 @@ export const lookupGeo = (ip) => {
             return null;
         }
         const asnRecord = asnReader?  asnReader.get(ip) : null;
+        console.log(asnRecord)
         const countryCode = record.country?.iso_code ||
                 record.registered_country?.iso_code ||
                 record.country_code ||
@@ -260,6 +269,7 @@ export const lookupGeo = (ip) => {
                 countryCodeToName(countryCode) ||
                 null,
             orgName: asnRecord ? asnRecord.name : null,
+            asn: asnRecord? asnRecord.asn : null,
         };
     } catch (error) {
         return null;
@@ -431,6 +441,9 @@ const collectCountersForRequest = (req) => {
     }
     else if (req.path.startsWith('/report')) {
         countersToBump.add('reportCount');
+    }
+    else if (req.path === '/as' || req.path.startsWith('/as/')) {
+        countersToBump.add('ascounter');
     }
 
     let matchedSeoPath = null;
@@ -725,6 +738,7 @@ app.get('/disclaimer', (req, res) => {
 });
 
 registerSeoRoutes(app, {getBaseRequestData, buildShareLinkForRequest});
+registerAsnRoutes(app, {asnInfoStore, getRenderMeta});
 
 app.get('/healthz', (req, res) => {
     res.json({status: 'ok'});
