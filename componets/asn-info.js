@@ -36,7 +36,9 @@ export const createAsnInfoStore = (dbPath) => {
     }
     try {
         const db = new Database(dbPath, {readonly: true, fileMustExist: true});
-        const selectAsnInfoStmt = db.prepare('SELECT json FROM asn WHERE asn = ?');
+        const selectAsnInfoStmt = db.prepare(
+            'SELECT json, CAST(ipv4_amount AS TEXT) AS ipv4_amount FROM asn WHERE asn = ?'
+        );
         const selectAsnDomainStmt = db.prepare('SELECT domain FROM asn_domain WHERE asn = ?');
 
         const getAsnInfo = (asnNumber) => {
@@ -57,6 +59,7 @@ export const createAsnInfoStore = (dbPath) => {
                     data,
                     rawJson,
                     parseError,
+                    ipv4Amount: row.ipv4_amount ?? null,
                 };
             } catch (error) {
                 // eslint-disable-next-line no-console

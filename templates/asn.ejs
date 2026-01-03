@@ -54,7 +54,7 @@
               </div>
               <div>
                 <dt>Domain</dt>
-                <dd class="mono"><%= domain || 'N/A' %></dd>
+                <dd class="mono"><%= (typeof domain === 'string' && domain.trim()) ? domain.trim() : 'N/A' %></dd>
               </div>
             </dl>
           </div>
@@ -67,6 +67,10 @@
               <div>
                 <dt>IPv6 prefixes</dt>
                 <dd class="mono"><%= ipv6Count %></dd>
+              </div>
+              <div>
+                <dt>IPv4 addresses</dt>
+                <dd class="mono"><%= ipv4Amount ?? 'N/A' %></dd>
               </div>
             </dl>
           </div>

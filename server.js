@@ -253,7 +253,6 @@ export const lookupGeo = (ip) => {
             return null;
         }
         const asnRecord = asnReader?  asnReader.get(ip) : null;
-        console.log(asnRecord)
         const countryCode = record.country?.iso_code ||
                 record.registered_country?.iso_code ||
                 record.country_code ||
