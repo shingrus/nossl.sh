@@ -19,9 +19,30 @@ def load_json(path: Path):
         return None
 
 
+def warn(source: Path, message: str):
+    print(f"warning: {source}: {message}", file=sys.stderr)
+
+
+class IntegrityError(RuntimeError):
+    pass
+
+
+class SkipEntry(RuntimeError):
+    pass
+
+
+def fail(source: Path, message: str):
+    raise IntegrityError(f"{source}: {message}")
+
+
+def skip(source: Path, message: str):
+    raise SkipEntry(f"{source}: {message}")
+
+
 def iter_aggregated(as_dir: Path):
     entries = []
     counter = 0
+    skipped = 0
     for entry in as_dir.iterdir():
         counter += 1
         if not entry.is_dir():
@@ -39,20 +60,39 @@ def iter_aggregated(as_dir: Path):
         if not isinstance(data, dict):
             print(f"warning: unexpected JSON in {agg_path}", file=sys.stderr)
             continue
-        asn_value = data.get("asn")
-        if asn_value is None:
-            asn_value = int(entry.name)
-        elif str(asn_value) != entry.name:
-            print(
-                f"warning: ASN mismatch in {agg_path} (dir {entry.name}, json {asn_value})",
-                file=sys.stderr,
+        asn_value = data.get("asn", entry.name)
+        try:
+            asn_number = int(asn_value)
+        except (TypeError, ValueError):
+            warn(agg_path, f"invalid ASN value {asn_value!r}")
+            continue
+        if asn_number <= 0:
+            warn(agg_path, f"invalid ASN value {asn_value!r}")
+            continue
+        if str(asn_number) != entry.name:
+            warn(
+                agg_path,
+                f"ASN mismatch (dir {entry.name}, json {asn_value}); skipping",
             )
-        strip_ip_amounts(data)
-        ip_amount, ipv4_amount, ipv6_amount = compute_ip_amounts(data)
-        entries.append(
-            (int(asn_value), data, ip_amount, ipv4_amount, ipv6_amount)
-        )
-    return sorted(entries, key=lambda item: item[0])
+            skipped += 1
+            continue
+        try:
+            normalized = normalize_asn_record(data, asn_number, agg_path)
+            if normalized is None:
+                skipped += 1
+                continue
+            ip_amount, ipv4_amount, ipv6_amount = compute_ip_amounts(
+                normalized, agg_path
+            )
+        except SkipEntry as exc:
+            print(f"warning: {exc}", file=sys.stderr)
+            skipped += 1
+            continue
+        except IntegrityError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            raise
+        entries.append((asn_number, normalized, ip_amount, ipv4_amount, ipv6_amount))
+    return sorted(entries, key=lambda item: item[0]), skipped
 
 
 def domain_from_url(value: str):
@@ -161,7 +201,7 @@ def add_domains(entries, use_rdap: bool, timeout: float, delay: float, user_agen
 
 
 def extract_prefixes(data, family: str):
-    for container_key in ("subnets", "prefixes"):
+    for container_key in ("prefixes", "subnets"):
         container = data.get(container_key)
         if isinstance(container, dict):
             prefixes = container.get(family)
@@ -175,48 +215,176 @@ def extract_prefixes(data, family: str):
 
 def normalize_prefix(prefix):
     if isinstance(prefix, str):
-        return prefix
+        stripped = prefix.strip()
+        return stripped if stripped else None
     if isinstance(prefix, dict):
         for key in ("prefix", "cidr", "network", "subnet"):
             value = prefix.get(key)
             if isinstance(value, str):
-                return value
+                stripped = value.strip()
+                return stripped if stripped else None
     return None
 
 
-def count_ip_amount(prefixes, family: str):
+def coerce_string(value, source: Path, field: str):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        trimmed = value.strip()
+        return trimmed if trimmed else None
+    warn(source, f"{field} is not a string, coercing")
+    return str(value)
+
+
+def read_prefixes(data, source: Path):
+    sources = {}
+
+    def collect_container(container_key: str):
+        if container_key not in data:
+            return
+        container = data.get(container_key)
+        if container is None:
+            return
+        if not isinstance(container, dict):
+            fail(source, f"{container_key} is not an object")
+        families = {}
+        for fam in ("ipv4", "ipv6"):
+            if fam not in container:
+                continue
+            value = container.get(fam)
+            if value is None:
+                families[fam] = []
+                continue
+            if not isinstance(value, list):
+                fail(source, f"{container_key}.{fam} is not a list")
+            families[fam] = value
+        if families:
+            sources[container_key] = families
+
+    collect_container("prefixes")
+    collect_container("subnets")
+
+    top_level = {}
+    for fam in ("ipv4", "ipv6"):
+        if fam not in data:
+            continue
+        value = data.get(fam)
+        if value is None:
+            top_level[fam] = []
+            continue
+        if not isinstance(value, list):
+            fail(source, f"{fam} is not a list")
+        top_level[fam] = value
+    if top_level:
+        sources["top_level"] = top_level
+
+    if not sources:
+        fail(source, "missing prefixes/subnets/ipv4/ipv6 data")
+
+    if len(sources) > 1:
+        base_key = next(iter(sources))
+        base = sources[base_key]
+        for key, families in sources.items():
+            if key == base_key:
+                continue
+            if families != base:
+                skip(
+                    source,
+                    f"conflicting prefix sources ({base_key} vs {key}); skipping",
+                )
+
+    for key in ("prefixes", "subnets", "top_level"):
+        if key in sources:
+            return sources[key]
+    return {}
+
+
+def normalize_prefixes(data, family: str, source: Path):
+    normalized = []
+    families = read_prefixes(data, source)
+    entries = families.get(family, [])
+    for entry in entries:
+        prefix = normalize_prefix(entry)
+        if not prefix:
+            skip(source, f"invalid {family} prefix entry {entry!r}")
+        normalized.append(prefix)
+    return normalized
+
+
+def normalize_metadata(data, source: Path):
+    metadata = {}
+    raw_metadata = data.get("metadata")
+    if raw_metadata is None:
+        raw_metadata = {}
+    elif not isinstance(raw_metadata, dict):
+        skip(source, "metadata is not an object")
+    metadata.update(raw_metadata)
+
+    handle = coerce_string(raw_metadata.get("handle"), source, "metadata.handle")
+    if handle is None:
+        handle = coerce_string(data.get("handle"), source, "handle")
+    if handle is not None:
+        metadata["handle"] = handle
+
+    description = coerce_string(raw_metadata.get("description"), source, "metadata.description")
+    if description is None:
+        description = coerce_string(data.get("description"), source, "description")
+    if description is None:
+        description = coerce_string(data.get("organization"), source, "organization")
+    if description is None:
+        description = coerce_string(data.get("Organization"), source, "Organization")
+    if description is not None:
+        metadata["description"] = description
+
+    origin = coerce_string(raw_metadata.get("origin"), source, "metadata.origin")
+    if origin is None:
+        origin = coerce_string(data.get("origin"), source, "origin")
+    if origin is not None:
+        metadata["origin"] = origin
+
+    metadata = {key: value for key, value in metadata.items() if value is not None}
+    return metadata
+
+
+def normalize_asn_record(data, asn: int, source: Path):
+    if not isinstance(data, dict):
+        fail(source, "ASN record is not an object")
+    normalized = {
+        "asn": asn,
+        "metadata": normalize_metadata(data, source),
+        "prefixes": {
+            "ipv4": normalize_prefixes(data, "ipv4", source),
+            "ipv6": normalize_prefixes(data, "ipv6", source),
+        },
+    }
+    if "domain" in data:
+        domain = coerce_string(data.get("domain"), source, "domain")
+        if domain:
+            normalized["domain"] = domain
+    return normalized
+
+
+def count_ip_amount(prefixes, family: str, source: Path):
     total = 0
     for entry in prefixes:
         prefix = normalize_prefix(entry)
         if not prefix:
-            continue
+            skip(source, f"missing {family} prefix")
         try:
             network = ipaddress.ip_network(prefix, strict=False)
         except ValueError as exc:
-            print(
-                f"warning: invalid {family} prefix {prefix!r}: {exc}",
-                file=sys.stderr,
-            )
-            continue
+            skip(source, f"invalid {family} prefix {prefix!r}: {exc}")
         if family == "ipv4" and network.version != 4:
-            print(
-                f"warning: unexpected ipv6 prefix in ipv4 list: {prefix!r}",
-                file=sys.stderr,
-            )
-            continue
+            skip(source, f"unexpected ipv6 prefix in ipv4 list: {prefix!r}")
         if family == "ipv6" and network.version != 6:
-            print(
-                f"warning: unexpected ipv4 prefix in ipv6 list: {prefix!r}",
-                file=sys.stderr,
-            )
-            continue
+            skip(source, f"unexpected ipv4 prefix in ipv6 list: {prefix!r}")
         total += int(network.num_addresses)
     return total
 
 
-def compute_ip_amounts(data):
-    ipv4_amount = count_ip_amount(extract_prefixes(data, "ipv4"), "ipv4")
-    ipv6_amount = count_ip_amount(extract_prefixes(data, "ipv6"), "ipv6")
+def compute_ip_amounts(data, source: Path):
+    ipv4_amount = count_ip_amount(extract_prefixes(data, "ipv4"), "ipv4", source)
+    ipv6_amount = count_ip_amount(extract_prefixes(data, "ipv6"), "ipv6", source)
     return ipv4_amount + ipv6_amount, ipv4_amount, ipv6_amount
 
 
@@ -226,6 +394,9 @@ def strip_ip_amounts(data):
 
 
 def extract_handle(data):
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict) and metadata.get("handle") is not None:
+        return str(metadata.get("handle"))
     handle = data.get("handle")
     if handle is None:
         return None
@@ -233,6 +404,11 @@ def extract_handle(data):
 
 
 def extract_organization(data):
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict):
+        value = metadata.get("description")
+        if value is not None:
+            return str(value)
     for key in ("organization", "Organization", "description"):
         value = data.get(key)
         if value is not None:
@@ -326,10 +502,21 @@ def main():
         print(f"error: ASN directory not found: {as_dir}", file=sys.stderr)
         return 2
 
-    entries = iter_aggregated(as_dir)
+    try:
+        entries, skipped = iter_aggregated(as_dir)
+    except IntegrityError:
+        return 3
     if not entries:
-        print("error: no aggregated.json files found", file=sys.stderr)
+        if skipped:
+            print(
+                "error: no valid aggregated.json entries found",
+                file=sys.stderr,
+            )
+        else:
+            print("error: no aggregated.json files found", file=sys.stderr)
         return 1
+    if skipped:
+        print(f"warning: skipped {skipped} ASN entries", file=sys.stderr)
 
 
     output_path = Path(args.output)

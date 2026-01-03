@@ -42,6 +42,63 @@ const buildAsnPageDescription = (asnNumber, orgName, domain, ipv4Count, ipv6Coun
     return description;
 };
 
+const trimString = (value) => {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+};
+
+const normalizePrefix = (entry) => {
+    if (typeof entry === 'string') {
+        return entry;
+    }
+    if (entry && typeof entry === 'object') {
+        for (const key of ['prefix', 'cidr', 'network', 'subnet']) {
+            if (typeof entry[key] === 'string') {
+                return entry[key];
+            }
+        }
+    }
+    return null;
+};
+
+const extractPrefixes = (asnData, family) => {
+    if (!asnData || typeof asnData !== 'object') {
+        return [];
+    }
+    for (const containerKey of ['prefixes', 'subnets']) {
+        const container = asnData[containerKey];
+        if (container && typeof container === 'object') {
+            const prefixes = container[family];
+            if (Array.isArray(prefixes)) {
+                return prefixes.map(normalizePrefix).filter(Boolean);
+            }
+        }
+    }
+    const topLevel = asnData[family];
+    if (Array.isArray(topLevel)) {
+        return topLevel.map(normalizePrefix).filter(Boolean);
+    }
+    return [];
+};
+
+const extractOrgName = (asnData) => {
+    const metadata = asnData?.metadata;
+    return (
+        trimString(metadata?.description) ||
+        trimString(asnData?.description) ||
+        trimString(asnData?.organization) ||
+        trimString(asnData?.Organization)
+    );
+};
+
+const extractHandle = (asnData) => {
+    const metadata = asnData?.metadata;
+    return trimString(metadata?.handle) || trimString(asnData?.handle);
+};
+
 const createAsnApiHandler = ({asnInfoStore}) => (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
     const asnNumber = asnInfoStore.parseAsnNumber(req.params.asn);
@@ -157,14 +214,10 @@ const createAsnPageHandler =
             }
 
             const asnData = asnInfo.data;
-            const ipv4Prefixes = Array.isArray(asnData?.subnets?.ipv4) ? asnData.subnets.ipv4 : [];
-            const ipv6Prefixes = Array.isArray(asnData?.subnets?.ipv6) ? asnData.subnets.ipv6 : [];
-            const orgName = typeof asnData?.description === 'string' && asnData.description.trim()
-                ? asnData.description.trim()
-                : null;
-            const handle = typeof asnData?.handle === 'string' && asnData.handle.trim()
-                ? asnData.handle.trim()
-                : null;
+            const ipv4Prefixes = extractPrefixes(asnData, 'ipv4');
+            const ipv6Prefixes = extractPrefixes(asnData, 'ipv6');
+            const orgName = extractOrgName(asnData);
+            const handle = extractHandle(asnData);
             const pageTitle = buildAsnPageTitle(asnNumber, orgName, handle);
             const pageDescription = buildAsnPageDescription(
                 asnNumber,
