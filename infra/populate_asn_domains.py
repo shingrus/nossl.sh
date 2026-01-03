@@ -81,19 +81,34 @@ def extract_domain_from_rdap(data):
     return None
 
 
-def rdap_lookup_domain(asn: int, timeout: float, user_agent: str):
+def rdap_lookup_domain(
+    asn: int, timeout: float, user_agent: str, rate_limit_timeout: float
+):
     url = f"https://rdap.arin.net/registry/autnum/{asn}"
     request = urllib.request.Request(
         url,
         headers={"User-Agent": user_agent, "Accept": "application/rdap+json"},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, ValueError) as exc:
-        print(f"warning: RDAP lookup failed for AS{asn}: {exc}", file=sys.stderr)
-        return None
-    return extract_domain_from_rdap(data)
+    while True:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            return extract_domain_from_rdap(data)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                print(
+                    "warning: RDAP rate limit hit for "
+                    f"AS{asn}; sleeping {rate_limit_timeout:.1f}s before retry",
+                    file=sys.stderr,
+                )
+                if rate_limit_timeout:
+                    time.sleep(rate_limit_timeout)
+                continue
+            print(f"warning: RDAP lookup failed for AS{asn}: {exc}", file=sys.stderr)
+            return None
+        except (urllib.error.URLError, ValueError) as exc:
+            print(f"warning: RDAP lookup failed for AS{asn}: {exc}", file=sys.stderr)
+            return None
 
 
 def ensure_tables(connection):
@@ -156,6 +171,12 @@ def main():
         help="Delay between RDAP requests in seconds (default: 0.2)",
     )
     parser.add_argument(
+        "--rate-limit-timeout",
+        type=float,
+        default=15.0,
+        help="Sleep time after HTTP 429 before retrying in seconds (default: 15)",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -201,7 +222,12 @@ def main():
         for asn in iter_pending_asns(connection, args.limit):
             total += 1
             print(f"checking AS{asn} ({total}/{planned_total})")
-            domain = rdap_lookup_domain(asn, args.timeout, args.user_agent)
+            domain = rdap_lookup_domain(
+                asn,
+                args.timeout,
+                args.user_agent,
+                args.rate_limit_timeout,
+            )
             if domain:
                 print(f"found domain for AS{asn}: {domain}")
                 if args.dry_run:
