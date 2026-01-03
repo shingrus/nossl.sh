@@ -93,7 +93,10 @@ def rdap_lookup_domain(
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 data = json.loads(response.read().decode("utf-8"))
-            return extract_domain_from_rdap(data)
+            domain = extract_domain_from_rdap(data)
+            if not domain:
+                return " "
+            return domain
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
                 print(
@@ -104,6 +107,12 @@ def rdap_lookup_domain(
                 if rate_limit_timeout:
                     time.sleep(rate_limit_timeout)
                 continue
+            if exc.code in {403, 404}:
+                print(
+                    f"warning: RDAP returned HTTP {exc.code} for AS{asn}",
+                    file=sys.stderr,
+                )
+                return " "
             print(f"warning: RDAP lookup failed for AS{asn}: {exc}", file=sys.stderr)
             return None
         except (urllib.error.URLError, ValueError) as exc:
@@ -229,7 +238,10 @@ def main():
                 args.rate_limit_timeout,
             )
             if domain:
-                print(f"found domain for AS{asn}: {domain}")
+                if domain == " ":
+                    print(f"no domain for AS{asn}, storing placeholder")
+                else:
+                    print(f"found domain for AS{asn}: {domain}")
                 if args.dry_run:
                     print(f"AS{asn} -> {domain}")
                 else:
