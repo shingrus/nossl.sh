@@ -40,6 +40,45 @@ const parseDigits = (value) => {
     return raw;
 };
 
+const parseNumber = (value) => {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed || !/^\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(trimmed)) {
+            return null;
+        }
+        const parsed = Number.parseFloat(trimmed);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+};
+
+const formatDecimalString = (value) => {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(\d+)(?:\.(\d+))?$/);
+    if (!match) {
+        return null;
+    }
+    const whole = formatIpv4Amount(match[1]);
+    const decimals = (match[2] || '').padEnd(2, '0').slice(0, 2);
+    if (decimals === '00') {
+        return whole;
+    }
+    return `${whole}.${decimals}`;
+};
+
+const IPV6_NUMBER_FORMATTER = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+});
+
+const formatNumberWithSpaces = (value) => {
+    const formatted = IPV6_NUMBER_FORMATTER.format(value).replace(/,/g, ' ');
+    return formatted.endsWith('.00') ? formatted.slice(0, -3) : formatted;
+};
+
 const formatIpv4Amount = (value) => {
     const digits = parseDigits(value);
     if (!digits) {
@@ -49,23 +88,17 @@ const formatIpv4Amount = (value) => {
 };
 
 const formatIpv6Amount = (value) => {
-    const digits = parseDigits(value);
-    if (!digits) {
+    if (typeof value === 'string') {
+        const formatted = formatDecimalString(value);
+        if (formatted) {
+            return formatted;
+        }
+    }
+    const parsed = parseNumber(value);
+    if (parsed == null || !Number.isFinite(parsed)) {
         return value == null ? 'N/A' : String(value);
     }
-    const amount = BigInt(digits);
-    const million = 1000000n;
-    const whole = amount / million;
-    const remainder = amount % million;
-    let rounded = (remainder + 5000n) / 10000n;
-    let wholeAdjusted = whole;
-    if (rounded >= 100n) {
-        wholeAdjusted = whole + 1n;
-        rounded = 0n;
-    }
-    const decimal = rounded.toString().padStart(2, '0');
-    const wholeFormatted = formatIpv4Amount(wholeAdjusted.toString());
-    return `${wholeFormatted}.${decimal} mln`;
+    return formatNumberWithSpaces(parsed);
 };
 
 const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res) => {
@@ -83,7 +116,7 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
     const heroSubtitle = isIpv4
         ? 'Ranked by total announced IPv4 address space. Related ASNs are grouped by organization.'
         : 'Ranked by total announced IPv6 address space. Related ASNs are grouped by organization.';
-    const showSecondaryAmount = !isIpv4;
+    const showSecondaryAmount = false;
     const ipv4Label = 'IPv4 addresses';
     const ipv6Label = 'IPv6 addresses (mln)';
     const primaryAmountLabel = isIpv4 ? ipv4Label : ipv6Label;
@@ -98,8 +131,8 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
         res.status(503);
     } else {
         const rows = isIpv4
-            ? asnInfoStore.getTopAsnsByIpv4(10)
-            : asnInfoStore.getTopAsnsByIpv6(10);
+            ? asnInfoStore.getTopAsnsByIpv4(25)
+            : asnInfoStore.getTopAsnsByIpv6(25);
         entries = rows.map((entry) => {
             const relatedAsns = entry.organization
                 ? asnInfoStore.getRelatedAsnsByOrg(entry.organization, entry.asn, 3)
@@ -153,7 +186,7 @@ const createTopOrgHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
         errorMessage = 'ASN database is not configured.';
         res.status(503);
     } else {
-        entries = asnInfoStore.getTopOrganizationsByIpv4(10).map((entry) => {
+        entries = asnInfoStore.getTopOrganizationsByIpv4(25).map((entry) => {
             const topAsns = entry.organization
                 ? asnInfoStore.getAsnsForOrg(entry.organization, 3).map((asnEntry) => ({
                     ...asnEntry,

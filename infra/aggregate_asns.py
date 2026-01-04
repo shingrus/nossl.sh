@@ -430,6 +430,19 @@ def format_ip_amount(value):
     return str(value)
 
 
+def format_ipv6_amount_millions(value):
+    if value is None:
+        return None
+    million = 1_000_000
+    whole = value // million
+    remainder = value % million
+    rounded = (remainder * 100 + million // 2) // million
+    if rounded >= 100:
+        whole += 1
+        rounded = 0
+    return f"{whole}.{rounded:02d}"
+
+
 def write_sqlite(entries, output_path: Path):
     connection = sqlite3.connect(output_path)
     try:
@@ -441,7 +454,7 @@ def write_sqlite(entries, output_path: Path):
                 "organization TEXT, "
                 "ip_amount int8, "
                 "ipv4_amount int8, "
-                "ipv6_amount int8, "
+                "ipv6_amount REAL, "
                 "json TEXT NOT NULL"
                 ")"
             )
@@ -449,7 +462,7 @@ def write_sqlite(entries, output_path: Path):
             ensure_column(connection, "asn", "organization", "organization TEXT")
             ensure_column(connection, "asn", "ip_amount", "ip_amount int8")
             ensure_column(connection, "asn", "ipv4_amount", "ipv4_amount int8")
-            ensure_column(connection, "asn", "ipv6_amount", "ipv6_amount int8")
+            ensure_column(connection, "asn", "ipv6_amount", "ipv6_amount REAL")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_asn_asn ON asn(asn)"
             )
@@ -462,7 +475,7 @@ def write_sqlite(entries, output_path: Path):
                     extract_organization(data),
                     format_ip_amount(ip_amount),
                     format_ip_amount(ipv4_amount),
-                    format_ip_amount(ipv6_amount),
+                    format_ipv6_amount_millions(ipv6_amount),
                     json.dumps(data, ensure_ascii=True),
                 )
                 for asn, data, ip_amount, ipv4_amount, ipv6_amount in entries

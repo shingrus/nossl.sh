@@ -66,7 +66,7 @@ export const createAsnInfoStore = (dbPath) => {
                    a.handle,
                    NULLIF(TRIM(a.organization), '') AS organization,
                    CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
                    d.domain AS domain
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
@@ -82,15 +82,13 @@ export const createAsnInfoStore = (dbPath) => {
                    a.handle,
                    NULLIF(TRIM(a.organization), '') AS organization,
                    CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
                    d.domain AS domain
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
              WHERE a.ipv6_amount IS NOT NULL
-               AND CAST(a.ipv6_amount AS TEXT) != ''
-               AND CAST(a.ipv6_amount AS TEXT) != '0'
-             ORDER BY LENGTH(CAST(a.ipv6_amount AS TEXT)) DESC,
-                      CAST(a.ipv6_amount AS TEXT) DESC
+               AND CAST(a.ipv6_amount AS REAL) > 0
+             ORDER BY CAST(a.ipv6_amount AS REAL) DESC
              LIMIT ?
         `);
         const selectTopOrganizationsByIpv4Stmt = db.prepare(`
@@ -131,7 +129,7 @@ export const createAsnInfoStore = (dbPath) => {
                    a.handle,
                    NULLIF(TRIM(a.organization), '') AS organization,
                    CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
                    d.domain AS domain
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
@@ -145,7 +143,7 @@ export const createAsnInfoStore = (dbPath) => {
                    a.handle,
                    NULLIF(TRIM(a.organization), '') AS organization,
                    CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS TEXT) AS ipv6_amount,
+                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
                    d.domain AS domain
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
@@ -198,7 +196,7 @@ export const createAsnInfoStore = (dbPath) => {
         };
 
         const getTopAsnsByIpv4 = (limit = 25) => {
-            const safeLimit = normalizeLimit(limit, 10);
+            const safeLimit = normalizeLimit(limit, 25);
             try {
                 return selectTopAsnsByIpv4Stmt.all(safeLimit).map(normalizeAsnRow).filter(Boolean);
             } catch (error) {
@@ -209,7 +207,7 @@ export const createAsnInfoStore = (dbPath) => {
         };
 
         const getTopAsnsByIpv6 = (limit = 25) => {
-            const safeLimit = normalizeLimit(limit, 10);
+            const safeLimit = normalizeLimit(limit, 25);
             try {
                 return selectTopAsnsByIpv6Stmt.all(safeLimit).map(normalizeAsnRow).filter(Boolean);
             } catch (error) {
@@ -220,12 +218,12 @@ export const createAsnInfoStore = (dbPath) => {
         };
 
         const getTopOrganizationsByIpv4 = (limit = 25) => {
-            const safeLimit = normalizeLimit(limit, 10);
+            const safeLimit = normalizeLimit(limit, 25);
             try {
                 return selectTopOrganizationsByIpv4Stmt.all(safeLimit).map((row) => {
                     const asnCount = Number.isFinite(row.asn_count)
                         ? row.asn_count
-                        : Number.parseInt(row.asn_count, 10);
+                        : Number.parseInt(row.asn_count, 25);
                     return {
                         organization: normalizeText(row.organization),
                         ipv4Amount: row.ipv4_amount ?? null,
