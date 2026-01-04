@@ -17,14 +17,15 @@ usage() {
 Usage: infra/build_databases.sh [--work-dir <path>]
 
 Options:
-  --work-dir <path>   Temporary working directory for cloned repos.
+  --work-dir <path>   Output directory for generated databases.
+                      Temporary data is stored under <work-dir>/.tmp-ipverse.
   -h, --help          Show this help message.
 EOF
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WORK_DIR="${SCRIPT_DIR}/.tmp-ipverse"
+WORK_DIR="${ROOT_DIR}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -33,7 +34,7 @@ while [[ $# -gt 0 ]]; do
                 log "error: --work-dir requires a path"
                 exit 2
             fi
-            WORK_DIR="$2/.tmp-ipverse"
+            WORK_DIR="$2"
             shift 2
             ;;
         -h|--help)
@@ -54,12 +55,13 @@ require_cmd python3
 
 BUILD_COMMAND='./mmdb-builder/build_mmdb'
 DATE_TAG="$(date +%Y%m%d)"
-COUNTRY_REPO="${WORK_DIR}/country-ip-blocks"
-ASN_REPO="${WORK_DIR}/asn-ip"
+TEMP_DIR="${WORK_DIR}/.tmp-ipverse"
+COUNTRY_REPO="${TEMP_DIR}/country-ip-blocks"
+ASN_REPO="${TEMP_DIR}/asn-ip"
 
-ASN_MMDB="${ROOT_DIR}/nossl-sh-asn-${DATE_TAG}.mmdb"
-COUNTRY_MMDB="${ROOT_DIR}/nossl-sh-country-${DATE_TAG}.mmdb"
-ASN_SQLITE="${ROOT_DIR}/nossl-sh-asn-${DATE_TAG}.sqlite3"
+ASN_MMDB="${WORK_DIR}/nossl-sh-asn-${DATE_TAG}.mmdb"
+COUNTRY_MMDB="${WORK_DIR}/nossl-sh-country-${DATE_TAG}.mmdb"
+ASN_SQLITE="${WORK_DIR}/asn.sqlite3"
 
 safe_remove_dir() {
     local target="$1"
@@ -75,14 +77,16 @@ safe_remove_dir() {
 }
 
 cleanup() {
-    safe_remove_dir "${WORK_DIR}"
+    safe_remove_dir "${TEMP_DIR}"
 }
 trap cleanup EXIT
 
 log "starting mmdb build"
 log "work dir: ${WORK_DIR}"
-safe_remove_dir "${WORK_DIR}"
+log "temp dir: ${TEMP_DIR}"
+safe_remove_dir "${TEMP_DIR}"
 mkdir -p "${WORK_DIR}"
+mkdir -p "${TEMP_DIR}"
 
 log "cloning country-ip-blocks"
 git clone --depth 1 https://github.com/ipverse/country-ip-blocks "${COUNTRY_REPO}"
@@ -96,6 +100,7 @@ python3 "${ROOT_DIR}/infra/aggregate_asns.py" \
     --output "${ASN_SQLITE}"
 
 log "building MMDBs"
+rm -f "${ASN_MMDB}" "${COUNTRY_MMDB}"
 #go run "${ROOT_DIR}/infra/mmdb-builder/build_mmdb.go" \
 ${BUILD_COMMAND} \
     --as-dir "${ASN_REPO}/as" \
