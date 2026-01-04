@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
                 log "error: --work-dir requires a path"
                 exit 2
             fi
-            WORK_DIR="$2"
+            WORK_DIR="$2/.tmp-ipverse"
             shift 2
             ;;
         -h|--help)
