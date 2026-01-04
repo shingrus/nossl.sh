@@ -10,3 +10,5 @@ npm-debug.log*
 *.log
 *.mmdb
 *.sqlite3
+ips.txt
+build_mmdb

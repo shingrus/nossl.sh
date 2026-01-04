@@ -41,7 +41,16 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `templates/` EJS views, `templates/partials/` shared fragments
 - `static/` CSS, icons, and robots files
 - `infra/` data tooling (ASN aggregation, domain population)
+- `infra/mmdb-builder/` Go toolchain for building the ASN MMDB from per-ASN `aggregated.json` files
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
+
+## ASN MMDB builder
+- Go entry point: `infra/mmdb-builder/build_mmdb.go`
+- Inputs: `as/<ASN>/aggregated.json` directories (parsed for ASN metadata and IPv4/IPv6 prefixes)
+- Optional country inputs: `<country-dir>/<code>/aggregated.json` directories (parsed for country name/code and IPv4/IPv6 prefixes)
+- Output: ASN MMDB file (`-asn-out`, default `nossl-sh-ip-to-asn.mmdb`)
+- Optional output: country MMDB file (`-country-out`, default `nossl-sh-ip-to-country.mmdb`)
+- Flags: `-as-dir` (default `as`), `-asn-out`, `-country-dir`, `-country-out`, and `-test-mmdb`
 
 ## Conventions and cautions
 - ES modules only (`import`/`export`), no CommonJS.
