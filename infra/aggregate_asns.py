@@ -468,6 +468,12 @@ def write_sqlite(entries, output_path: Path):
             )
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_asn_ipv4_amount ON asn(ipv4_amount)")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_asn_ipv6_amount ON asn(ipv6_amount)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_asn_org_trim ON asn(TRIM(organization))"
+            )
             rows = (
                 (
                     asn,
