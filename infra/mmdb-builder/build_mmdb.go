@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -107,39 +108,16 @@ func buildASNMMDB(asDir, outPath string) {
 		panic(err)
 	}
 
-	entries, skipped, err := iterAggregated(asDir)
+	stats, err := ingestASNDir(writer, asDir)
 	if err != nil {
 		panic(err)
 	}
-	if skipped > 0 {
-		fmt.Fprintf(os.Stderr, "warning: skipped %d ASN entries\n", skipped)
+	if stats.skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipped %d ASN entries\n", stats.skipped)
 	}
-	if len(entries) == 0 {
+	if stats.entries == 0 {
 		fmt.Fprintln(os.Stderr, "error: no aggregated.json entries found")
 		os.Exit(1)
-	}
-
-	totalPrefixes := 0
-	for _, entry := range entries {
-		for _, prefix := range entry.prefixes {
-			_, ipNet, err := net.ParseCIDR(prefix)
-			if err != nil {
-				panic(fmt.Errorf("bad prefix %q (%s): %w", prefix, entry.sourcePath, err))
-			}
-
-			record := mmdbtype.Map{}
-			setString(record, "asn", strconv.Itoa(entry.asn))
-			setString(record, "name", entry.name)
-			setString(record, "org", entry.org)
-			setString(record, "country_code", entry.country)
-			setString(record, "domain", entry.domain)
-			setString(record, "network", prefix)
-
-			if err := writer.Insert(ipNet, record); err != nil {
-				panic(fmt.Errorf("insert %q (%s): %w", prefix, entry.sourcePath, err))
-			}
-			totalPrefixes++
-		}
 	}
 
 	outFile, err := os.Create(outPath)
@@ -152,7 +130,7 @@ func buildASNMMDB(asDir, outPath string) {
 		panic(err)
 	}
 
-	fmt.Printf("wrote %s (%d ASN entries, %d prefixes)\n", outPath, len(entries), totalPrefixes)
+	fmt.Printf("wrote %s (%d ASN entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
 }
 
 func buildCountryMMDB(countryDir, outPath string) {
@@ -161,36 +139,16 @@ func buildCountryMMDB(countryDir, outPath string) {
 		panic(err)
 	}
 
-	entries, skipped, err := iterCountryAggregated(countryDir)
+	stats, err := ingestCountryDir(writer, countryDir)
 	if err != nil {
 		panic(err)
 	}
-	if skipped > 0 {
-		fmt.Fprintf(os.Stderr, "warning: skipped %d country entries\n", skipped)
+	if stats.skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipped %d country entries\n", stats.skipped)
 	}
-	if len(entries) == 0 {
+	if stats.entries == 0 {
 		fmt.Fprintln(os.Stderr, "error: no aggregated.json entries found")
 		os.Exit(1)
-	}
-
-	totalPrefixes := 0
-	for _, entry := range entries {
-		for _, prefix := range entry.prefixes {
-			_, ipNet, err := net.ParseCIDR(prefix)
-			if err != nil {
-				panic(fmt.Errorf("bad prefix %q (%s): %w", prefix, entry.sourcePath, err))
-			}
-
-			record := mmdbtype.Map{}
-			setString(record, "country_code", entry.code)
-			setString(record, "country_name", entry.name)
-			setString(record, "network", prefix)
-
-			if err := writer.Insert(ipNet, record); err != nil {
-				panic(fmt.Errorf("insert %q (%s): %w", prefix, entry.sourcePath, err))
-			}
-			totalPrefixes++
-		}
 	}
 
 	outFile, err := os.Create(outPath)
@@ -203,7 +161,7 @@ func buildCountryMMDB(countryDir, outPath string) {
 		panic(err)
 	}
 
-	fmt.Printf("wrote %s (%d country entries, %d prefixes)\n", outPath, len(entries), totalPrefixes)
+	fmt.Printf("wrote %s (%d country entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
 }
 
 func newMMDBWriter(dbType, description string) (*mmdbwriter.Tree, error) {
@@ -316,6 +274,210 @@ func runMMDBTest(mmdbPath string) {
 			fmt.Printf("    %s: %d\n", entry.code, entry.count)
 		}
 	}
+}
+
+type ingestStats struct {
+	entries  int
+	prefixes int
+	skipped  int
+}
+
+type asnDirEntry struct {
+	name string
+	asn  int
+}
+
+func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
+	stats := ingestStats{}
+	dirEntries, err := os.ReadDir(asDir)
+	if err != nil {
+		return stats, err
+	}
+
+	asnEntries := make([]asnDirEntry, 0, len(dirEntries))
+	for _, entry := range dirEntries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !isDigits(name) {
+			continue
+		}
+		asn, err := strconv.Atoi(name)
+		if err != nil || asn <= 0 {
+			continue
+		}
+		asnEntries = append(asnEntries, asnDirEntry{name: name, asn: asn})
+	}
+
+	sort.Slice(asnEntries, func(i, j int) bool {
+		return asnEntries[i].asn < asnEntries[j].asn
+	})
+
+	for _, entry := range asnEntries {
+		aggPath := filepath.Join(asDir, entry.name, "aggregated.json")
+		data, err := loadJSON(aggPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to read %s: %v\n", aggPath, err)
+			continue
+		}
+		if data == nil {
+			fmt.Fprintf(os.Stderr, "warning: unexpected JSON in %s\n", aggPath)
+			continue
+		}
+
+		asn, err := parseASN(data["asn"], entry.name)
+		if err != nil || asn <= 0 {
+			fmt.Fprintf(os.Stderr, "warning: %s: invalid ASN value\n", aggPath)
+			continue
+		}
+		if asn != entry.asn {
+			fmt.Fprintf(os.Stderr, "warning: %s: ASN mismatch (dir %s, json %d); skipping\n", aggPath, entry.name, asn)
+			stats.skipped++
+			continue
+		}
+
+		prefixes, err := normalizePrefixes(data, aggPath)
+		if err != nil {
+			if errors.Is(err, errSkipEntry) {
+				fmt.Fprintf(os.Stderr, "warning: %s\n", err)
+				stats.skipped++
+				continue
+			}
+			return stats, err
+		}
+
+		handle := extractHandle(data)
+		org := extractOrganization(data)
+		name := handle
+		if name == "" {
+			name = org
+		}
+
+		record := asnRecord{
+			asn:        asn,
+			name:       name,
+			org:        org,
+			domain:     extractDomain(data),
+			country:    extractCountry(data),
+			sourcePath: aggPath,
+		}
+
+		for _, prefix := range prefixes {
+			_, ipNet, err := net.ParseCIDR(prefix)
+			if err != nil {
+				return stats, fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
+			}
+
+			mmdbRecord := mmdbtype.Map{}
+			setString(mmdbRecord, "asn", strconv.Itoa(record.asn))
+			setString(mmdbRecord, "name", record.name)
+			setString(mmdbRecord, "org", record.org)
+			setString(mmdbRecord, "country_code", record.country)
+			setString(mmdbRecord, "domain", record.domain)
+			setString(mmdbRecord, "network", prefix)
+
+			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
+				return stats, fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
+			}
+			stats.prefixes++
+		}
+		stats.entries++
+
+		for i := range prefixes {
+			prefixes[i] = ""
+		}
+		prefixes = nil
+		data = nil
+	}
+
+	return stats, nil
+}
+
+func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string) (ingestStats, error) {
+	stats := ingestStats{}
+	dirEntries, err := os.ReadDir(countryDir)
+	if err != nil {
+		return stats, err
+	}
+
+	names := make([]string, 0, len(dirEntries))
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
+			names = append(names, entry.Name())
+		}
+	}
+	sort.Strings(names)
+
+	for _, dirName := range names {
+		aggPath := filepath.Join(countryDir, dirName, "aggregated.json")
+		data, err := loadJSON(aggPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to read %s: %v\n", aggPath, err)
+			continue
+		}
+		if data == nil {
+			fmt.Fprintf(os.Stderr, "warning: unexpected JSON in %s\n", aggPath)
+			continue
+		}
+
+		prefixes, err := normalizePrefixes(data, aggPath)
+		if err != nil {
+			if errors.Is(err, errSkipEntry) {
+				fmt.Fprintf(os.Stderr, "warning: %s\n", err)
+				stats.skipped++
+				continue
+			}
+			return stats, err
+		}
+
+		code := extractCountryCode(data)
+		if code == "" {
+			fmt.Fprintf(os.Stderr, "warning: %s: missing country code; skipping\n", aggPath)
+			stats.skipped++
+			continue
+		}
+
+		countryName := extractCountryName(data)
+		if normalizeCountryCode(countryName) != "" {
+			if code == "" {
+				code = normalizeCountryCode(countryName)
+			}
+			countryName = ""
+		}
+
+		record := countryRecord{
+			code:       code,
+			name:       countryName,
+			sourcePath: aggPath,
+		}
+
+		for _, prefix := range prefixes {
+			_, ipNet, err := net.ParseCIDR(prefix)
+			if err != nil {
+				return stats, fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
+			}
+
+			mmdbRecord := mmdbtype.Map{}
+			setString(mmdbRecord, "country_code", record.code)
+			setString(mmdbRecord, "country_name", record.name)
+			setString(mmdbRecord, "network", prefix)
+
+			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
+				return stats, fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
+			}
+			stats.prefixes++
+		}
+		stats.entries++
+
+		for i := range prefixes {
+			prefixes[i] = ""
+		}
+		prefixes = nil
+		data = nil
+	}
+
+	return stats, nil
 }
 
 func readIPFile(path string) ([]string, error) {
