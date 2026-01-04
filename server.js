@@ -42,6 +42,8 @@ const asnInfoDbPath = asnInfoDbPathEnv
     ? (path.isAbsolute(asnInfoDbPathEnv) ? asnInfoDbPathEnv : path.resolve(__dirname, asnInfoDbPathEnv))
     : null;
 
+const isDev =  process.env.NODE_ENV === 'development'
+
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
@@ -254,6 +256,12 @@ export const lookupGeo = (ip) => {
             return null;
         }
         const asnRecord = asnReader?  asnReader.get(ip) : null;
+        if (isDev) {
+            console.log("Geo record" , record);
+            if (asnRecord  ) {
+                console.log("asn record" , asnRecord) ;
+            }
+        }
         const countryCode = record.country?.iso_code ||
                 record.registered_country?.iso_code ||
                 record.country_code ||
