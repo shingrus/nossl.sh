@@ -48,5 +48,6 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - Keep the `componets/` directory name unchanged; other files import it.
 - When adjusting routes, update both server handlers and template links.
 - Preserve no-cache headers on privacy-sensitive endpoints.
+- Prefer analyzing and reusing existing functions; extend minimally, and only add new functionality if existing helpers are insufficient.
 - Avoid editing local data files (`*.mmdb`, `*.sqlite3`, `counters.db`) unless
   the task explicitly requires it.

@@ -48,7 +48,6 @@ const createEmptyStore = () => ({
     getTopAsnsByIpv6: () => [],
     getTopOrganizationsByIpv4: () => [],
     getAsnsForOrg: () => [],
-    getRelatedAsnsByOrg: () => [],
 });
 
 export const createAsnInfoStore = (dbPath) => {
@@ -134,21 +133,7 @@ export const createAsnInfoStore = (dbPath) => {
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
              WHERE TRIM(a.organization) = ?
-             ORDER BY LENGTH(COALESCE(CAST(a.ipv4_amount AS TEXT), '0')) DESC,
-                      COALESCE(CAST(a.ipv4_amount AS TEXT), '0') DESC
-             LIMIT ?
-        `);
-        const selectRelatedAsnsByOrgStmt = db.prepare(`
-            SELECT a.asn,
-                   a.handle,
-                   NULLIF(TRIM(a.organization), '') AS organization,
-                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
-                   d.domain AS domain
-              FROM asn a
-              LEFT JOIN asn_domain d ON a.asn = d.asn
-             WHERE TRIM(a.organization) = ?
-               AND a.asn != ?
+               AND (? IS NULL OR a.asn != ?)
              ORDER BY LENGTH(COALESCE(CAST(a.ipv4_amount AS TEXT), '0')) DESC,
                       COALESCE(CAST(a.ipv4_amount AS TEXT), '0') DESC
              LIMIT ?
@@ -237,36 +222,21 @@ export const createAsnInfoStore = (dbPath) => {
             }
         };
 
-        const getAsnsForOrg = (orgName, limit = 3) => {
+        const getAsnsForOrg = (orgName, limit = 3, excludeAsn = null) => {
             const normalized = normalizeText(orgName);
             if (!normalized) {
                 return [];
             }
             const safeLimit = normalizeLimit(limit, 3);
+            const exclude = parseAsnNumber(excludeAsn);
             try {
-                return selectAsnsByOrgStmt.all(normalized, safeLimit).map(normalizeAsnRow).filter(Boolean);
-            } catch (error) {
-                // eslint-disable-next-line no-console
-                console.error('Failed to query ASNs for org', error);
-                return [];
-            }
-        };
-
-        const getRelatedAsnsByOrg = (orgName, excludeAsn, limit = 3) => {
-            const normalized = normalizeText(orgName);
-            if (!normalized) {
-                return [];
-            }
-            const safeLimit = normalizeLimit(limit, 3);
-            const exclude = parseAsnNumber(excludeAsn) ?? -1;
-            try {
-                return selectRelatedAsnsByOrgStmt
-                    .all(normalized, exclude, safeLimit)
+                return selectAsnsByOrgStmt
+                    .all(normalized, exclude, exclude, safeLimit)
                     .map(normalizeAsnRow)
                     .filter(Boolean);
             } catch (error) {
                 // eslint-disable-next-line no-console
-                console.error('Failed to query related ASNs for org', error);
+                console.error('Failed to query ASNs for org', error);
                 return [];
             }
         };
@@ -279,7 +249,6 @@ export const createAsnInfoStore = (dbPath) => {
             getTopAsnsByIpv6,
             getTopOrganizationsByIpv4,
             getAsnsForOrg,
-            getRelatedAsnsByOrg,
         };
     } catch (error) {
         // eslint-disable-next-line no-console

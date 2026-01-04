@@ -76,6 +76,42 @@
           </div>
         </div>
       </section>
+        <% if (!errorMessage && relatedAsns.length) { %>
+            <section class="panel">
+                <header class="panel__header">
+                    <div>
+                        <p class="eyebrow">Related ASNs</p>
+                        <h2>Related autonomous systems</h2>
+                        <p class="panel__summary">
+                            <%= orgName ? `Other ASNs for ${orgName}.` : 'Other ASNs for the same organization.' %>
+                            Sorted by AS number.
+                        </p>
+                    </div>
+                </header>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th scope="col">ASN</th>
+                            <th scope="col">Handle</th>
+                            <th scope="col">IPv4 prefixes</th>
+                            <th scope="col">IPv6 prefixes</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            <% relatedAsns.forEach((related) => { %>
+                                <tr>
+                                    <td><a href="/as<%= related.asn %>">AS<%= related.asn %></a></td>
+                                    <td class="mono"><%= related.handle || 'N/A' %></td>
+                                    <td class="mono"><%= related.ipv4PrefixCount == null ? 'N/A' : related.ipv4PrefixCount %></td>
+                                    <td class="mono"><%= related.ipv6PrefixCount == null ? 'N/A' : related.ipv6PrefixCount %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        <% } %>
 
       <% if (!errorMessage) { %>
         <section class="panel">

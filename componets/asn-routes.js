@@ -99,6 +99,26 @@ const extractHandle = (asnData) => {
     return trimString(metadata?.handle) || trimString(asnData?.handle);
 };
 
+const buildRelatedAsns = (asnInfoStore, orgName, currentAsn) => {
+    if (!orgName || typeof asnInfoStore.getAsnsForOrg !== 'function') {
+        return [];
+    }
+    const relatedRows = asnInfoStore.getAsnsForOrg(orgName, 1024, currentAsn);
+    const entries = relatedRows.map((entry) => {
+        const relatedInfo = asnInfoStore.getAsnInfo(entry.asn);
+        const hasPrefixData = relatedInfo && relatedInfo.data && !relatedInfo.parseError;
+        const ipv4PrefixCount = hasPrefixData ? extractPrefixes(relatedInfo.data, 'ipv4').length : null;
+        const ipv6PrefixCount = hasPrefixData ? extractPrefixes(relatedInfo.data, 'ipv6').length : null;
+        return {
+            asn: entry.asn,
+            handle: entry.handle,
+            ipv4PrefixCount,
+            ipv6PrefixCount,
+        };
+    });
+    return entries.sort((a, b) => a.asn - b.asn);
+};
+
 const createAsnApiHandler = ({asnInfoStore}) => (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
     const asnNumber = asnInfoStore.parseAsnNumber(req.params.asn);
@@ -115,10 +135,13 @@ const createAsnApiHandler = ({asnInfoStore}) => (req, res) => {
         res.status(404).json({error: 'ASN not found'});
         return;
     }
+    const orgName = extractOrgName(asnInfo.data);
+    const relatedAsns = buildRelatedAsns(asnInfoStore, orgName, asnNumber);
     const payload = {
         asn: asnInfo.asn,
         domain: asnInfo.domain,
         data: asnInfo.data,
+        relatedAsns,
     };
     if (asnInfo.parseError) {
         payload.data = null;
@@ -153,6 +176,7 @@ const createAsnPageHandler =
                     ipv4Amount: null,
                     orgName: null,
                     handle: null,
+                    relatedAsns: [],
                     pageTitle: 'ASN lookup error',
                     pageDescription: 'Invalid ASN value provided.',
                     errorMessage: 'Invalid ASN value.',
@@ -177,6 +201,7 @@ const createAsnPageHandler =
                     ipv4Amount: null,
                     orgName: null,
                     handle: null,
+                    relatedAsns: [],
                     pageTitle: `AS${asnNumber}`,
                     pageDescription: `AS${asnNumber} details are unavailable because the ASN database is not configured.`,
                     errorMessage: 'ASN database is not configured.',
@@ -202,6 +227,7 @@ const createAsnPageHandler =
                     ipv4Amount: null,
                     orgName: null,
                     handle: null,
+                    relatedAsns: [],
                     pageTitle: `AS${asnNumber}`,
                     pageDescription: `No ASN record found for ${asnNumber}.`,
                     errorMessage: `AS${asnNumber} not found.`,
@@ -218,6 +244,7 @@ const createAsnPageHandler =
             const ipv6Prefixes = extractPrefixes(asnData, 'ipv6');
             const orgName = extractOrgName(asnData);
             const handle = extractHandle(asnData);
+            const relatedAsns = buildRelatedAsns(asnInfoStore, orgName, asnNumber);
             const pageTitle = buildAsnPageTitle(asnNumber, orgName, handle);
             const pageDescription = buildAsnPageDescription(
                 asnNumber,
@@ -238,6 +265,7 @@ const createAsnPageHandler =
                 ipv4Amount: asnInfo.ipv4Amount ?? null,
                 orgName,
                 handle,
+                relatedAsns,
                 pageTitle,
                 pageDescription,
                 errorMessage: asnInfo.parseError ? 'ASN record could not be parsed.' : null,

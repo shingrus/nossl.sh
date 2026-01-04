@@ -12,8 +12,7 @@ const requireAsnStore = (value) => {
         typeof value.getTopAsnsByIpv4 !== 'function' ||
         typeof value.getTopAsnsByIpv6 !== 'function' ||
         typeof value.getTopOrganizationsByIpv4 !== 'function' ||
-        typeof value.getAsnsForOrg !== 'function' ||
-        typeof value.getRelatedAsnsByOrg !== 'function'
+        typeof value.getAsnsForOrg !== 'function'
     ) {
         throw new TypeError('registerAsnTopRoutes requires an ASN info store with ranking helpers');
     }
@@ -135,7 +134,7 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
             : asnInfoStore.getTopAsnsByIpv6(25);
         entries = rows.map((entry) => {
             const relatedAsns = entry.organization
-                ? asnInfoStore.getRelatedAsnsByOrg(entry.organization, entry.asn, 3)
+                ? asnInfoStore.getAsnsForOrg(entry.organization, 3, entry.asn)
                 : [];
             return {
                 ...entry,
