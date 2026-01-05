@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -44,17 +45,22 @@ func main() {
 	outPath := flag.String("asn-out", "nossl-sh-ip-to-asn.mmdb", "ASN output mmdb path")
 	countryDir := flag.String("country-dir", "", "country directory with per-country aggregated.json files")
 	countryOutPath := flag.String("country-out", "nossl-sh-ip-to-country.mmdb", "country output mmdb path")
+	geofeedDir := flag.String("geofeed-dir", "", "geofeed directory with RFC 8805 .cache files")
 	testMMDB := flag.String("test-mmdb", "", "mmdb path to test against ips.txt and builtin IPs")
+	testIP := flag.String("ip", "", "single IP to test with -test-mmdb (overrides ips.txt and builtin IPs)")
 	flag.Parse()
 
 	asDirSet := false
 	countryDirSet := false
+	geofeedDirSet := false
 	flag.CommandLine.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "as-dir":
 			asDirSet = true
 		case "country-dir":
 			countryDirSet = true
+		case "geofeed-dir":
+			geofeedDirSet = true
 		}
 	})
 
@@ -85,7 +91,22 @@ func main() {
 		os.Exit(2)
 	}
 
-	if !asnAvailable && !countryAvailable && *testMMDB == "" {
+	geofeedAvailable := false
+	geofeedCacheDir := ""
+	if *geofeedDir != "" {
+		cacheDir, err := resolveGeofeedCacheDir(*geofeedDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: geofeed directory invalid: %v\n", err)
+			os.Exit(2)
+		}
+		geofeedAvailable = true
+		geofeedCacheDir = cacheDir
+	} else if geofeedDirSet {
+		fmt.Fprintln(os.Stderr, "error: geofeed directory not set")
+		os.Exit(2)
+	}
+
+	if !asnAvailable && !countryAvailable && !geofeedAvailable && *testMMDB == "" {
 		fmt.Fprintln(os.Stderr, "error: no input directories provided")
 		os.Exit(2)
 	}
@@ -93,12 +114,19 @@ func main() {
 	if asnAvailable {
 		buildASNMMDB(*asDir, *outPath)
 	}
-	if countryAvailable {
-		buildCountryMMDB(*countryDir, *countryOutPath)
+	if countryAvailable || geofeedAvailable {
+		countryDirPath := ""
+		if countryAvailable {
+			countryDirPath = *countryDir
+		}
+		buildCountryMMDB(countryDirPath, geofeedCacheDir, *countryOutPath)
 	}
 
 	if *testMMDB != "" {
-		runMMDBTest(*testMMDB)
+		runMMDBTest(*testMMDB, *testIP)
+	} else if *testIP != "" {
+		fmt.Fprintln(os.Stderr, "error: -ip requires -test-mmdb")
+		os.Exit(2)
 	}
 }
 
@@ -133,21 +161,43 @@ func buildASNMMDB(asDir, outPath string) {
 	fmt.Printf("wrote %s (%d ASN entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
 }
 
-func buildCountryMMDB(countryDir, outPath string) {
+func buildCountryMMDB(countryDir, geofeedDir, outPath string) {
 	writer, err := newMMDBWriter("ip-to-country", "IP to Country")
 	if err != nil {
 		panic(err)
 	}
 
-	stats, err := ingestCountryDir(writer, countryDir)
-	if err != nil {
-		panic(err)
+	nameIndex := loadCountryNameIndex()
+	if geofeedDir != "" && len(nameIndex) == 0 {
+		fmt.Fprintln(os.Stderr, "warning: country name index is empty; geofeed country names will be blank")
 	}
-	if stats.skipped > 0 {
-		fmt.Fprintf(os.Stderr, "warning: skipped %d country entries\n", stats.skipped)
+	stats := ingestStats{}
+	if countryDir != "" {
+		countryStats, err := ingestCountryDir(writer, countryDir, nameIndex)
+		if err != nil {
+			panic(err)
+		}
+		if countryStats.skipped > 0 {
+			fmt.Fprintf(os.Stderr, "warning: skipped %d country entries\n", countryStats.skipped)
+		}
+		stats.entries += countryStats.entries
+		stats.prefixes += countryStats.prefixes
+		stats.skipped += countryStats.skipped
+	}
+	if geofeedDir != "" {
+		geofeedStats, err := ingestGeofeedDir(writer, geofeedDir, nameIndex)
+		if err != nil {
+			panic(err)
+		}
+		if geofeedStats.skipped > 0 {
+			fmt.Fprintf(os.Stderr, "warning: skipped %d geofeed entries\n", geofeedStats.skipped)
+		}
+		stats.entries += geofeedStats.entries
+		stats.prefixes += geofeedStats.prefixes
+		stats.skipped += geofeedStats.skipped
 	}
 	if stats.entries == 0 {
-		fmt.Fprintln(os.Stderr, "error: no aggregated.json entries found")
+		fmt.Fprintln(os.Stderr, "error: no country or geofeed entries found")
 		os.Exit(1)
 	}
 
@@ -161,15 +211,15 @@ func buildCountryMMDB(countryDir, outPath string) {
 		panic(err)
 	}
 
-	fmt.Printf("wrote %s (%d country entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
+	fmt.Printf("wrote %s (%d entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
 }
 
 func newMMDBWriter(dbType, description string) (*mmdbwriter.Tree, error) {
 	return mmdbwriter.New(mmdbwriter.Options{
-		DatabaseType:           dbType,
-		Description:            map[string]string{"en": description},
-		RecordSize:             28,
-		IPVersion:              6,
+		DatabaseType:            dbType,
+		Description:             map[string]string{"en": description},
+		RecordSize:              28,
+		IPVersion:               6,
 		IncludeReservedNetworks: true,
 		DisableIPv4Aliasing:     true,
 	})
@@ -186,23 +236,32 @@ var builtinTestIPs = []string{
 	"2620:fe::fe",
 }
 
-func runMMDBTest(mmdbPath string) {
+func runMMDBTest(mmdbPath, testIP string) {
 	reader, err := maxminddb.Open(mmdbPath)
 	if err != nil {
 		panic(err)
 	}
 	defer reader.Close()
 
-	fileIPs, err := readIPFile("ips.txt")
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			fmt.Fprintln(os.Stderr, "warning: ips.txt not found; using builtin IPs only")
-		} else {
-			fmt.Fprintf(os.Stderr, "warning: failed to read ips.txt: %v\n", err)
+	fileIPs := []string{}
+	if testIP == "" {
+		var err error
+		fileIPs, err = readIPFile("ips.txt")
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				fmt.Fprintln(os.Stderr, "warning: ips.txt not found; using builtin IPs only")
+			} else {
+				fmt.Fprintf(os.Stderr, "warning: failed to read ips.txt: %v\n", err)
+			}
 		}
 	}
 
-	ips := mergeUniqueIPs(fileIPs, builtinTestIPs)
+	ips := []string{}
+	if testIP != "" {
+		ips = []string{testIP}
+	} else {
+		ips = mergeUniqueIPs(fileIPs, builtinTestIPs)
+	}
 	if len(ips) == 0 {
 		fmt.Fprintln(os.Stderr, "warning: no IPs to test")
 		return
@@ -260,7 +319,11 @@ func runMMDBTest(mmdbPath string) {
 	lookups := valid
 	fmt.Println("summary:")
 	fmt.Printf("  mmdb: %s\n", mmdbPath)
-	fmt.Printf("  total IPs: %d (from file: %d, builtin: %d)\n", total, len(fileIPs), len(builtinTestIPs))
+	if testIP != "" {
+		fmt.Printf("  total IPs: %d (from flag)\n", total)
+	} else {
+		fmt.Printf("  total IPs: %d (from file: %d, builtin: %d)\n", total, len(fileIPs), len(builtinTestIPs))
+	}
 	fmt.Printf("  valid IPs: %d (%.1f%% of total)\n", valid, percent(valid, total))
 	fmt.Printf("  invalid IPs: %d (%.1f%% of total)\n", invalid, percent(invalid, total))
 	fmt.Printf("  lookups: %d\n", lookups)
@@ -394,7 +457,7 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 	return stats, nil
 }
 
-func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string) (ingestStats, error) {
+func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[string]string) (ingestStats, error) {
 	stats := ingestStats{}
 	dirEntries, err := os.ReadDir(countryDir)
 	if err != nil {
@@ -451,6 +514,9 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string) (ingestStats, 
 			name:       countryName,
 			sourcePath: aggPath,
 		}
+		if record.name != "" && nameIndex != nil {
+			nameIndex[record.code] = record.name
+		}
 
 		for _, prefix := range prefixes {
 			_, ipNet, err := net.ParseCIDR(prefix)
@@ -478,6 +544,212 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string) (ingestStats, 
 	}
 
 	return stats, nil
+}
+
+func resolveGeofeedCacheDir(root string) (string, error) {
+	info, err := os.Stat(root)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%s is not a directory", root)
+	}
+
+	cacheDir := filepath.Join(root, ".cache")
+	cacheInfo, err := os.Stat(cacheDir)
+	if err == nil {
+		if !cacheInfo.IsDir() {
+			return "", fmt.Errorf("%s exists but is not a directory", cacheDir)
+		}
+		return cacheDir, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	return root, nil
+}
+
+func ingestGeofeedDir(writer *mmdbwriter.Tree, geofeedDir string, nameIndex map[string]string) (ingestStats, error) {
+	stats := ingestStats{}
+	dirEntries, err := os.ReadDir(geofeedDir)
+	if err != nil {
+		return stats, err
+	}
+
+	names := make([]string, 0, len(dirEntries))
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		filePath := filepath.Join(geofeedDir, name)
+		fileStats, err := ingestGeofeedFile(writer, filePath, nameIndex)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to read %s: %v\n", filePath, err)
+			continue
+		}
+		stats.entries += fileStats.entries
+		stats.prefixes += fileStats.prefixes
+		stats.skipped += fileStats.skipped
+	}
+
+	return stats, nil
+}
+
+func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[string]string) (ingestStats, error) {
+	stats := ingestStats{}
+	file, err := os.Open(path)
+	if err != nil {
+		return stats, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		prefix, code, city, err := parseGeofeedLine(line)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %s:%d: %v\n", path, lineNum, err)
+			stats.skipped++
+			continue
+		}
+
+		_, ipNet, err := net.ParseCIDR(prefix)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %s:%d: invalid prefix %q\n", path, lineNum, prefix)
+			stats.skipped++
+			continue
+		}
+
+		mmdbRecord := mmdbtype.Map{}
+		setString(mmdbRecord, "country_code", code)
+		setString(mmdbRecord, "country_name", countryNameFromCode(code, nameIndex))
+		setString(mmdbRecord, "city_name", city)
+		setString(mmdbRecord, "network", prefix)
+
+		if err := writer.Insert(ipNet, mmdbRecord); err != nil {
+			return stats, fmt.Errorf("insert %q (%s:%d): %w", prefix, path, lineNum, err)
+		}
+		stats.entries++
+		stats.prefixes++
+	}
+	if err := scanner.Err(); err != nil {
+		return stats, err
+	}
+	return stats, nil
+}
+
+func parseGeofeedLine(line string) (string, string, string, error) {
+	reader := csv.NewReader(strings.NewReader(line))
+	reader.FieldsPerRecord = -1
+	reader.TrimLeadingSpace = true
+
+	record, err := reader.Read()
+	if err != nil {
+		return "", "", "", fmt.Errorf("invalid CSV: %w", err)
+	}
+	if len(record) < 2 {
+		return "", "", "", fmt.Errorf("expected at least 2 fields")
+	}
+
+	prefix := trimGeofeedField(record[0])
+	if prefix == "" {
+		return "", "", "", fmt.Errorf("missing prefix")
+	}
+	code := normalizeCountryCode(trimGeofeedField(record[1]))
+	if code == "" {
+		return "", "", "", fmt.Errorf("invalid country code %s", record[1])
+	}
+
+	city := ""
+	if len(record) >= 4 {
+		city = trimGeofeedField(record[3])
+	}
+	return prefix, code, city, nil
+}
+
+func trimGeofeedField(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) >= 2 {
+		if (trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"') ||
+			(trimmed[0] == '\'' && trimmed[len(trimmed)-1] == '\'') {
+			trimmed = strings.TrimSpace(trimmed[1 : len(trimmed)-1])
+		}
+	}
+	return trimmed
+}
+
+func loadCountryNameIndex() map[string]string {
+	index := map[string]string{}
+	candidates := []string{}
+	if tzDir := os.Getenv("TZDIR"); tzDir != "" {
+		candidates = append(candidates, filepath.Join(tzDir, "iso3166.tab"))
+	}
+	candidates = append(candidates, "/usr/share/zoneinfo/iso3166.tab", "/usr/share/lib/zoneinfo/iso3166.tab")
+
+	for _, path := range candidates {
+		if err := loadISO3166Tab(path, index); err == nil {
+			return index
+		} else if !errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(os.Stderr, "warning: failed to read %s: %v\n", path, err)
+		}
+	}
+
+	return index
+}
+
+func loadISO3166Tab(path string, index map[string]string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		code := normalizeCountryCode(parts[0])
+		if code == "" {
+			continue
+		}
+		name := strings.TrimSpace(parts[1])
+		if name == "" {
+			continue
+		}
+		index[code] = name
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func countryNameFromCode(code string, nameIndex map[string]string) string {
+	if code == "" || nameIndex == nil {
+		return ""
+	}
+	return nameIndex[code]
 }
 
 func readIPFile(path string) ([]string, error) {
