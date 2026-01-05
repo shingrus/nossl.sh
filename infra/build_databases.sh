@@ -53,7 +53,8 @@ require_cmd git
 require_cmd go
 require_cmd python3
 
-BUILD_COMMAND='./mmdb-builder/build_mmdb'
+BIN_DIR="${WORK_DIR}/bin"
+BUILD_COMMAND="${BIN_DIR}/build_mmdb"
 DATE_TAG="$(date +%Y%m%d)"
 TEMP_DIR="${WORK_DIR}/.tmp-ipverse"
 COUNTRY_REPO="${TEMP_DIR}/country-ip-blocks"
@@ -95,7 +96,7 @@ log "cloning asn-ip"
 git clone --depth 1 --single-branch https://github.com/ipverse/asn-ip "${ASN_REPO}"
 
 log "aggregating ASN SQLite"
-python3 "${ROOT_DIR}/infra/aggregate_asns.py" \
+python3 "${BIN_DIR}/aggregate_asns.py" \
     --as-dir "${ASN_REPO}/as" \
     --output "${ASN_SQLITE}"
 
