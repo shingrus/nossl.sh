@@ -19,6 +19,7 @@ import (
 	"github.com/maxmind/mmdbwriter"
 	"github.com/maxmind/mmdbwriter/mmdbtype"
 	"github.com/oschwald/maxminddb-golang/v2"
+	"go4.org/netipx"
 )
 
 var errSkipEntry = errors.New("skip entry")
@@ -614,6 +615,9 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
+	ipRecords := make([]geofeedIPRecord, 0, 1024)
+	cidrRecords := make([]geofeedCIDRRecord, 0, 256)
+	ipIndex := 0
 	for scanner.Scan() {
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
@@ -629,28 +633,197 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 		}
 
 		_, ipNet, err := net.ParseCIDR(prefix)
+		if err == nil {
+			cidrRecords = append(cidrRecords, geofeedCIDRRecord{
+				ipNet:  ipNet,
+				prefix: prefix,
+				code:   code,
+				city:   city,
+				line:   lineNum,
+				source: path,
+			})
+			stats.entries++
+			continue
+		}
+
+		addr, err := netip.ParseAddr(prefix)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: %s:%d: invalid prefix %q\n", path, lineNum, prefix)
 			stats.skipped++
 			continue
 		}
 
-		mmdbRecord := mmdbtype.Map{}
-		setString(mmdbRecord, "country_code", code)
-		setString(mmdbRecord, "country_name", countryNameFromCode(code, nameIndex))
-		setString(mmdbRecord, "city_name", city)
-		setString(mmdbRecord, "network", prefix)
-
-		if err := writer.Insert(ipNet, mmdbRecord); err != nil {
-			return stats, fmt.Errorf("insert %q (%s:%d): %w", prefix, path, lineNum, err)
-		}
+		ipRecords = append(ipRecords, geofeedIPRecord{
+			addr:   addr,
+			code:   code,
+			city:   city,
+			line:   lineNum,
+			index:  ipIndex,
+			source: path,
+		})
 		stats.entries++
-		stats.prefixes++
+		ipIndex++
 	}
 	if err := scanner.Err(); err != nil {
 		return stats, err
 	}
+
+	for _, record := range cidrRecords {
+		if err := insertGeofeedPrefix(writer, record.ipNet, record.prefix, record.code, record.city, nameIndex); err != nil {
+			return stats, fmt.Errorf("insert %q (%s:%d): %w", record.prefix, record.source, record.line, err)
+		}
+		stats.prefixes++
+	}
+
+	if len(ipRecords) == 0 {
+		return stats, nil
+	}
+
+	sort.Slice(ipRecords, func(i, j int) bool {
+		if ipRecords[i].addr == ipRecords[j].addr {
+			return ipRecords[i].index < ipRecords[j].index
+		}
+		return ipRecords[i].addr.Compare(ipRecords[j].addr) < 0
+	})
+
+	deduped := make([]geofeedIPRecord, 0, len(ipRecords))
+	for _, record := range ipRecords {
+		if len(deduped) == 0 {
+			deduped = append(deduped, record)
+			continue
+		}
+		last := &deduped[len(deduped)-1]
+		if record.addr == last.addr {
+			if record.code != last.code || record.city != last.city {
+				fmt.Fprintf(os.Stderr, "warning: %s:%d: conflicting geofeed entry for %s (keeping last)\n", record.source, record.line, record.addr)
+			}
+			*last = record
+			continue
+		}
+		deduped = append(deduped, record)
+	}
+	ipRecords = deduped
+
+	var pending *geofeedRange
+	flushPending := func() error {
+		if pending == nil {
+			return nil
+		}
+		prefixCount, err := insertGeofeedRange(writer, *pending, nameIndex)
+		if err != nil {
+			return err
+		}
+		stats.prefixes += prefixCount
+		pending = nil
+		return nil
+	}
+
+	for _, record := range ipRecords {
+		if pending != nil && pending.canAppend(record.addr, record.code, record.city) {
+			pending.end = record.addr
+			continue
+		}
+		if err := flushPending(); err != nil {
+			return stats, fmt.Errorf("%s: %w", path, err)
+		}
+		pending = &geofeedRange{
+			start: record.addr,
+			end:   record.addr,
+			code:  record.code,
+			city:  record.city,
+		}
+	}
+
+	if err := flushPending(); err != nil {
+		return stats, fmt.Errorf("%s: %w", path, err)
+	}
 	return stats, nil
+}
+
+type geofeedIPRecord struct {
+	addr   netip.Addr
+	code   string
+	city   string
+	line   int
+	index  int
+	source string
+}
+
+type geofeedCIDRRecord struct {
+	ipNet  *net.IPNet
+	prefix string
+	code   string
+	city   string
+	line   int
+	source string
+}
+
+type geofeedRange struct {
+	start netip.Addr
+	end   netip.Addr
+	code  string
+	city  string
+}
+
+func (r *geofeedRange) canAppend(addr netip.Addr, code, city string) bool {
+	if r == nil {
+		return false
+	}
+	if r.code != code || r.city != city {
+		return false
+	}
+	if r.start.Is4() != addr.Is4() {
+		return false
+	}
+	next := r.end.Next()
+	if !next.IsValid() {
+		return false
+	}
+	return addr == next
+}
+
+func insertGeofeedPrefix(
+	writer *mmdbwriter.Tree,
+	ipNet *net.IPNet,
+	prefix, code, city string,
+	nameIndex map[string]string,
+) error {
+	mmdbRecord := mmdbtype.Map{}
+	setString(mmdbRecord, "country_code", code)
+	setString(mmdbRecord, "country_name", countryNameFromCode(code, nameIndex))
+	setString(mmdbRecord, "city_name", city)
+	setString(mmdbRecord, "network", prefix)
+	return writer.Insert(ipNet, mmdbRecord)
+}
+
+func insertGeofeedRange(
+	writer *mmdbwriter.Tree,
+	geofeed geofeedRange,
+	nameIndex map[string]string,
+) (int, error) {
+	ipRange := netipx.IPRangeFrom(geofeed.start, geofeed.end)
+	if !ipRange.IsValid() {
+		return 0, fmt.Errorf("invalid IP range %s-%s", geofeed.start, geofeed.end)
+	}
+	prefixes := ipRange.Prefixes()
+	if len(prefixes) == 0 {
+		return 0, nil
+	}
+
+	countryName := countryNameFromCode(geofeed.code, nameIndex)
+	for _, prefix := range prefixes {
+		ipNet := netipx.PrefixIPNet(prefix)
+		mmdbRecord := mmdbtype.Map{}
+		setString(mmdbRecord, "country_code", geofeed.code)
+		setString(mmdbRecord, "country_name", countryName)
+		setString(mmdbRecord, "city_name", geofeed.city)
+		setString(mmdbRecord, "network", prefix.String())
+		if err := writer.Insert(ipNet, mmdbRecord); err != nil {
+			return 0, fmt.Errorf("insert %q: %w", prefix.String(), err)
+		}
+	}
+
+	return len(prefixes), nil
 }
 
 func parseGeofeedLine(line string) (string, string, string, error) {
