@@ -426,7 +426,6 @@ const collectCountersForRequest = (req) => {
         }
     }
 
-    if (req.path === '/') {}
     if (req.path.startsWith('/api')) {
         countersToBump.add('apiCount');
     }
@@ -450,7 +449,7 @@ const collectCountersForRequest = (req) => {
     else if (req.path.startsWith('/report')) {
         countersToBump.add('reportCount');
     }
-    else if (req.path === '/as' || req.path.startsWith('/as/')) {
+    else if (/^\/as\d+$/.test(req.path)) {//|| /^\/api\/as\d+$/.test(req.path)) {
         countersToBump.add('ascounter');
     }
 

@@ -113,8 +113,8 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
         : 'Top 10 ASNs ranked by IPv6 address space, with organization details and related ASNs.';
     const heroTitle = pageTitle;
     const heroSubtitle = isIpv4
-        ? 'Ranked by total announced IPv4 address space. Related ASNs are grouped by organization.'
-        : 'Ranked by total announced IPv6 address space. Related ASNs are grouped by organization.';
+        ? 'Top ASN Ranked by total announced IPv4 address space. Related ASNs are grouped by organization.'
+        : 'Top ASN Ranked by total announced IPv6 address space. Related ASNs are grouped by organization.';
     const showSecondaryAmount = false;
     const ipv4Label = 'IPv4 addresses';
     const ipv6Label = 'IPv6 addresses (mln)';
