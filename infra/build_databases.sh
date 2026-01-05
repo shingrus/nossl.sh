@@ -59,8 +59,8 @@ TEMP_DIR="${WORK_DIR}/.tmp-ipverse"
 COUNTRY_REPO="${TEMP_DIR}/country-ip-blocks"
 ASN_REPO="${TEMP_DIR}/asn-ip"
 
-ASN_MMDB="${WORK_DIR}/nossl-sh-asn-${DATE_TAG}.mmdb"
-COUNTRY_MMDB="${WORK_DIR}/nossl-sh-country-${DATE_TAG}.mmdb"
+ASN_MMDB="${WORK_DIR}/ip-to-asn-nossl-sh-${DATE_TAG}.mmdb"
+COUNTRY_MMDB="${WORK_DIR}/ip-to-country-nossl-sh-${DATE_TAG}.mmdb"
 ASN_SQLITE="${WORK_DIR}/asn.sqlite3"
 
 safe_remove_dir() {
