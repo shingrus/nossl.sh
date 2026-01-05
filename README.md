@@ -37,6 +37,20 @@ npm start
 - Optional GeoIP lookup: download a country GeoIP database (e.g., `ip-to-country.mmdb`), keep it out of version control, and point `GEOIP_DB_PATH` to the file (absolute path or relative to the project root) to enrich requests with country/region/city coordinates.
 - Optional ASN lookup: download an ASN database (e.g., `ip-to-asn.mmdb`), keep it out of version control, and point `ASNIP_DB_PATH` to the file (absolute path or relative to the project root) to enrich requests with ASN org data.
 
-## Configuration
+## Data sources
 - ASN - https://github.com/ipverse/as-ip-blocks
 - GEO-ip - https://github.com/iplocate/ip-address-databases/
+
+## Useful links
+
+Official ASN allocations come from RIR delegated stats. AS name lists are best-effort labels, not authoritative owner names.
+
+- NRO delegated stats (combined RIR data): https://ftp.ripe.net/pub/stats/ripencc/nro-stats/latest/nro-delegated-stats
+- AFRINIC delegated stats: https://ftp.afrinic.net/pub/stats/afrinic/
+- APNIC delegated stats: https://ftp.apnic.net/pub/stats/apnic/
+- ARIN delegated stats: https://ftp.arin.net/pub/stats/arin/
+- LACNIC delegated stats: https://ftp.lacnic.net/pub/stats/lacnic/
+- RIPE NCC delegated stats: https://ftp.ripe.net/pub/stats/ripencc/
+- RIPE asnames list: https://ftp.ripe.net/ripe/asnames/asn.txt
+- POTAROO autnums list: https://bgp.potaroo.net/cidr/autnums.html
+- RIPEstat AS overview API: https://stat.ripe.net/docs/data_api#as-overview
