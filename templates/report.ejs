@@ -16,7 +16,10 @@
       const schemeLabel = report?.scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
       const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
       const geo = report?.geo;
-      const geoSummary = geo?.countryName ? [geo.countryFlag, geo.countryName].filter(Boolean).join(' ') : null;
+      const geoLocationLabel = geo?.countryName || geo?.cityName
+        ? [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ')
+        : null;
+      const geoSummary = geoLocationLabel ? [geo?.countryFlag, geoLocationLabel].filter(Boolean).join(' ') : null;
       const formattedGeneratedAt = formatTimestamp(generatedAt);
       const headerNote = 'Shared connection report';
       const footerLines = ['Return to the <a href=\"/\">main nossl.sh page</a>.'];

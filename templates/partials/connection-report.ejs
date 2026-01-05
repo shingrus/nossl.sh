@@ -13,8 +13,9 @@
           })();
     const formattedGeneratedAt = generatedDate.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
     let geoSummary = null;
-    if (geo && geo.countryName) {
-        geoSummary = [geo.countryFlag, geo.countryName].filter(Boolean).join(' ');
+    if (geo?.countryName || geo?.cityName) {
+        const locationLabel = [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ');
+        geoSummary = [geo?.countryFlag, locationLabel].filter(Boolean).join(' ');
     }
     const orgLink = geo?.asn ? `/as${geo.asn}` : null;
 

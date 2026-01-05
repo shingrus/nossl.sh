@@ -266,6 +266,10 @@ export const lookupGeo = (ip) => {
                 record.registered_country?.iso_code ||
                 record.country_code ||
                 null;
+        const cityName = record.city?.names?.en ||
+            record.city?.name ||
+            record.city_name ||
+            null;
         return {
             countryCode:
                 countryCode,
@@ -276,6 +280,7 @@ export const lookupGeo = (ip) => {
                 record.country_name ||
                 countryCodeToName(countryCode) ||
                 null,
+            cityName,
             orgName: asnRecord ? asnRecord.name : null,
             asn: asnRecord? asnRecord.asn : null,
         };
