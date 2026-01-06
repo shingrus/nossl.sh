@@ -1,3 +1,5 @@
+import {buildOrgSlug} from './org-slug.js';
+
 const requireHelper = (value, name) => {
     if (typeof value !== 'function') {
         throw new TypeError(`registerAsnTopRoutes expected a function for ${name}`);
@@ -197,9 +199,11 @@ const createTopOrgHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
                     .map((asnEntry) => `AS${asnEntry.asn}: ${asnEntry.ipv4AmountDisplay}`)
                     .join(' | ')
                 : null;
+            const orgSlug = entry.organization ? buildOrgSlug(entry.organization) : null;
             return {
                 ...entry,
                 displayOrganization: entry.organization || 'Unknown org',
+                orgSlug,
                 ipv4AmountDisplay: formatIpv4Amount(entry.ipv4Amount),
                 topAsns,
                 topAsnSummary,

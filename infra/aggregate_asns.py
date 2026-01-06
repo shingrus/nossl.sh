@@ -2,6 +2,7 @@
 import argparse
 import ipaddress
 import json
+import re
 import sqlite3
 import sys
 import time
@@ -416,6 +417,19 @@ def extract_organization(data):
     return None
 
 
+def slugify_organization(value):
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    cleaned = re.sub(r"[^a-z0-9 ]+", "", text)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return None
+    return cleaned.replace(" ", "-")
+
+
 def ensure_column(connection, table: str, name: str, ddl: str):
     columns = {
         row[1] for row in connection.execute(f"PRAGMA table_info({table})")
@@ -452,6 +466,7 @@ def write_sqlite(entries, output_path: Path):
                 "asn INTEGER PRIMARY KEY, "
                 "handle TEXT, "
                 "organization TEXT, "
+                "organization_slug TEXT, "
                 "ip_amount int8, "
                 "ipv4_amount int8, "
                 "ipv6_amount REAL, "
@@ -460,6 +475,7 @@ def write_sqlite(entries, output_path: Path):
             )
             ensure_column(connection, "asn", "handle", "handle TEXT")
             ensure_column(connection, "asn", "organization", "organization TEXT")
+            ensure_column(connection, "asn", "organization_slug", "organization_slug TEXT")
             ensure_column(connection, "asn", "ip_amount", "ip_amount int8")
             ensure_column(connection, "asn", "ipv4_amount", "ipv4_amount int8")
             ensure_column(connection, "asn", "ipv6_amount", "ipv6_amount REAL")
@@ -474,25 +490,33 @@ def write_sqlite(entries, output_path: Path):
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_asn_org_trim ON asn(TRIM(organization))"
             )
-            rows = (
-                (
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_asn_org_slug ON asn(organization_slug)"
+            )
+            def build_row(asn, data, ip_amount, ipv4_amount, ipv6_amount):
+                organization = extract_organization(data)
+                return (
                     asn,
                     extract_handle(data),
-                    extract_organization(data),
+                    organization,
+                    slugify_organization(organization),
                     format_ip_amount(ip_amount),
                     format_ip_amount(ipv4_amount),
                     format_ipv6_amount_millions(ipv6_amount),
                     json.dumps(data, ensure_ascii=True),
                 )
+            rows = (
+                build_row(asn, data, ip_amount, ipv4_amount, ipv6_amount)
                 for asn, data, ip_amount, ipv4_amount, ipv6_amount in entries
             )
             connection.executemany(
                 "INSERT INTO asn "
-                "(asn, handle, organization, ip_amount, ipv4_amount, ipv6_amount, json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "(asn, handle, organization, organization_slug, ip_amount, ipv4_amount, ipv6_amount, json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(asn) DO UPDATE SET "
                 "handle=excluded.handle, "
                 "organization=excluded.organization, "
+                "organization_slug=excluded.organization_slug, "
                 "ip_amount=excluded.ip_amount, "
                 "ipv4_amount=excluded.ipv4_amount, "
                 "ipv6_amount=excluded.ipv6_amount, "

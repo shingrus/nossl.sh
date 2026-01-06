@@ -1,3 +1,5 @@
+import {buildOrgSlug} from './org-slug.js';
+
 const requireHelper = (value, name) => {
     if (typeof value !== 'function') {
         throw new TypeError(`registerAsnRoutes expected a function for ${name}`);
@@ -175,6 +177,7 @@ const createAsnPageHandler =
                     ipv6Count: 0,
                     ipv4Amount: null,
                     orgName: null,
+                    orgSlug: null,
                     handle: null,
                     relatedAsns: [],
                     pageTitle: 'ASN lookup error',
@@ -200,6 +203,7 @@ const createAsnPageHandler =
                     ipv6Count: 0,
                     ipv4Amount: null,
                     orgName: null,
+                    orgSlug: null,
                     handle: null,
                     relatedAsns: [],
                     pageTitle: `AS${asnNumber}`,
@@ -226,6 +230,7 @@ const createAsnPageHandler =
                     ipv6Count: 0,
                     ipv4Amount: null,
                     orgName: null,
+                    orgSlug: null,
                     handle: null,
                     relatedAsns: [],
                     pageTitle: `AS${asnNumber}`,
@@ -244,6 +249,7 @@ const createAsnPageHandler =
             const ipv6Prefixes = extractPrefixes(asnData, 'ipv6');
             const orgName = extractOrgName(asnData);
             const handle = extractHandle(asnData);
+            const orgSlug = orgName ? buildOrgSlug(orgName) : null;
             const relatedAsns = buildRelatedAsns(asnInfoStore, orgName, asnNumber);
             const pageTitle = buildAsnPageTitle(asnNumber, orgName, handle);
             const pageDescription = buildAsnPageDescription(
@@ -264,6 +270,7 @@ const createAsnPageHandler =
                 ipv6Count: ipv6Prefixes.length,
                 ipv4Amount: asnInfo.ipv4Amount ?? null,
                 orgName,
+                orgSlug,
                 handle,
                 relatedAsns,
                 pageTitle,

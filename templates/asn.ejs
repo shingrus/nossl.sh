@@ -50,7 +50,13 @@
               </div>
               <div>
                 <dt>Organization</dt>
-                <dd><%= orgName || 'N/A' %></dd>
+                <dd>
+                  <% if (orgName && orgSlug) { %>
+                    <a href="/asn-<%= orgSlug %>"><%= orgName %></a>
+                  <% } else { %>
+                    <%= orgName || 'N/A' %>
+                  <% } %>
+                </dd>
               </div>
               <div>
                 <dt>Domain</dt>

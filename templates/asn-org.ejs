@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= pageTitle %></title>
+    <meta name="description" content="<%= pageDescription %>" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const formattedGeneratedAt = generatedAt instanceof Date
+        ? generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC')
+        : new Date(generatedAt || Date.now()).toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+      const headerNote = pageTitle;
+      const footerLines = [
+        'Return to the <a href=\"/\">main nossl.sh page</a>.',
+      ].filter(Boolean);
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container page">
+      <section class="card hero">
+        <div class="card__header">
+          <div>
+            <p class="eyebrow">Organization</p>
+            <h1 class="card__title"><%= orgName || orgSlug %></h1>
+            <% if (errorMessage) { %>
+              <p class="panel__summary"><%= errorMessage %></p>
+            <% } else { %>
+              <p class="panel__summary">ASN portfolio summary.</p>
+            <% } %>
+          </div>
+        </div>
+        <div class="hero-grid">
+          <div class="hero-primary">
+            <dl class="meta-grid meta-grid--compact hero-meta">
+              <div>
+                <dt>Domain</dt>
+                <dd class="mono"><%= (typeof domain === 'string' && domain.trim()) ? domain.trim() : 'N/A' %></dd>
+              </div>
+              <div>
+                <dt>ASN count</dt>
+                <dd class="mono"><%= asnCount %></dd>
+              </div>
+              <div>
+                <dt>IPv4 addresses</dt>
+                <dd class="mono"><%= ipv4AmountDisplay %></dd>
+              </div>
+            </dl>
+          </div>
+          <div class="hero-secondary">
+            <dl class="meta-grid meta-grid--compact">
+              <div>
+                <dt>IPv4 prefixes</dt>
+                <dd class="mono"><%= ipv4PrefixTotal %></dd>
+              </div>
+              <div>
+                <dt>IPv6 prefixes</dt>
+                <dd class="mono"><%= ipv6PrefixTotal %></dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <% if (!errorMessage) { %>
+        <section class="panel">
+          <header class="panel__header">
+            <div>
+              <p class="eyebrow">ASNs</p>
+              <h2>Autonomous systems</h2>
+              <p class="panel__summary">Ordered by AS number.</p>
+            </div>
+          </header>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">ASN</th>
+                  <th scope="col">Handle</th>
+                  <th scope="col">IPv4 prefixes</th>
+                  <th scope="col">IPv6 prefixes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (!entries.length) { %>
+                  <tr>
+                    <td colspan="4">No ASN entries available.</td>
+                  </tr>
+                <% } else { %>
+                  <% entries.forEach((entry) => { %>
+                    <tr>
+                      <td><a href="/as<%= entry.asn %>">AS<%= entry.asn %></a></td>
+                      <td class="mono"><%= entry.handle || 'N/A' %></td>
+                      <td class="mono"><%= entry.ipv4PrefixCount == null ? 'N/A' : entry.ipv4PrefixCount %></td>
+                      <td class="mono"><%= entry.ipv6PrefixCount == null ? 'N/A' : entry.ipv6PrefixCount %></td>
+                    </tr>
+                  <% }) %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      <% } %>
+
+      <section class="panel">
+        <header class="panel__header">
+          <div>
+            <p class="eyebrow">Rankings</p>
+            <h2>Explore ASN leaderboards</h2>
+            <p class="panel__summary">See the largest ASNs and organizations by address space.</p>
+          </div>
+        </header>
+        <div class="pill-row">
+          <a class="pill pill-muted" href="/top-asn-by-ip-address">Top ASNs by IPv4</a>
+          <a class="pill pill-muted" href="/top-asn-by-ipv6">Top ASNs by IPv6</a>
+          <a class="pill pill-muted" href="/top-organizations-by-ip-address">Top orgs by IPv4</a>
+        </div>
+      </section>
+
+      <%- include('partials/support-block') %>
+    </main>
+
+    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>

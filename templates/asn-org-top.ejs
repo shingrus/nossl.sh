@@ -84,7 +84,13 @@
                   <% entries.forEach((entry, index) => { %>
                     <tr>
                       <td class="mono"><%= index + 1 %></td>
-                      <td><%= entry.displayOrganization %></td>
+                      <td>
+                        <% if (entry.orgSlug) { %>
+                          <a href="/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
+                        <% } else { %>
+                          <%= entry.displayOrganization %>
+                        <% } %>
+                      </td>
                       <td class="mono"><%= entry.ipv4AmountDisplay ?? 'N/A' %></td>
                       <td class="mono"><%= entry.asnCount %></td>
                       <td>

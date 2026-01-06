@@ -8,6 +8,7 @@ import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
 import {createAsnInfoStore} from './componets/asn-info.js';
 import {createHoneypotService} from './componets/honeypot.js';
+import {registerAsnOrgRoutes} from './componets/asn-org-routes.js';
 import {registerAsnRoutes} from './componets/asn-routes.js';
 import {registerAsnTopRoutes} from './componets/asn-top-routes.js';
 import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
@@ -750,6 +751,7 @@ app.get('/disclaimer', (req, res) => {
 });
 
 registerSeoRoutes(app, {getBaseRequestData, buildShareLinkForRequest});
+registerAsnOrgRoutes(app, {asnInfoStore, getRenderMeta});
 registerAsnRoutes(app, {asnInfoStore, getRenderMeta});
 registerAsnTopRoutes(app, {asnInfoStore, getRenderMeta});
 

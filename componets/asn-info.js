@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import {normalizeOrgSlug} from './org-slug.js';
 
 const parseAsnNumber = (value) => {
     const raw = typeof value === 'string' ? value.trim() : String(value || '').trim();
@@ -48,6 +49,8 @@ const createEmptyStore = () => ({
     getTopAsnsByIpv6: () => [],
     getTopOrganizationsByIpv4: () => [],
     getAsnsForOrg: () => [],
+    getOrgSummaryBySlug: () => null,
+    getAsnsByOrgSlug: () => [],
 });
 
 export const createAsnInfoStore = (dbPath) => {
@@ -56,10 +59,16 @@ export const createAsnInfoStore = (dbPath) => {
     }
     try {
         const db = new Database(dbPath, {readonly: true, fileMustExist: true});
-        const selectAsnInfoStmt = db.prepare(
-            'SELECT json, CAST(ipv4_amount AS TEXT) AS ipv4_amount FROM asn WHERE asn = ?'
-        );
+        const selectAsnInfoStmt = db.prepare(`
+            SELECT json,
+                   CAST(ipv4_amount AS TEXT) AS ipv4_amount,
+                   CAST(ipv6_amount AS REAL) AS ipv6_amount
+              FROM asn
+             WHERE asn = ?
+        `);
         const selectAsnDomainStmt = db.prepare('SELECT domain FROM asn_domain WHERE asn = ?');
+        const asnColumns = db.prepare("PRAGMA table_info(asn)").all();
+        const hasOrgSlugColumn = asnColumns.some((column) => column.name === 'organization_slug');
         const selectTopAsnsByIpv4Stmt = db.prepare(`
             SELECT a.asn,
                    a.handle,
@@ -138,6 +147,63 @@ export const createAsnInfoStore = (dbPath) => {
                       COALESCE(CAST(a.ipv4_amount AS TEXT), '0') DESC
              LIMIT ?
         `);
+        const selectOrgSummaryBySlugStmt = hasOrgSlugColumn
+            ? db.prepare(`
+                SELECT CAST(SUM(
+                           CASE
+                               WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
+                               ELSE CAST(a.ipv4_amount AS INTEGER)
+                           END
+                       ) AS TEXT) AS ipv4_amount,
+                       CAST(SUM(
+                           CASE
+                               WHEN a.ipv6_amount IS NULL OR CAST(a.ipv6_amount AS TEXT) = '' THEN 0
+                               ELSE CAST(a.ipv6_amount AS REAL)
+                           END
+                       ) AS REAL) AS ipv6_amount,
+                       COUNT(*) AS asn_count
+                  FROM asn a
+                 WHERE a.organization_slug = ?
+            `)
+            : null;
+        const selectOrgNameBySlugStmt = hasOrgSlugColumn
+            ? db.prepare(`
+                SELECT NULLIF(TRIM(a.organization), '') AS organization
+                  FROM asn a
+                 WHERE a.organization_slug = ?
+                   AND a.organization IS NOT NULL
+                   AND TRIM(a.organization) != ''
+                 ORDER BY LENGTH(TRIM(a.organization)) DESC, TRIM(a.organization)
+                 LIMIT 1
+            `)
+            : null;
+        const selectOrgDomainBySlugStmt = hasOrgSlugColumn
+            ? db.prepare(`
+                SELECT d.domain AS domain
+                  FROM asn a
+                  JOIN asn_domain d ON a.asn = d.asn
+                 WHERE a.organization_slug = ?
+                   AND d.domain IS NOT NULL
+                   AND TRIM(d.domain) != ''
+                 ORDER BY a.asn
+                 LIMIT 1
+            `)
+            : null;
+        const selectAsnsByOrgSlugStmt = hasOrgSlugColumn
+            ? db.prepare(`
+                SELECT a.asn,
+                       a.handle,
+                       NULLIF(TRIM(a.organization), '') AS organization,
+                       CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
+                       CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
+                       d.domain AS domain,
+                       a.json AS json
+                  FROM asn a
+                  LEFT JOIN asn_domain d ON a.asn = d.asn
+                 WHERE a.organization_slug = ?
+                 ORDER BY a.asn ASC
+            `)
+            : null;
 
         const normalizeAsnRow = (row) => {
             if (!row) {
@@ -172,6 +238,7 @@ export const createAsnInfoStore = (dbPath) => {
                     rawJson,
                     parseError,
                     ipv4Amount: row.ipv4_amount ?? null,
+                    ipv6Amount: row.ipv6_amount ?? null,
                 };
             } catch (error) {
                 // eslint-disable-next-line no-console
@@ -241,6 +308,74 @@ export const createAsnInfoStore = (dbPath) => {
             }
         };
 
+        const getOrgSummaryBySlug = (orgSlug) => {
+            if (!selectOrgSummaryBySlugStmt || !selectOrgNameBySlugStmt) {
+                return null;
+            }
+            const normalized = normalizeOrgSlug(orgSlug);
+            if (!normalized) {
+                return null;
+            }
+            try {
+                const summary = selectOrgSummaryBySlugStmt.get(normalized);
+                if (!summary) {
+                    return null;
+                }
+                const asnCount = Number.isFinite(summary.asn_count)
+                    ? summary.asn_count
+                    : Number.parseInt(summary.asn_count, 10);
+                if (!Number.isFinite(asnCount) || asnCount <= 0) {
+                    return null;
+                }
+                const orgRow = selectOrgNameBySlugStmt.get(normalized);
+                const domainRow = selectOrgDomainBySlugStmt
+                    ? selectOrgDomainBySlugStmt.get(normalized)
+                    : null;
+                return {
+                    slug: normalized,
+                    organization: normalizeText(orgRow?.organization),
+                    ipv4Amount: summary.ipv4_amount ?? null,
+                    ipv6Amount: summary.ipv6_amount ?? null,
+                    asnCount,
+                    domain: normalizeText(domainRow?.domain),
+                };
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query org summary', error);
+                return null;
+            }
+        };
+
+        const getAsnsByOrgSlug = (orgSlug) => {
+            if (!selectAsnsByOrgSlugStmt) {
+                return [];
+            }
+            const normalized = normalizeOrgSlug(orgSlug);
+            if (!normalized) {
+                return [];
+            }
+            try {
+                return selectAsnsByOrgSlugStmt.all(normalized).map((row) => {
+                    const {data, rawJson, parseError} = parseAsnJson(row.json);
+                    return {
+                        asn: row.asn,
+                        handle: normalizeText(row.handle),
+                        organization: normalizeText(row.organization),
+                        ipv4Amount: row.ipv4_amount ?? null,
+                        ipv6Amount: row.ipv6_amount ?? null,
+                        domain: normalizeText(row.domain),
+                        data,
+                        rawJson,
+                        parseError,
+                    };
+                });
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query ASNs by org slug', error);
+                return [];
+            }
+        };
+
         return {
             isAvailable: () => true,
             parseAsnNumber,
@@ -249,6 +384,8 @@ export const createAsnInfoStore = (dbPath) => {
             getTopAsnsByIpv6,
             getTopOrganizationsByIpv4,
             getAsnsForOrg,
+            getOrgSummaryBySlug,
+            getAsnsByOrgSlug,
         };
     } catch (error) {
         // eslint-disable-next-line no-console
