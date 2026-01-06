@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -114,6 +115,7 @@ func main() {
 
 	if asnAvailable {
 		buildASNMMDB(*asDir, *outPath)
+		debug.FreeOSMemory()
 	}
 	if countryAvailable || geofeedAvailable {
 		countryDirPath := ""
@@ -121,6 +123,7 @@ func main() {
 			countryDirPath = *countryDir
 		}
 		buildCountryMMDB(countryDirPath, geofeedCacheDir, *countryOutPath)
+		debug.FreeOSMemory()
 	}
 
 	if *testMMDB != "" {
@@ -401,16 +404,6 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 			continue
 		}
 
-		prefixes, err := normalizePrefixes(data, aggPath)
-		if err != nil {
-			if errors.Is(err, errSkipEntry) {
-				fmt.Fprintf(os.Stderr, "warning: %s\n", err)
-				stats.skipped++
-				continue
-			}
-			return stats, err
-		}
-
 		handle := extractHandle(data)
 		org := extractOrganization(data)
 		name := handle
@@ -427,10 +420,10 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 			sourcePath: aggPath,
 		}
 
-		for _, prefix := range prefixes {
+		if _, err := walkNormalizedPrefixes(data, aggPath, func(prefix string) error {
 			_, ipNet, err := net.ParseCIDR(prefix)
 			if err != nil {
-				return stats, fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
+				return fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
 			}
 
 			mmdbRecord := mmdbtype.Map{}
@@ -442,16 +435,20 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 			setString(mmdbRecord, "network", prefix)
 
 			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
-				return stats, fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
+				return fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
 			}
 			stats.prefixes++
+			return nil
+		}); err != nil {
+			if errors.Is(err, errSkipEntry) {
+				fmt.Fprintf(os.Stderr, "warning: %s\n", err)
+				stats.skipped++
+				continue
+			}
+			return stats, err
 		}
 		stats.entries++
 
-		for i := range prefixes {
-			prefixes[i] = ""
-		}
-		prefixes = nil
 		data = nil
 	}
 
@@ -485,16 +482,6 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[
 			continue
 		}
 
-		prefixes, err := normalizePrefixes(data, aggPath)
-		if err != nil {
-			if errors.Is(err, errSkipEntry) {
-				fmt.Fprintf(os.Stderr, "warning: %s\n", err)
-				stats.skipped++
-				continue
-			}
-			return stats, err
-		}
-
 		code := extractCountryCode(data)
 		if code == "" {
 			fmt.Fprintf(os.Stderr, "warning: %s: missing country code; skipping\n", aggPath)
@@ -519,10 +506,10 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[
 			nameIndex[record.code] = record.name
 		}
 
-		for _, prefix := range prefixes {
+		if _, err := walkNormalizedPrefixes(data, aggPath, func(prefix string) error {
 			_, ipNet, err := net.ParseCIDR(prefix)
 			if err != nil {
-				return stats, fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
+				return fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
 			}
 
 			mmdbRecord := mmdbtype.Map{}
@@ -531,16 +518,20 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[
 			setString(mmdbRecord, "network", prefix)
 
 			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
-				return stats, fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
+				return fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
 			}
 			stats.prefixes++
+			return nil
+		}); err != nil {
+			if errors.Is(err, errSkipEntry) {
+				fmt.Fprintf(os.Stderr, "warning: %s\n", err)
+				stats.skipped++
+				continue
+			}
+			return stats, err
 		}
 		stats.entries++
 
-		for i := range prefixes {
-			prefixes[i] = ""
-		}
-		prefixes = nil
 		data = nil
 	}
 
@@ -617,7 +608,6 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 	lineNum := 0
 	ipRecords := make([]geofeedIPRecord, 0, 1024)
 	cidrRecords := make([]geofeedCIDRRecord, 0, 256)
-	ipIndex := 0
 	for scanner.Scan() {
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
@@ -632,15 +622,13 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 			continue
 		}
 
-		_, ipNet, err := net.ParseCIDR(prefix)
+		_, _, err = net.ParseCIDR(prefix)
 		if err == nil {
 			cidrRecords = append(cidrRecords, geofeedCIDRRecord{
-				ipNet:  ipNet,
 				prefix: prefix,
 				code:   code,
 				city:   city,
 				line:   lineNum,
-				source: path,
 			})
 			stats.entries++
 			continue
@@ -658,22 +646,24 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 			code:   code,
 			city:   city,
 			line:   lineNum,
-			index:  ipIndex,
-			source: path,
 		})
 		stats.entries++
-		ipIndex++
 	}
 	if err := scanner.Err(); err != nil {
 		return stats, err
 	}
 
 	for _, record := range cidrRecords {
-		if err := insertGeofeedPrefix(writer, record.ipNet, record.prefix, record.code, record.city, nameIndex); err != nil {
-			return stats, fmt.Errorf("insert %q (%s:%d): %w", record.prefix, record.source, record.line, err)
+		_, ipNet, err := net.ParseCIDR(record.prefix)
+		if err != nil {
+			return stats, fmt.Errorf("bad prefix %q (%s:%d): %w", record.prefix, path, record.line, err)
+		}
+		if err := insertGeofeedPrefix(writer, ipNet, record.prefix, record.code, record.city, nameIndex); err != nil {
+			return stats, fmt.Errorf("insert %q (%s:%d): %w", record.prefix, path, record.line, err)
 		}
 		stats.prefixes++
 	}
+	cidrRecords = nil
 
 	if len(ipRecords) == 0 {
 		return stats, nil
@@ -681,28 +671,27 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 
 	sort.Slice(ipRecords, func(i, j int) bool {
 		if ipRecords[i].addr == ipRecords[j].addr {
-			return ipRecords[i].index < ipRecords[j].index
+			return ipRecords[i].line < ipRecords[j].line
 		}
 		return ipRecords[i].addr.Compare(ipRecords[j].addr) < 0
 	})
 
-	deduped := make([]geofeedIPRecord, 0, len(ipRecords))
-	for _, record := range ipRecords {
-		if len(deduped) == 0 {
-			deduped = append(deduped, record)
-			continue
-		}
-		last := &deduped[len(deduped)-1]
-		if record.addr == last.addr {
-			if record.code != last.code || record.city != last.city {
-				fmt.Fprintf(os.Stderr, "warning: %s:%d: conflicting geofeed entry for %s (keeping last)\n", record.source, record.line, record.addr)
+	writeIdx := 0
+	for i := 0; i < len(ipRecords); {
+		last := ipRecords[i]
+		j := i + 1
+		for j < len(ipRecords) && ipRecords[j].addr == last.addr {
+			if ipRecords[j].code != last.code || ipRecords[j].city != last.city {
+				fmt.Fprintf(os.Stderr, "warning: %s:%d: conflicting geofeed entry for %s (keeping last)\n", path, ipRecords[j].line, ipRecords[j].addr)
 			}
-			*last = record
-			continue
+			last = ipRecords[j]
+			j++
 		}
-		deduped = append(deduped, record)
+		ipRecords[writeIdx] = last
+		writeIdx++
+		i = j
 	}
-	ipRecords = deduped
+	ipRecords = ipRecords[:writeIdx]
 
 	var pending *geofeedRange
 	flushPending := func() error {
@@ -737,6 +726,7 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 	if err := flushPending(); err != nil {
 		return stats, fmt.Errorf("%s: %w", path, err)
 	}
+	ipRecords = nil
 	return stats, nil
 }
 
@@ -745,17 +735,13 @@ type geofeedIPRecord struct {
 	code   string
 	city   string
 	line   int
-	index  int
-	source string
 }
 
 type geofeedCIDRRecord struct {
-	ipNet  *net.IPNet
 	prefix string
 	code   string
 	city   string
 	line   int
-	source string
 }
 
 type geofeedRange struct {
@@ -1207,24 +1193,15 @@ func parseASN(value any, fallback string) (int, error) {
 }
 
 func normalizePrefixes(data map[string]any, source string) ([]string, error) {
-	families, err := readPrefixes(data, source)
+	prefixes := []string{}
+	_, err := walkNormalizedPrefixes(data, source, func(prefix string) error {
+		prefixes = append(prefixes, prefix)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	all := []string{}
-	for _, family := range []string{"ipv4", "ipv6"} {
-		list, err := normalizeFamilyPrefixes(families, family, source)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, list...)
-	}
-
-	if len(all) == 0 {
-		return nil, skip(source, "missing prefixes")
-	}
-	return all, nil
+	return prefixes, nil
 }
 
 func readPrefixes(data map[string]any, source string) (map[string][]any, error) {
@@ -1323,17 +1300,49 @@ func readPrefixes(data map[string]any, source string) (map[string][]any, error) 
 	return map[string][]any{}, nil
 }
 
-func normalizeFamilyPrefixes(families map[string][]any, family string, source string) ([]string, error) {
-	entries := families[family]
-	normalized := []string{}
-	for _, entry := range entries {
-		prefix, ok := normalizePrefix(entry)
-		if !ok {
-			return nil, skip(source, fmt.Sprintf("invalid %s prefix entry %v", family, entry))
-		}
-		normalized = append(normalized, prefix)
+func walkNormalizedPrefixes(data map[string]any, source string, fn func(string) error) (int, error) {
+	families, err := readPrefixes(data, source)
+	if err != nil {
+		return 0, err
 	}
-	return normalized, nil
+
+	count := 0
+	for _, family := range []string{"ipv4", "ipv6"} {
+		entries, ok := families[family]
+		if !ok {
+			continue
+		}
+		for _, entry := range entries {
+			if _, ok := normalizePrefix(entry); !ok {
+				return 0, skip(source, fmt.Sprintf("invalid %s prefix entry %v", family, entry))
+			}
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0, skip(source, "missing prefixes")
+	}
+
+	if fn != nil {
+		for _, family := range []string{"ipv4", "ipv6"} {
+			entries, ok := families[family]
+			if !ok {
+				continue
+			}
+			for _, entry := range entries {
+				prefix, ok := normalizePrefix(entry)
+				if !ok {
+					return 0, skip(source, fmt.Sprintf("invalid %s prefix entry %v", family, entry))
+				}
+				if err := fn(prefix); err != nil {
+					return count, err
+				}
+			}
+		}
+	}
+
+	return count, nil
 }
 
 func normalizePrefix(prefix any) (string, bool) {
