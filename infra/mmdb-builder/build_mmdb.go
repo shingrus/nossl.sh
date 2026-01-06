@@ -29,7 +29,6 @@ type asnRecord struct {
 	asn        int
 	name       string
 	org        string
-	domain     string
 	country    string
 	prefixes   []string
 	sourcePath string
@@ -415,7 +414,6 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 			asn:        asn,
 			name:       name,
 			org:        org,
-			domain:     extractDomain(data),
 			country:    extractCountry(data),
 			sourcePath: aggPath,
 		}
@@ -431,8 +429,6 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 			setString(mmdbRecord, "name", record.name)
 			setString(mmdbRecord, "org", record.org)
 			setString(mmdbRecord, "country_code", record.country)
-			setString(mmdbRecord, "domain", record.domain)
-			setString(mmdbRecord, "network", prefix)
 
 			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
 				return fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
@@ -1085,7 +1081,6 @@ func iterAggregated(asDir string) ([]asnRecord, int, error) {
 			asn:        asn,
 			name:       name,
 			org:        org,
-			domain:     extractDomain(data),
 			country:    extractCountry(data),
 			prefixes:   prefixes,
 			sourcePath: aggPath,
