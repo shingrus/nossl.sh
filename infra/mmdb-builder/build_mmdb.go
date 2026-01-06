@@ -511,7 +511,6 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[
 			mmdbRecord := mmdbtype.Map{}
 			setString(mmdbRecord, "country_code", record.code)
 			setString(mmdbRecord, "country_name", record.name)
-			setString(mmdbRecord, "network", prefix)
 
 			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
 				return fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
@@ -774,7 +773,6 @@ func insertGeofeedPrefix(
 	setString(mmdbRecord, "country_code", code)
 	setString(mmdbRecord, "country_name", countryNameFromCode(code, nameIndex))
 	setString(mmdbRecord, "city_name", city)
-	setString(mmdbRecord, "network", prefix)
 	return writer.Insert(ipNet, mmdbRecord)
 }
 
@@ -799,7 +797,6 @@ func insertGeofeedRange(
 		setString(mmdbRecord, "country_code", geofeed.code)
 		setString(mmdbRecord, "country_name", countryName)
 		setString(mmdbRecord, "city_name", geofeed.city)
-		setString(mmdbRecord, "network", prefix.String())
 		if err := writer.Insert(ipNet, mmdbRecord); err != nil {
 			return 0, fmt.Errorf("insert %q: %w", prefix.String(), err)
 		}
