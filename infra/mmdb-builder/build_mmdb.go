@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math/bits"
 	"net"
 	"net/netip"
 	"os"
@@ -49,6 +50,7 @@ func main() {
 	geofeedDir := flag.String("geofeed-dir", "", "geofeed directory with RFC 8805 .cache files")
 	testMMDB := flag.String("test-mmdb", "", "mmdb path to test against ips.txt and builtin IPs")
 	testIP := flag.String("ip", "", "single IP to test with -test-mmdb (overrides ips.txt and builtin IPs)")
+	debugMode := flag.Bool("debug", false, "include network (inetnum) in mmdb records")
 	flag.Parse()
 
 	asDirSet := false
@@ -113,7 +115,7 @@ func main() {
 	}
 
 	if asnAvailable {
-		buildASNMMDB(*asDir, *outPath)
+		buildASNMMDB(*asDir, *outPath, *debugMode)
 		debug.FreeOSMemory()
 	}
 	if countryAvailable || geofeedAvailable {
@@ -121,7 +123,7 @@ func main() {
 		if countryAvailable {
 			countryDirPath = *countryDir
 		}
-		buildCountryMMDB(countryDirPath, geofeedCacheDir, *countryOutPath)
+		buildCountryMMDB(countryDirPath, geofeedCacheDir, *countryOutPath, *debugMode)
 		debug.FreeOSMemory()
 	}
 
@@ -133,13 +135,13 @@ func main() {
 	}
 }
 
-func buildASNMMDB(asDir, outPath string) {
+func buildASNMMDB(asDir, outPath string, debugMode bool) {
 	writer, err := newMMDBWriter("ip-to-asn", "IP to ASN")
 	if err != nil {
 		panic(err)
 	}
 
-	stats, err := ingestASNDir(writer, asDir)
+	stats, err := ingestASNDir(writer, asDir, debugMode)
 	if err != nil {
 		panic(err)
 	}
@@ -164,7 +166,7 @@ func buildASNMMDB(asDir, outPath string) {
 	fmt.Printf("wrote %s (%d ASN entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
 }
 
-func buildCountryMMDB(countryDir, geofeedDir, outPath string) {
+func buildCountryMMDB(countryDir, geofeedDir, outPath string, debugMode bool) {
 	writer, err := newMMDBWriter("ip-to-country", "IP to Country")
 	if err != nil {
 		panic(err)
@@ -176,7 +178,7 @@ func buildCountryMMDB(countryDir, geofeedDir, outPath string) {
 	}
 	stats := ingestStats{}
 	if countryDir != "" {
-		countryStats, err := ingestCountryDir(writer, countryDir, nameIndex)
+		countryStats, err := ingestCountryDir(writer, countryDir, nameIndex, debugMode)
 		if err != nil {
 			panic(err)
 		}
@@ -188,7 +190,7 @@ func buildCountryMMDB(countryDir, geofeedDir, outPath string) {
 		stats.skipped += countryStats.skipped
 	}
 	if geofeedDir != "" {
-		geofeedStats, err := ingestGeofeedDir(writer, geofeedDir, nameIndex)
+		geofeedStats, err := ingestGeofeedDir(writer, geofeedDir, nameIndex, debugMode)
 		if err != nil {
 			panic(err)
 		}
@@ -298,6 +300,7 @@ func runMMDBTest(mmdbPath, testIP string) {
 		}
 
 		var record map[string]any
+
 		if err := result.Decode(&record); err != nil {
 			lookupErrors++
 			fmt.Printf("%s: decode error: %v\n", ipStr, err)
@@ -353,7 +356,7 @@ type asnDirEntry struct {
 	asn  int
 }
 
-func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
+func ingestASNDir(writer *mmdbwriter.Tree, asDir string, debugMode bool) (ingestStats, error) {
 	stats := ingestStats{}
 	dirEntries, err := os.ReadDir(asDir)
 	if err != nil {
@@ -419,7 +422,7 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 		}
 
 		if _, err := walkNormalizedPrefixes(data, aggPath, func(prefix string) error {
-			_, ipNet, err := net.ParseCIDR(prefix)
+			normalizedPrefix, ipNet, err := normalizeCIDRPrefix(prefix, record.sourcePath)
 			if err != nil {
 				return fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
 			}
@@ -429,9 +432,10 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 			setString(mmdbRecord, "name", record.name)
 			setString(mmdbRecord, "org", record.org)
 			setString(mmdbRecord, "country_code", record.country)
+			setDebugNetwork(mmdbRecord, normalizedPrefix, debugMode)
 
 			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
-				return fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
+				return fmt.Errorf("insert %q (%s): %w", normalizedPrefix, record.sourcePath, err)
 			}
 			stats.prefixes++
 			return nil
@@ -451,7 +455,7 @@ func ingestASNDir(writer *mmdbwriter.Tree, asDir string) (ingestStats, error) {
 	return stats, nil
 }
 
-func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[string]string) (ingestStats, error) {
+func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[string]string, debugMode bool) (ingestStats, error) {
 	stats := ingestStats{}
 	dirEntries, err := os.ReadDir(countryDir)
 	if err != nil {
@@ -503,7 +507,7 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[
 		}
 
 		if _, err := walkNormalizedPrefixes(data, aggPath, func(prefix string) error {
-			_, ipNet, err := net.ParseCIDR(prefix)
+			normalizedPrefix, ipNet, err := normalizeCIDRPrefix(prefix, record.sourcePath)
 			if err != nil {
 				return fmt.Errorf("bad prefix %q (%s): %w", prefix, record.sourcePath, err)
 			}
@@ -511,9 +515,10 @@ func ingestCountryDir(writer *mmdbwriter.Tree, countryDir string, nameIndex map[
 			mmdbRecord := mmdbtype.Map{}
 			setString(mmdbRecord, "country_code", record.code)
 			setString(mmdbRecord, "country_name", record.name)
+			setDebugNetwork(mmdbRecord, normalizedPrefix, debugMode)
 
 			if err := writer.Insert(ipNet, mmdbRecord); err != nil {
-				return fmt.Errorf("insert %q (%s): %w", prefix, record.sourcePath, err)
+				return fmt.Errorf("insert %q (%s): %w", normalizedPrefix, record.sourcePath, err)
 			}
 			stats.prefixes++
 			return nil
@@ -556,7 +561,7 @@ func resolveGeofeedCacheDir(root string) (string, error) {
 	return root, nil
 }
 
-func ingestGeofeedDir(writer *mmdbwriter.Tree, geofeedDir string, nameIndex map[string]string) (ingestStats, error) {
+func ingestGeofeedDir(writer *mmdbwriter.Tree, geofeedDir string, nameIndex map[string]string, debugMode bool) (ingestStats, error) {
 	stats := ingestStats{}
 	dirEntries, err := os.ReadDir(geofeedDir)
 	if err != nil {
@@ -578,7 +583,7 @@ func ingestGeofeedDir(writer *mmdbwriter.Tree, geofeedDir string, nameIndex map[
 
 	for _, name := range names {
 		filePath := filepath.Join(geofeedDir, name)
-		fileStats, err := ingestGeofeedFile(writer, filePath, nameIndex)
+		fileStats, err := ingestGeofeedFile(writer, filePath, nameIndex, debugMode)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to read %s: %v\n", filePath, err)
 			continue
@@ -591,7 +596,7 @@ func ingestGeofeedDir(writer *mmdbwriter.Tree, geofeedDir string, nameIndex map[
 	return stats, nil
 }
 
-func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[string]string) (ingestStats, error) {
+func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[string]string, debugMode bool) (ingestStats, error) {
 	stats := ingestStats{}
 	file, err := os.Open(path)
 	if err != nil {
@@ -617,10 +622,10 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 			continue
 		}
 
-		_, _, err = net.ParseCIDR(prefix)
+		normalizedPrefix, _, err := normalizeCIDRPrefix(prefix, fmt.Sprintf("%s:%d", path, lineNum))
 		if err == nil {
 			cidrRecords = append(cidrRecords, geofeedCIDRRecord{
-				prefix: prefix,
+				prefix: normalizedPrefix,
 				code:   code,
 				city:   city,
 				line:   lineNum,
@@ -653,7 +658,7 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 		if err != nil {
 			return stats, fmt.Errorf("bad prefix %q (%s:%d): %w", record.prefix, path, record.line, err)
 		}
-		if err := insertGeofeedPrefix(writer, ipNet, record.prefix, record.code, record.city, nameIndex); err != nil {
+		if err := insertGeofeedPrefix(writer, ipNet, record.prefix, record.code, record.city, nameIndex, debugMode); err != nil {
 			return stats, fmt.Errorf("insert %q (%s:%d): %w", record.prefix, path, record.line, err)
 		}
 		stats.prefixes++
@@ -693,7 +698,7 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 		if pending == nil {
 			return nil
 		}
-		prefixCount, err := insertGeofeedRange(writer, *pending, nameIndex)
+		prefixCount, err := insertGeofeedRange(writer, *pending, nameIndex, debugMode)
 		if err != nil {
 			return err
 		}
@@ -768,11 +773,13 @@ func insertGeofeedPrefix(
 	ipNet *net.IPNet,
 	prefix, code, city string,
 	nameIndex map[string]string,
+	debugMode bool,
 ) error {
 	mmdbRecord := mmdbtype.Map{}
 	setString(mmdbRecord, "country_code", code)
 	setString(mmdbRecord, "country_name", countryNameFromCode(code, nameIndex))
 	setString(mmdbRecord, "city_name", city)
+	setDebugNetwork(mmdbRecord, prefix, debugMode)
 	return writer.Insert(ipNet, mmdbRecord)
 }
 
@@ -780,6 +787,7 @@ func insertGeofeedRange(
 	writer *mmdbwriter.Tree,
 	geofeed geofeedRange,
 	nameIndex map[string]string,
+	debugMode bool,
 ) (int, error) {
 	ipRange := netipx.IPRangeFrom(geofeed.start, geofeed.end)
 	if !ipRange.IsValid() {
@@ -797,6 +805,7 @@ func insertGeofeedRange(
 		setString(mmdbRecord, "country_code", geofeed.code)
 		setString(mmdbRecord, "country_name", countryName)
 		setString(mmdbRecord, "city_name", geofeed.city)
+		setDebugNetwork(mmdbRecord, prefix.String(), debugMode)
 		if err := writer.Insert(ipNet, mmdbRecord); err != nil {
 			return 0, fmt.Errorf("insert %q: %w", prefix.String(), err)
 		}
@@ -1362,6 +1371,74 @@ func normalizePrefix(prefix any) (string, bool) {
 	}
 }
 
+func normalizeCIDRPrefix(prefix, source string) (string, *net.IPNet, error) {
+	addr, mask, err := parseCIDRPrefix(prefix)
+	if err != nil {
+		return "", nil, err
+	}
+
+	pref := netip.PrefixFrom(addr, mask)
+	if pref.Masked().Addr() != addr {
+		correctedMask := addr.BitLen() - trailingZeroBits(addr)
+		if correctedMask > mask {
+			fmt.Fprintf(os.Stderr, "warning: %s: prefix %q has host bits set; adjusting mask from /%d to /%d\n", source, prefix, mask, correctedMask)
+			mask = correctedMask
+		}
+	}
+
+	pref = netip.PrefixFrom(addr, mask).Masked()
+	return pref.String(), netipx.PrefixIPNet(pref), nil
+}
+
+func parseCIDRPrefix(prefix string) (netip.Addr, int, error) {
+	parts := strings.SplitN(prefix, "/", 2)
+	if len(parts) != 2 {
+		return netip.Addr{}, 0, fmt.Errorf("missing CIDR mask")
+	}
+	addrStr := strings.TrimSpace(parts[0])
+	maskStr := strings.TrimSpace(parts[1])
+	if addrStr == "" || maskStr == "" {
+		return netip.Addr{}, 0, fmt.Errorf("invalid CIDR %q", prefix)
+	}
+
+	addr, err := netip.ParseAddr(addrStr)
+	if err != nil {
+		return netip.Addr{}, 0, err
+	}
+
+	mask, err := strconv.Atoi(maskStr)
+	if err != nil {
+		return netip.Addr{}, 0, fmt.Errorf("invalid prefix length %q", maskStr)
+	}
+	if mask < 0 || mask > addr.BitLen() {
+		return netip.Addr{}, 0, fmt.Errorf("invalid prefix length %d", mask)
+	}
+	return addr, mask, nil
+}
+
+func trailingZeroBits(addr netip.Addr) int {
+	if addr.Is4() {
+		value := addr.As4()
+		return trailingZeroBitsBytes(value[:])
+	}
+	value := addr.As16()
+	return trailingZeroBitsBytes(value[:])
+}
+
+func trailingZeroBitsBytes(value []byte) int {
+	trailing := 0
+	for idx := len(value); idx > 0; idx-- {
+		current := value[idx-1]
+		if current == 0 {
+			trailing += 8
+			continue
+		}
+		trailing += bits.TrailingZeros8(current)
+		break
+	}
+	return trailing
+}
+
 func extractHandle(data map[string]any) string {
 	if meta, ok := data["metadata"].(map[string]any); ok {
 		if value, ok := coerceString(meta["handle"]); ok {
@@ -1537,6 +1614,13 @@ func setString(m mmdbtype.Map, key, val string) {
 		return
 	}
 	m[mmdbtype.String(key)] = mmdbtype.String(val)
+}
+
+func setDebugNetwork(m mmdbtype.Map, network string, debugMode bool) {
+	if !debugMode {
+		return
+	}
+	setString(m, "network", network)
 }
 
 func fail(source, message string) error {
