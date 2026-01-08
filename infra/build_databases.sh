@@ -58,6 +58,7 @@ BUILD_COMMAND="${BIN_DIR}/build_mmdb"
 DATE_TAG="$(date +%Y%m%d)"
 TEMP_DIR="${WORK_DIR}/.tmp-ipverse"
 COUNTRY_REPO="${TEMP_DIR}/country-ip-blocks"
+GEOFEED_DIR="${WORK_DIR}"
 ASN_REPO="${TEMP_DIR}/asn-ip"
 
 ASN_MMDB="${WORK_DIR}/ip-to-asn-nossl-sh-${DATE_TAG}.mmdb"
@@ -102,12 +103,20 @@ python3 "${BIN_DIR}/aggregate_asns.py" \
 
 log "building MMDBs"
 rm -f "${ASN_MMDB}" "${COUNTRY_MMDB}"
-#go run "${ROOT_DIR}/infra/mmdb-builder/build_mmdb.go" \
+
+#build ip-to-country mmd
+${BUILD_COMMAND} \
+    --country-dir "${COUNTRY_REPO}/country" \
+    --country-out "${COUNTRY_MMDB}" \
+    --geofeed-dir "${GEOFEED_DIR}"
+#build asn mmdb 
 ${BUILD_COMMAND} \
     --as-dir "${ASN_REPO}/as" \
-    --country-dir "${COUNTRY_REPO}/country" \
     --asn-out "${ASN_MMDB}" \
-    --country-out "${COUNTRY_MMDB}"
+
+
+
+
 
 log "build complete"
 log "output: ${ASN_MMDB}"
