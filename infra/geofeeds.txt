@@ -1,0 +1,5 @@
+https://geoip.linode.com/
+https://digitalocean.com/geo/google.csv
+https://geoip.starlinkisp.net/feed.csv
+https://www.gstatic.com/ipranges/cloud_geofeed
+https://geoip.tingfiber.net/tf-geofeed.csv
