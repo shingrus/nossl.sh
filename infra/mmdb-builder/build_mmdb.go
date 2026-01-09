@@ -827,13 +827,15 @@ func parseGeofeedLine(line string) (string, string, string, error) {
 		return "", "", "", fmt.Errorf("expected at least 2 fields")
 	}
 
-	prefix := trimGeofeedField(record[0])
+	rawPrefix := record[0]
+	prefix := trimGeofeedField(rawPrefix)
 	if prefix == "" {
-		return "", "", "", fmt.Errorf("missing prefix")
+		return "", "", "", fmt.Errorf("missing prefix %q", rawPrefix)
 	}
-	code := normalizeCountryCode(trimGeofeedField(record[1]))
+	rawCode := trimGeofeedField(record[1])
+	code := normalizeCountryCode(rawCode)
 	if code == "" {
-		return "", "", "", fmt.Errorf("invalid country code %s", record[1])
+		return "", "", "", fmt.Errorf("invalid country code %q", rawCode)
 	}
 
 	city := ""
