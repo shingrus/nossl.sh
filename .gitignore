@@ -15,3 +15,4 @@ ips*txt
 build_mmdb
 
 go.sum
+.pdbcache/
