@@ -47,7 +47,6 @@ func main() {
 	outPath := flag.String("asn-out", "nossl-sh-ip-to-asn.mmdb", "ASN output mmdb path")
 	countryDir := flag.String("country-dir", "", "country directory with per-country aggregated.json files")
 	countryOutPath := flag.String("country-out", "nossl-sh-ip-to-country.mmdb", "country output mmdb path")
-	pdbDump := flag.String("pdb-dump", "", "PeeringDB geofeed CSV path (prefix,country,region,city)")
 	geofeedDir := flag.String("geofeed-dir", "", "geofeed directory with RFC 8805 .cache files")
 	testMMDB := flag.String("test-mmdb", "", "mmdb path to test against ips.txt and builtin IPs")
 	testIP := flag.String("ip", "", "single IP to test with -test-mmdb (overrides ips.txt and builtin IPs)")
@@ -56,7 +55,6 @@ func main() {
 
 	asDirSet := false
 	countryDirSet := false
-	pdbDumpSet := false
 	geofeedDirSet := false
 	flag.CommandLine.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -64,8 +62,6 @@ func main() {
 			asDirSet = true
 		case "country-dir":
 			countryDirSet = true
-		case "pdb-dump":
-			pdbDumpSet = true
 		case "geofeed-dir":
 			geofeedDirSet = true
 		}
@@ -98,25 +94,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	pdbAvailable := false
-	if *pdbDump != "" {
-		info, err := os.Stat(*pdbDump)
-		if err == nil && info.Mode().IsRegular() {
-			pdbAvailable = true
-		} else if err == nil {
-			fmt.Fprintf(os.Stderr, "error: pdb dump is not a file: %s\n", *pdbDump)
-			os.Exit(2)
-		} else if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "error: pdb dump not found: %s\n", *pdbDump)
-			os.Exit(2)
-		} else {
-			fmt.Fprintf(os.Stderr, "error: pdb dump invalid: %v\n", err)
-			os.Exit(2)
-		}
-	} else if pdbDumpSet {
-		fmt.Fprintln(os.Stderr, "error: pdb dump not set")
-		os.Exit(2)
-	}
+
 
 	geofeedAvailable := false
 	geofeedCacheDir := ""
@@ -133,7 +111,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	if !asnAvailable && !countryAvailable && !pdbAvailable && !geofeedAvailable && *testMMDB == "" {
+	if !asnAvailable && !countryAvailable && !geofeedAvailable && *testMMDB == "" {
 		fmt.Fprintln(os.Stderr, "error: no input directories provided")
 		os.Exit(2)
 	}
@@ -142,16 +120,12 @@ func main() {
 		buildASNMMDB(*asDir, *outPath, *debugMode)
 		debug.FreeOSMemory()
 	}
-	if countryAvailable || pdbAvailable || geofeedAvailable {
+	if countryAvailable ||  geofeedAvailable {
 		countryDirPath := ""
 		if countryAvailable {
 			countryDirPath = *countryDir
 		}
-		pdbDumpPath := ""
-		if pdbAvailable {
-			pdbDumpPath = *pdbDump
-		}
-		buildCountryMMDB(countryDirPath, pdbDumpPath, geofeedCacheDir, *countryOutPath, *debugMode)
+		buildCountryMMDB(countryDirPath, geofeedCacheDir, *countryOutPath, *debugMode)
 		debug.FreeOSMemory()
 	}
 
@@ -194,14 +168,14 @@ func buildASNMMDB(asDir, outPath string, debugMode bool) {
 	fmt.Printf("wrote %s (%d ASN entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
 }
 
-func buildCountryMMDB(countryDir, pdbDumpPath, geofeedDir, outPath string, debugMode bool) {
+func buildCountryMMDB(countryDir, geofeedDir, outPath string, debugMode bool) {
 	writer, err := newMMDBWriter("ip-to-country", "IP to Country")
 	if err != nil {
 		panic(err)
 	}
 
 	nameIndex := loadCountryNameIndex()
-	if (geofeedDir != "" || pdbDumpPath != "") && len(nameIndex) == 0 {
+	if (geofeedDir != "" ) && len(nameIndex) == 0 {
 		fmt.Fprintln(os.Stderr, "warning: country name index is empty; geofeed country names will be blank")
 	}
 	stats := ingestStats{}
@@ -217,18 +191,6 @@ func buildCountryMMDB(countryDir, pdbDumpPath, geofeedDir, outPath string, debug
 		stats.prefixes += countryStats.prefixes
 		stats.skipped += countryStats.skipped
 	}
-	if pdbDumpPath != "" {
-		pdbStats, err := ingestGeofeedFile(writer, pdbDumpPath, nameIndex, debugMode)
-		if err != nil {
-			panic(err)
-		}
-		if pdbStats.skipped > 0 {
-			fmt.Fprintf(os.Stderr, "warning: skipped %d pdb entries\n", pdbStats.skipped)
-		}
-		stats.entries += pdbStats.entries
-		stats.prefixes += pdbStats.prefixes
-		stats.skipped += pdbStats.skipped
-	}
 	if geofeedDir != "" {
 		geofeedStats, err := ingestGeofeedDir(writer, geofeedDir, nameIndex, debugMode)
 		if err != nil {
@@ -242,7 +204,7 @@ func buildCountryMMDB(countryDir, pdbDumpPath, geofeedDir, outPath string, debug
 		stats.skipped += geofeedStats.skipped
 	}
 	if stats.entries == 0 {
-		fmt.Fprintln(os.Stderr, "error: no country, pdb, or geofeed entries found")
+		fmt.Fprintln(os.Stderr, "error: no country, or geofeed entries found")
 		os.Exit(1)
 	}
 

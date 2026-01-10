@@ -535,6 +535,8 @@ def dump_geofeed(
                 )
                 continue
             city_name = str(city).strip() if city else ""
+            if not city_name:
+                continue
             wrote = False
             for prefix in iter_prefixes_from_data(data):
                 writer.writerow([prefix, country_code, "", city_name])
