@@ -567,7 +567,7 @@ def main() -> int:
         help="Write geofeed CSV to file (requires --asn-db)",
     )
     ap.add_argument("--threshold", type=float, default=0.3, help="City dominance threshold (default 0.3)")
-    ap.add_argument("--limit", type=int, default=250, help="Pagination limit per request (default 250)")
+    ap.add_argument("--limit", type=int, default=500, help="Pagination limit per request (default 250)")
     ap.add_argument("--timeout", type=int, default=25, help="HTTP timeout seconds (default 25)")
     ap.add_argument("--force", action="store_true", help="Redownload even if cache files exist")
     ap.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
