@@ -358,6 +358,9 @@ def normalize_asn_record(data, asn: int, source: Path):
             "ipv6": normalize_prefixes(data, "ipv6", source),
         },
     }
+    country = extract_country(data, source)
+    if country:
+        normalized["country"] = country
     if "domain" in data:
         domain = coerce_string(data.get("domain"), source, "domain")
         if domain:
@@ -417,6 +420,30 @@ def extract_organization(data):
     return None
 
 
+def extract_country(data, source=None):
+    def coerce(value, field: str):
+        if source is None:
+            if value is None:
+                return None
+            if isinstance(value, str):
+                trimmed = value.strip()
+                return trimmed if trimmed else None
+            return str(value)
+        return coerce_string(value, source, field)
+
+    for key in ("country_code", "countryCode", "country"):
+        value = coerce(data.get(key), key)
+        if value:
+            return value
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict):
+        for key in ("country_code", "countryCode", "country"):
+            value = coerce(metadata.get(key), f"metadata.{key}")
+            if value:
+                return value
+    return None
+
+
 def slugify_organization(value):
     if value is None:
         return None
@@ -467,6 +494,7 @@ def write_sqlite(entries, output_path: Path):
                 "handle TEXT, "
                 "organization TEXT, "
                 "organization_slug TEXT, "
+                "country TEXT, "
                 "ip_amount int8, "
                 "ipv4_amount int8, "
                 "ipv6_amount REAL, "
@@ -476,6 +504,7 @@ def write_sqlite(entries, output_path: Path):
             ensure_column(connection, "asn", "handle", "handle TEXT")
             ensure_column(connection, "asn", "organization", "organization TEXT")
             ensure_column(connection, "asn", "organization_slug", "organization_slug TEXT")
+            ensure_column(connection, "asn", "country", "country TEXT")
             ensure_column(connection, "asn", "ip_amount", "ip_amount int8")
             ensure_column(connection, "asn", "ipv4_amount", "ipv4_amount int8")
             ensure_column(connection, "asn", "ipv6_amount", "ipv6_amount REAL")
@@ -493,6 +522,9 @@ def write_sqlite(entries, output_path: Path):
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_asn_org_slug ON asn(organization_slug)"
             )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_asn_country_trim ON asn(TRIM(country))"
+            )
             def build_row(asn, data, ip_amount, ipv4_amount, ipv6_amount):
                 organization = extract_organization(data)
                 return (
@@ -500,6 +532,7 @@ def write_sqlite(entries, output_path: Path):
                     extract_handle(data),
                     organization,
                     slugify_organization(organization),
+                    extract_country(data),
                     format_ip_amount(ip_amount),
                     format_ip_amount(ipv4_amount),
                     format_ipv6_amount_millions(ipv6_amount),
@@ -511,12 +544,13 @@ def write_sqlite(entries, output_path: Path):
             )
             connection.executemany(
                 "INSERT INTO asn "
-                "(asn, handle, organization, organization_slug, ip_amount, ipv4_amount, ipv6_amount, json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "(asn, handle, organization, organization_slug, country, ip_amount, ipv4_amount, ipv6_amount, json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(asn) DO UPDATE SET "
                 "handle=excluded.handle, "
                 "organization=excluded.organization, "
                 "organization_slug=excluded.organization_slug, "
+                "country=excluded.country, "
                 "ip_amount=excluded.ip_amount, "
                 "ipv4_amount=excluded.ipv4_amount, "
                 "ipv6_amount=excluded.ipv6_amount, "

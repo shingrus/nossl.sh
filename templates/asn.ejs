@@ -10,9 +10,6 @@
   </head>
   <body>
     <%
-      const formattedGeneratedAt = generatedAt instanceof Date
-        ? generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC')
-        : new Date(generatedAt || Date.now()).toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
       const headerNote = pageTitle;
       const footerLines = [
         'Return to the <a href=\"/\">main nossl.sh page</a>.',
@@ -181,15 +178,16 @@
           </div>
         </header>
         <div class="pill-row">
-          <a class="pill pill-muted" href="/top-asn-by-ip-address">Top ASNs by IPv4</a>
-          <a class="pill pill-muted" href="/top-asn-by-ipv6">Top ASNs by IPv6</a>
-          <a class="pill pill-muted" href="/top-organizations-by-ip-address">Top orgs by IPv4</a>
+            <a class="pill pill-muted" href="/list-of-countries-by-ipv4-allocation">List of countries by IPv4 allocation</a>
+            <a class="pill pill-muted" href="/top-asn-by-ip-address">Top ASNs by IPv4</a>
+            <a class="pill pill-muted" href="/top-asn-by-ipv6">Top ASNs by IPv6</a>
+            <a class="pill pill-muted" href="/top-organizations-by-ip-address">Top orgs by IPv4</a>
         </div>
       </section>
 
       <%- include('partials/support-block') %>
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>

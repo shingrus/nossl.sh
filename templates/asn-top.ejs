@@ -10,10 +10,20 @@
   </head>
   <body>
     <%
-      const formattedGeneratedAt = generatedAt instanceof Date
-        ? generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC')
-        : new Date(generatedAt || Date.now()).toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
       const headerNote = pageTitle;
+      const resolvedTableEyebrow = typeof tableEyebrow === 'string' ? tableEyebrow : 'Autonomous systems';
+      const tableTitleText = typeof tableTitle !== 'undefined' && tableTitle
+        ? tableTitle
+        : `Top ASNs by ${primaryAmountLabel}`;
+      const tableSummaryText = typeof tableSummary !== 'undefined' && tableSummary
+        ? tableSummary
+        : 'Each entry links to the ASN detail page and related ASNs.';
+      const showRelatedAsnsColumn = typeof showRelatedAsns !== 'undefined' ? showRelatedAsns !== false : true;
+      const resolvedRelatedAsnsLabel = typeof relatedAsnsLabel !== 'undefined' && relatedAsnsLabel
+        ? relatedAsnsLabel
+        : 'Related ASNs';
+      const paginationData = typeof pagination !== 'undefined' ? pagination : null;
+      const totalColumnCount = 4 + (showSecondaryAmount ? 1 : 0) + (showRelatedAsnsColumn ? 1 : 0);
       const relatedLinks = Array.isArray(pageLinks)
         ? pageLinks.filter((link) => !link.active).map((link) => `<a href="${link.path}">${link.label}</a>`)
         : [];
@@ -28,7 +38,7 @@
       <section class="card hero">
         <div class="card__header">
           <div>
-            <p class="eyebrow">Autonomous systems</p>
+            <p class="eyebrow"><%= resolvedTableEyebrow %></p>
             <h1 class="card__title"><%= heroTitle %></h1>
             <p class="panel__summary"><%= heroSubtitle %></p>
           </div>
@@ -61,8 +71,8 @@
           <header class="panel__header">
             <div>
               <p class="eyebrow">Leaderboard</p>
-              <h2>Top ASNs by <%= primaryAmountLabel %></h2>
-              <p class="panel__summary">Each entry links to the ASN detail page and related ASNs.</p>
+              <h2><%= tableTitleText %></h2>
+              <p class="panel__summary"><%= tableSummaryText %></p>
             </div>
           </header>
           <div class="table-wrapper">
@@ -76,49 +86,72 @@
                   <% if (showSecondaryAmount) { %>
                     <th scope="col"><%= secondaryAmountLabel %></th>
                   <% } %>
-                  <th scope="col">Related ASNs</th>
+                  <% if (showRelatedAsnsColumn) { %>
+                    <th scope="col"><%= resolvedRelatedAsnsLabel %></th>
+                  <% } %>
                 </tr>
               </thead>
               <tbody>
                 <% if (!entries.length) { %>
                   <tr>
-                    <td colspan="<%= showSecondaryAmount ? 6 : 5 %>">No ASN entries available.</td>
+                    <td colspan="<%= totalColumnCount %>">No ASN entries available.</td>
                   </tr>
                 <% } else { %>
                   <% entries.forEach((entry, index) => { %>
+                    <% const relatedAsns = Array.isArray(entry.relatedAsns) ? entry.relatedAsns : []; %>
                     <tr>
-                      <td class="mono"><%= index + 1 %></td>
+                      <td class="mono"><%= entry.rank ?? index + 1 %></td>
                       <td><a href="/as<%= entry.asn %>">AS<%= entry.asn %></a></td>
                       <td>
-                        <div><%= entry.displayOrganization %></div>
+                        <% if (entry.orgSlug) { %>
+                          <a href="/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
+                        <% } else { %>
+                          <div><%= entry.displayOrganization %></div>
+                        <% } %>
                       </td>
                       <td class="mono"><%= entry.primaryAmountDisplay ?? 'N/A' %></td>
                       <% if (showSecondaryAmount) { %>
                         <td class="mono"><%= entry.secondaryAmountDisplay ?? 'N/A' %></td>
                       <% } %>
-                      <td>
-                        <% if (entry.relatedAsns.length) { %>
-                          <div class="pill-row">
-                            <% entry.relatedAsns.forEach((related) => { %>
-                              <a class="pill pill-muted" href="/as<%= related.asn %>">AS<%= related.asn %></a>
-                            <% }) %>
-                          </div>
-                        <% } else { %>
-                          <span class="muted">N/A</span>
-                        <% } %>
-                      </td>
+                      <% if (showRelatedAsnsColumn) { %>
+                        <td>
+                          <% if (relatedAsns.length) { %>
+                            <div class="pill-row">
+                              <% relatedAsns.forEach((related) => { %>
+                                <a class="pill pill-muted" href="/as<%= related.asn %>">AS<%= related.asn %></a>
+                              <% }) %>
+                            </div>
+                          <% } else { %>
+                            <span class="muted">N/A</span>
+                          <% } %>
+                        </td>
+                      <% } %>
                     </tr>
                   <% }) %>
                 <% } %>
               </tbody>
             </table>
           </div>
+          <% if (paginationData) { %>
+            <div class="pill-row" style="margin-top: 16px;">
+              <% if (paginationData.hasPrev) { %>
+                <a class="pill pill-muted" href="<%= paginationData.prevUrl %>">Previous</a>
+              <% } %>
+              <span class="pill">Page <%= paginationData.page %> / <%= paginationData.totalPages %></span>
+              <% if (paginationData.hasNext) { %>
+                <a class="pill pill-muted" href="<%= paginationData.nextUrl %>">Next</a>
+              <% } %>
+            </div>
+            <p class="muted" style="margin-top: 8px;">
+              Total ASNs: <span class="mono"><%= paginationData.totalCount.toLocaleString('en-US') %></span>
+            </p>
+          <% } %>
         </section>
       <% } %>
 
       <%- include('partials/support-block') %>
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>

@@ -10,7 +10,6 @@
   </head>
   <body>
     <% 
-      const formatTimestamp = (value) => { const dt = new Date(value); if (Number.isNaN(dt.getTime())) { return String(value ?? ''); } return dt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC'); }; 
       const headerPairs = report?.headers || [];
       const headerCount = headerPairs.length;
       const schemeLabel = report?.scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
@@ -20,7 +19,6 @@
         ? [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ')
         : null;
       const geoSummary = geoLocationLabel ? [geo?.countryFlag, geoLocationLabel].filter(Boolean).join(' ') : null;
-      const formattedGeneratedAt = formatTimestamp(generatedAt);
       const headerNote = 'Shared connection report';
       const footerLines = ['Return to the <a href=\"/\">main nossl.sh page</a>.'];
     %>
@@ -140,7 +138,7 @@
       <% } %>
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
 
     <script>
       (() => {

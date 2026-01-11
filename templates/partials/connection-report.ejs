@@ -4,14 +4,7 @@
     const headerCount = headerPairs.length;
     const schemeLabel = scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
     const httpLabel = (httpVersion ? `HTTP/${httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
-    const generatedDate =
-      generatedAt instanceof Date
-        ? generatedAt
-        : (() => {
-            const parsed = new Date(generatedAt || Date.now());
-            return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-          })();
-    const formattedGeneratedAt = generatedDate.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+    const formattedGeneratedAt = formatTimestamp(generatedAt);
     let geoSummary = null;
     if (geo?.countryName || geo?.cityName) {
         const locationLabel = [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ');

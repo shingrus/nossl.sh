@@ -25,6 +25,7 @@
       <section class="card hero">
         <div class="card__header">
           <div>
+            <p class="eyebrow">Countries</p>
             <h1 class="card__title"><%= heroTitle %></h1>
             <p class="panel__summary"><%= heroSubtitle %></p>
           </div>
@@ -57,8 +58,8 @@
           <header class="panel__header">
             <div>
               <p class="eyebrow">Leaderboard</p>
-              <h2>Top organizations by IPv4 address space</h2>
-              <p class="panel__summary">Each organization links to its top ASNs.</p>
+              <h2>List of countries by IPv4 address allocation</h2>
+              <p class="panel__summary">Ranked by total IPv4 address space across ASNs in each country.</p>
             </div>
           </header>
           <div class="table-wrapper">
@@ -66,44 +67,29 @@
               <thead>
                 <tr>
                   <th scope="col">Rank</th>
-                  <th scope="col">Organization</th>
+                  <th scope="col">Country</th>
                   <th scope="col">IPv4 addresses</th>
                   <th scope="col">ASN count</th>
-                  <th scope="col">Top ASNs</th>
                 </tr>
               </thead>
               <tbody>
                 <% if (!entries.length) { %>
                   <tr>
-                    <td colspan="5">No organization entries available.</td>
+                    <td colspan="4">No country entries available.</td>
                   </tr>
                 <% } else { %>
                   <% entries.forEach((entry, index) => { %>
                     <tr>
                       <td class="mono"><%= index + 1 %></td>
                       <td>
-                        <% if (entry.orgSlug) { %>
-                          <a href="/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
+                        <% if (entry.countryPath) { %>
+                          <a href="<%= entry.countryPath %>"><%= entry.displayCountry %></a>
                         <% } else { %>
-                          <%= entry.displayOrganization %>
+                          <div><%= entry.displayCountry %></div>
                         <% } %>
                       </td>
                       <td class="mono"><%= entry.ipv4AmountDisplay ?? 'N/A' %></td>
                       <td class="mono"><%= entry.asnCount %></td>
-                      <td>
-                        <% if (entry.topAsns.length) { %>
-                          <div class="pill-row">
-                            <% entry.topAsns.forEach((asnEntry) => { %>
-                              <a class="pill pill-muted" href="/as<%= asnEntry.asn %>">AS<%= asnEntry.asn %></a>
-                            <% }) %>
-                          </div>
-                          <% if (entry.topAsnSummary) { %>
-                            <div class="muted mono"><%= entry.topAsnSummary %></div>
-                          <% } %>
-                        <% } else { %>
-                          <span class="muted">N/A</span>
-                        <% } %>
-                      </td>
                     </tr>
                   <% }) %>
                 <% } %>

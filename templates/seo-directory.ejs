@@ -38,7 +38,6 @@
   </head>
   <body>
     <%
-      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
       const headerNote = 'All scenario-specific Wi-Fi guides in one place';
       const footerLines = [
         `Want to trigger a specific brand or device flow? Pick a guide above or return to the <a href="/">main nossl.sh diagnostics page</a>.`,
@@ -97,6 +96,6 @@
       </section>
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>

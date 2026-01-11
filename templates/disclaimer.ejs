@@ -38,7 +38,6 @@
   </head>
   <body>
     <%
-      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
       const headerNote = 'Forever plain HTTP. No TLS. No HTTPS.';
       const footerLines = [
         'Need the diagnostics dashboard? <a href="/">Return to the main nossl.sh page</a> or open the <a href="/honeypot">honeypot console</a>.'
@@ -129,6 +128,6 @@
       <%- include('partials/support-block') %>
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>

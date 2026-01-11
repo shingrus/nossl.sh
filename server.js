@@ -11,6 +11,9 @@ import {createHoneypotService} from './componets/honeypot.js';
 import {registerAsnOrgRoutes} from './componets/asn-org-routes.js';
 import {registerAsnRoutes} from './componets/asn-routes.js';
 import {registerAsnTopRoutes} from './componets/asn-top-routes.js';
+import {setNoCacheHeaders} from './componets/cache-headers.js';
+import {countryCodeToFlag, countryCodeToName} from './componets/country-utils.js';
+import {formatTimestamp} from './componets/format-utils.js';
 import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
 import {createSharedReportService} from './componets/shared-report.js';
@@ -48,6 +51,7 @@ const isDev =  process.env.NODE_ENV === 'development'
 app.set('trust proxy', true);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
+app.locals.formatTimestamp = formatTimestamp;
 
 app.use((req, res, next) => {
     res.locals.requestStartTime = process.hrtime.bigint();
@@ -198,50 +202,6 @@ const isPrivateIp = (ip) => {
 
 };
 
-function countryCodeToFlag(countryCode) {
-    // Validate the input to be exactly two characters long and all alphabetic
-    if (!countryCode || countryCode.length !== 2 || !/^[a-zA-Z]+$/.test(countryCode)) {
-        return '🏳️'; // White Flag Emoji for unknown or invalid country codes
-    }
-
-    const code = countryCode.toUpperCase();
-    const offset = 127397;
-
-    return Array.from(code).map(letter => String.fromCodePoint(letter.charCodeAt(0) + offset)).join('');
-}
-
-const regionDisplayNames = (() => {
-    try {
-        if (typeof Intl?.DisplayNames === 'function') {
-            return new Intl.DisplayNames(['en'], {type: 'region'});
-        }
-    } catch (error) {
-        // ignore
-    }
-    return null;
-})();
-
-const countryCodeToName = (countryCode) => {
-    if (!countryCode || typeof countryCode !== 'string') {
-        return null;
-    }
-
-    const normalized = countryCode.trim().toUpperCase();
-    if (normalized.length !== 2) {
-        return null;
-    }
-
-    if (!regionDisplayNames) {
-        return null;
-    }
-
-    try {
-        return regionDisplayNames.of(normalized) || null;
-    } catch (error) {
-        return null;
-    }
-};
-
 export const lookupGeo = (ip) => {
     //TIP: maybe we need only 1 ip lookup, from ASN database only, as it has a country code record
     if (process.env.TEST_IP) {
@@ -274,7 +234,7 @@ export const lookupGeo = (ip) => {
         return {
             countryCode:
                 countryCode,
-            countryFlag: countryCodeToFlag(countryCode),
+            countryFlag: countryCodeToFlag(countryCode) || '🏳️',
             countryName:
                 record.country?.names?.en ||
                 record.registered_country?.names?.en ||
@@ -540,9 +500,7 @@ const renderIndex = async (req, res) => {
     const clientIp = getClientIp(req);
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
+    setNoCacheHeaders(res, {includeLegacy: true});
 
     if (userAgent.includes('curl')) {
         res.type('text/plain');
@@ -601,9 +559,7 @@ app.get('/', async (req, res) => {
         const subdomain = randomSubdomain();
         const redirectUrl = `http://${subdomain}.nossl.sh/check`;
 
-        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
-        res.set('Pragma', 'no-cache');
-        res.set('Expires', '0');
+        setNoCacheHeaders(res, {includeLegacy: true});
         res.type('text/html');
         res.send(`<!DOCTYPE html><html lang="en-US"><head><meta charset="utf-8"><title>Redirecting...</title></head><body><script>window.location.href='${redirectUrl}';</script></body></html>`);
         return;
@@ -622,7 +578,7 @@ app.get('/api/counters', (req, res) => {
     const counters = getCountersSnapshot();
     const totalRequests = counters.httpCount + counters.httpsCount;
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    setNoCacheHeaders(res);
     res.json({
         counters,
         totalRequests,
@@ -686,13 +642,12 @@ app.all('/status/:code', (req, res) => {
     const requestedLocation = typeof req.query?.location === 'string' ? req.query.location : null;
     const locationHeader = requestedLocation ? requestedLocation.replace(/[\r\n]/g, '').trim() : null;
 
+    setNoCacheHeaders(res);
+
     if (!Number.isInteger(statusCode) || statusCode < 100 || statusCode > 599) {
-        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
         res.status(200).json({info: 'Status code must be an integer between 100 and 599'});
         return;
     }
-
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
 
     if (locationHeader && REDIRECT_STATUS_CODES.has(statusCode)) {
         res.set('Location', locationHeader);
@@ -717,9 +672,7 @@ app.get('/guides', (req, res) => {
         totalRequests,
     } = baseData;
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
+    setNoCacheHeaders(res, {includeLegacy: true});
 
     res.render('seo-directory', {
         categories: SEO_PAGES_BY_CATEGORY,
@@ -737,9 +690,7 @@ app.get('/disclaimer', (req, res) => {
     const generationTimeMs = typeof baseData.generationTimeMs === 'number' ? baseData.generationTimeMs : null;
     const scheme = baseData.scheme || 'http';
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
+    setNoCacheHeaders(res, {includeLegacy: true});
 
     res.render('disclaimer', {
         ...baseData,
@@ -761,7 +712,7 @@ app.get('/healthz', (req, res) => {
 
 app.get('/api/honeypot', (req, res) => {
     const summary = honeypotService.getSummary();
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    setNoCacheHeaders(res);
     res.json({
         totalHits: summary.totalHits,
         uniqueIpCount: summary.uniqueIpCount,
@@ -772,7 +723,7 @@ app.get('/api/honeypot', (req, res) => {
 
 app.get('/report/:reportId', async (req, res) => {
     const {reportId} = req.params;
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    setNoCacheHeaders(res);
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
 
     let report = null;
@@ -804,7 +755,7 @@ app.get('/honeypot', (req, res) => {
     }));
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    setNoCacheHeaders(res);
     res.render('honeypot', {
         totalHits: summary.totalHits,
         uniqueIpCount: summary.uniqueIpCount,

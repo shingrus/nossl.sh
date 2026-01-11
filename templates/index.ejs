@@ -85,7 +85,6 @@
   </head>
   <body>
     <% 
-      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
       const headerNote = '// Trigger the captive hotel/airport Wi‑Fi login page, never HTTPS, never SSL';
       const footerLines = [
         `Prefer JSON? Try the <a href="/api/request-info" rel="nofollow">request info API endpoint</a>. Total requests served: <span class="mono">${totalRequests.toLocaleString('en-US')}</span>`
@@ -110,7 +109,8 @@
             <li><a href="/captive-portal">Captive portal diagnostics</a></li>
             <li><a href="/wifi-login-page">Wi‑Fi login page tester</a></li>
             <li><a href="/mobile-wifi">Mobile Wi‑Fi troubleshooting</a></li>
-            <li><a href="/top-asn-by-ip-address">Top ASNs by IPv4 address space</a></li>
+              <li><a href="/list-of-countries-by-ipv4-allocation">List of countries by IPv4 address allocation</a></li>
+              <li><a href="/top-asn-by-ip-address">Top ASNs by IPv4 address space</a></li>
           </ul>
         </section>
 
@@ -163,7 +163,7 @@
       </div>
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
 
     <%- include('partials/connection-report-script') %>
   </body>

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import {setNoCacheHeaders} from './cache-headers.js';
 
 const randomHex = (bytes) => crypto.randomBytes(bytes).toString('hex');
 
@@ -170,7 +171,7 @@ export const createHoneypotService = (db, { getClientIp, maxRecords: maxRecordsO
   };
 
   const handleEnvRequest = (req, res) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+    setNoCacheHeaders(res);
     res.type('text/plain');
     try {
       const clientIp = getClientIp(req) || 'unknown';

@@ -41,7 +41,6 @@
   </head>
   <body>
     <%
-      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
       const headerNote = page.hero ;
       const footerLines = ['Looking for the full diagnostics dashboard? <a href=\"/\">Return to the main nossl.sh page</a> or explore the <a href=\"/honeypot\">honeypot console</a>.'];
     %>
@@ -115,7 +114,7 @@
 
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
     <%- include('partials/connection-report-script') %>
   </body>
 </html>

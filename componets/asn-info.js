@@ -41,6 +41,25 @@ const normalizeLimit = (value, fallback) => {
     return parsed;
 };
 
+const buildAmountSumSql = (column, castType) =>
+    `SUM(CASE WHEN ${column} IS NULL OR CAST(${column} AS TEXT) = '' THEN 0 ELSE CAST(${column} AS ${castType}) END)`;
+
+const IPV4_AMOUNT_SUM_SQL = buildAmountSumSql('a.ipv4_amount', 'INTEGER');
+const IPV4_AMOUNT_SUM_TEXT_SQL = `CAST(${IPV4_AMOUNT_SUM_SQL} AS TEXT)`;
+const IPV6_AMOUNT_SUM_SQL = buildAmountSumSql('a.ipv6_amount', 'REAL');
+const IPV6_AMOUNT_SUM_REAL_SQL = `CAST(${IPV6_AMOUNT_SUM_SQL} AS REAL)`;
+const IPV4_AMOUNT_SORT_TEXT_SQL = "COALESCE(CAST(a.ipv4_amount AS TEXT), '0')";
+const ASN_SELECT_COLUMNS = `
+            a.asn,
+            a.handle,
+            NULLIF(TRIM(a.organization), '') AS organization,
+            CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
+            CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
+            d.domain AS domain
+        `;
+const ASN_SELECT_COLUMNS_WITH_JSON = `${ASN_SELECT_COLUMNS},
+            a.json AS json`;
+
 const createEmptyStore = () => ({
     isAvailable: () => false,
     parseAsnNumber,
@@ -48,6 +67,10 @@ const createEmptyStore = () => ({
     getTopAsnsByIpv4: () => [],
     getTopAsnsByIpv6: () => [],
     getTopOrganizationsByIpv4: () => [],
+    getTopCountriesByIpv4: () => null,
+    getAsnsByCountry: () => null,
+    getCountryAsnCount: () => null,
+    getCountryList: () => [],
     getAsnsForOrg: () => [],
     getOrgSummaryBySlug: () => null,
     getAsnsByOrgSlug: () => [],
@@ -69,13 +92,9 @@ export const createAsnInfoStore = (dbPath) => {
         const selectAsnDomainStmt = db.prepare('SELECT domain FROM asn_domain WHERE asn = ?');
         const asnColumns = db.prepare("PRAGMA table_info(asn)").all();
         const hasOrgSlugColumn = asnColumns.some((column) => column.name === 'organization_slug');
+        const hasCountryColumn = asnColumns.some((column) => column.name === 'country');
         const selectTopAsnsByIpv4Stmt = db.prepare(`
-            SELECT a.asn,
-                   a.handle,
-                   NULLIF(TRIM(a.organization), '') AS organization,
-                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
-                   d.domain AS domain
+            SELECT ${ASN_SELECT_COLUMNS}
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
              WHERE a.ipv4_amount IS NOT NULL
@@ -86,12 +105,7 @@ export const createAsnInfoStore = (dbPath) => {
              LIMIT ?
         `);
         const selectTopAsnsByIpv6Stmt = db.prepare(`
-            SELECT a.asn,
-                   a.handle,
-                   NULLIF(TRIM(a.organization), '') AS organization,
-                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
-                   d.domain AS domain
+            SELECT ${ASN_SELECT_COLUMNS}
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
              WHERE a.ipv6_amount IS NOT NULL
@@ -101,66 +115,75 @@ export const createAsnInfoStore = (dbPath) => {
         `);
         const selectTopOrganizationsByIpv4Stmt = db.prepare(`
             SELECT NULLIF(TRIM(a.organization), '') AS organization,
-                   CAST(SUM(
-                       CASE
-                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
-                           ELSE CAST(a.ipv4_amount AS INTEGER)
-                       END
-                   ) AS TEXT) AS ipv4_amount,
+                   ${IPV4_AMOUNT_SUM_TEXT_SQL} AS ipv4_amount,
                    COUNT(*) AS asn_count
               FROM asn a
              WHERE a.organization IS NOT NULL
                AND TRIM(a.organization) != ''
              GROUP BY TRIM(a.organization)
-            HAVING SUM(
-                       CASE
-                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
-                           ELSE CAST(a.ipv4_amount AS INTEGER)
-                       END
-                   ) > 0
-             ORDER BY LENGTH(CAST(SUM(
-                       CASE
-                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
-                           ELSE CAST(a.ipv4_amount AS INTEGER)
-                       END
-                   ) AS TEXT)) DESC,
-                      SUM(
-                       CASE
-                           WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
-                           ELSE CAST(a.ipv4_amount AS INTEGER)
-                       END
-                   ) DESC
+            HAVING ${IPV4_AMOUNT_SUM_SQL} > 0
+             ORDER BY LENGTH(${IPV4_AMOUNT_SUM_TEXT_SQL}) DESC,
+                      ${IPV4_AMOUNT_SUM_SQL} DESC
              LIMIT ?
         `);
         const selectAsnsByOrgStmt = db.prepare(`
-            SELECT a.asn,
-                   a.handle,
-                   NULLIF(TRIM(a.organization), '') AS organization,
-                   CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                   CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
-                   d.domain AS domain
+            SELECT ${ASN_SELECT_COLUMNS}
               FROM asn a
               LEFT JOIN asn_domain d ON a.asn = d.asn
              WHERE TRIM(a.organization) = ?
                AND (? IS NULL OR a.asn != ?)
-             ORDER BY LENGTH(COALESCE(CAST(a.ipv4_amount AS TEXT), '0')) DESC,
-                      COALESCE(CAST(a.ipv4_amount AS TEXT), '0') DESC
+             ORDER BY LENGTH(${IPV4_AMOUNT_SORT_TEXT_SQL}) DESC,
+                      ${IPV4_AMOUNT_SORT_TEXT_SQL} DESC
              LIMIT ?
         `);
+        const selectTopCountriesByIpv4Stmt = hasCountryColumn
+            ? db.prepare(`
+                SELECT TRIM(a.country) AS country,
+                       ${IPV4_AMOUNT_SUM_TEXT_SQL} AS ipv4_amount,
+                       COUNT(*) AS asn_count
+                  FROM asn a
+                 WHERE a.country IS NOT NULL
+                   AND TRIM(a.country) != ''
+                 GROUP BY TRIM(a.country)
+                HAVING ${IPV4_AMOUNT_SUM_SQL} > 0
+                 ORDER BY LENGTH(${IPV4_AMOUNT_SUM_TEXT_SQL}) DESC,
+                          ${IPV4_AMOUNT_SUM_SQL} DESC,
+                          TRIM(a.country) ASC
+                 LIMIT ?
+            `)
+            : null;
+        const selectAsnsByCountryStmt = hasCountryColumn
+            ? db.prepare(`
+                SELECT ${ASN_SELECT_COLUMNS}
+                  FROM asn a
+                  LEFT JOIN asn_domain d ON a.asn = d.asn
+                 WHERE TRIM(a.country) = ?
+                 ORDER BY LENGTH(${IPV4_AMOUNT_SORT_TEXT_SQL}) DESC,
+                          ${IPV4_AMOUNT_SORT_TEXT_SQL} DESC,
+                          a.asn ASC
+                 LIMIT ? OFFSET ?
+            `)
+            : null;
+        const selectCountryAsnCountStmt = hasCountryColumn
+            ? db.prepare(`
+                SELECT COUNT(*) AS asn_count
+                  FROM asn a
+                 WHERE TRIM(a.country) = ?
+            `)
+            : null;
+        const selectCountryListStmt = hasCountryColumn
+            ? db.prepare(`
+                SELECT DISTINCT TRIM(a.country) AS country
+                  FROM asn a
+                 WHERE a.country IS NOT NULL
+                   AND TRIM(a.country) != ''
+                 ORDER BY TRIM(a.country) ASC
+            `)
+            : null;
         const selectOrgSummaryBySlugStmt = hasOrgSlugColumn
             ? db.prepare(`
-                SELECT CAST(SUM(
-                           CASE
-                               WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
-                               ELSE CAST(a.ipv4_amount AS INTEGER)
-                           END
-                       ) AS TEXT) AS ipv4_amount,
-                       CAST(SUM(
-                           CASE
-                               WHEN a.ipv6_amount IS NULL OR CAST(a.ipv6_amount AS TEXT) = '' THEN 0
-                               ELSE CAST(a.ipv6_amount AS REAL)
-                           END
-                       ) AS REAL) AS ipv6_amount,
+                SELECT ${IPV4_AMOUNT_SUM_TEXT_SQL} AS ipv4_amount,
+                       ${IPV6_AMOUNT_SUM_REAL_SQL} AS ipv6_amount,
                        COUNT(*) AS asn_count
                   FROM asn a
                  WHERE a.organization_slug = ?
@@ -191,13 +214,7 @@ export const createAsnInfoStore = (dbPath) => {
             : null;
         const selectAsnsByOrgSlugStmt = hasOrgSlugColumn
             ? db.prepare(`
-                SELECT a.asn,
-                       a.handle,
-                       NULLIF(TRIM(a.organization), '') AS organization,
-                       CAST(a.ipv4_amount AS TEXT) AS ipv4_amount,
-                       CAST(a.ipv6_amount AS REAL) AS ipv6_amount,
-                       d.domain AS domain,
-                       a.json AS json
+                SELECT ${ASN_SELECT_COLUMNS_WITH_JSON}
                   FROM asn a
                   LEFT JOIN asn_domain d ON a.asn = d.asn
                  WHERE a.organization_slug = ?
@@ -285,6 +302,88 @@ export const createAsnInfoStore = (dbPath) => {
             } catch (error) {
                 // eslint-disable-next-line no-console
                 console.error('Failed to query top organizations', error);
+                return [];
+            }
+        };
+
+        const getTopCountriesByIpv4 = (limit = 25) => {
+            if (!selectTopCountriesByIpv4Stmt) {
+                return null;
+            }
+            const safeLimit = normalizeLimit(limit, 25);
+            try {
+                return selectTopCountriesByIpv4Stmt.all(safeLimit).map((row) => {
+                    const asnCount = Number.isFinite(row.asn_count)
+                        ? row.asn_count
+                        : Number.parseInt(row.asn_count, 10);
+                    return {
+                        country: normalizeText(row.country),
+                        ipv4Amount: row.ipv4_amount ?? null,
+                        asnCount: Number.isFinite(asnCount) ? asnCount : 0,
+                    };
+                });
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query top countries', error);
+                return [];
+            }
+        };
+
+        const getAsnsByCountry = (countryCode, limit = 1000, offset = 0) => {
+            if (!selectAsnsByCountryStmt) {
+                return null;
+            }
+            const normalized = normalizeText(countryCode);
+            if (!normalized) {
+                return [];
+            }
+            const safeLimit = normalizeLimit(limit, 1000);
+            const safeOffset = Number.isFinite(offset) && offset > 0 ? offset : 0;
+            try {
+                return selectAsnsByCountryStmt
+                    .all(normalized, safeLimit, safeOffset)
+                    .map(normalizeAsnRow)
+                    .filter(Boolean);
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query ASNs by country', error);
+                return [];
+            }
+        };
+
+        const getCountryAsnCount = (countryCode) => {
+            if (!selectCountryAsnCountStmt) {
+                return null;
+            }
+            const normalized = normalizeText(countryCode);
+            if (!normalized) {
+                return 0;
+            }
+            try {
+                const row = selectCountryAsnCountStmt.get(normalized);
+                const count = Number.isFinite(row?.asn_count)
+                    ? row.asn_count
+                    : Number.parseInt(row?.asn_count ?? '0', 10);
+                return Number.isFinite(count) ? count : 0;
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to count ASNs by country', error);
+                return 0;
+            }
+        };
+
+        const getCountryList = () => {
+            if (!selectCountryListStmt) {
+                return [];
+            }
+            try {
+                return selectCountryListStmt
+                    .all()
+                    .map((row) => normalizeText(row.country))
+                    .filter(Boolean);
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query country list', error);
                 return [];
             }
         };
@@ -383,6 +482,10 @@ export const createAsnInfoStore = (dbPath) => {
             getTopAsnsByIpv4,
             getTopAsnsByIpv6,
             getTopOrganizationsByIpv4,
+            getTopCountriesByIpv4,
+            getAsnsByCountry,
+            getCountryAsnCount,
+            getCountryList,
             getAsnsForOrg,
             getOrgSummaryBySlug,
             getAsnsByOrgSlug,
