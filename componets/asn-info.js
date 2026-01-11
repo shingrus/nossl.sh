@@ -46,8 +46,11 @@ const createEmptyStore = () => ({
     parseAsnNumber,
     getAsnInfo: () => null,
     getTopAsnsByIpv4: () => [],
+    getTopAsnsByIpv4Count: () => 0,
     getTopAsnsByIpv6: () => [],
+    getTopAsnsByIpv6Count: () => 0,
     getTopOrganizationsByIpv4: () => [],
+    getTopOrganizationsByIpv4Count: () => 0,
     getAsnsForOrg: () => [],
     getOrgSummaryBySlug: () => null,
     getAsnsByOrgSlug: () => [],
@@ -84,6 +87,14 @@ export const createAsnInfoStore = (dbPath) => {
              ORDER BY LENGTH(CAST(a.ipv4_amount AS TEXT)) DESC,
                       CAST(a.ipv4_amount AS TEXT) DESC
              LIMIT ?
+            OFFSET ?
+        `);
+        const selectTopAsnsByIpv4CountStmt = db.prepare(`
+            SELECT COUNT(*) AS total
+              FROM asn a
+             WHERE a.ipv4_amount IS NOT NULL
+               AND CAST(a.ipv4_amount AS TEXT) != ''
+               AND CAST(a.ipv4_amount AS TEXT) != '0'
         `);
         const selectTopAsnsByIpv6Stmt = db.prepare(`
             SELECT a.asn,
@@ -98,6 +109,13 @@ export const createAsnInfoStore = (dbPath) => {
                AND CAST(a.ipv6_amount AS REAL) > 0
              ORDER BY CAST(a.ipv6_amount AS REAL) DESC
              LIMIT ?
+            OFFSET ?
+        `);
+        const selectTopAsnsByIpv6CountStmt = db.prepare(`
+            SELECT COUNT(*) AS total
+              FROM asn a
+             WHERE a.ipv6_amount IS NOT NULL
+               AND CAST(a.ipv6_amount AS REAL) > 0
         `);
         const selectTopOrganizationsByIpv4Stmt = db.prepare(`
             SELECT NULLIF(TRIM(a.organization), '') AS organization,
@@ -131,6 +149,23 @@ export const createAsnInfoStore = (dbPath) => {
                        END
                    ) DESC
              LIMIT ?
+            OFFSET ?
+        `);
+        const selectTopOrganizationsByIpv4CountStmt = db.prepare(`
+            SELECT COUNT(*) AS total
+              FROM (
+                SELECT TRIM(a.organization) AS organization
+                  FROM asn a
+                 WHERE a.organization IS NOT NULL
+                   AND TRIM(a.organization) != ''
+                 GROUP BY TRIM(a.organization)
+                HAVING SUM(
+                           CASE
+                               WHEN a.ipv4_amount IS NULL OR CAST(a.ipv4_amount AS TEXT) = '' THEN 0
+                               ELSE CAST(a.ipv4_amount AS INTEGER)
+                           END
+                       ) > 0
+              ) AS ranked_orgs
         `);
         const selectAsnsByOrgStmt = db.prepare(`
             SELECT a.asn,
@@ -247,10 +282,19 @@ export const createAsnInfoStore = (dbPath) => {
             }
         };
 
-        const getTopAsnsByIpv4 = (limit = 25) => {
+        const normalizeOffset = (value) => {
+            const parsed = Number.parseInt(value, 10);
+            if (!Number.isFinite(parsed) || parsed < 0) {
+                return 0;
+            }
+            return parsed;
+        };
+
+        const getTopAsnsByIpv4 = (limit = 25, offset = 0) => {
             const safeLimit = normalizeLimit(limit, 25);
+            const safeOffset = normalizeOffset(offset);
             try {
-                return selectTopAsnsByIpv4Stmt.all(safeLimit).map(normalizeAsnRow).filter(Boolean);
+                return selectTopAsnsByIpv4Stmt.all(safeLimit, safeOffset).map(normalizeAsnRow).filter(Boolean);
             } catch (error) {
                 // eslint-disable-next-line no-console
                 console.error('Failed to query top IPv4 ASNs', error);
@@ -258,10 +302,23 @@ export const createAsnInfoStore = (dbPath) => {
             }
         };
 
-        const getTopAsnsByIpv6 = (limit = 25) => {
-            const safeLimit = normalizeLimit(limit, 25);
+        const getTopAsnsByIpv4Count = () => {
             try {
-                return selectTopAsnsByIpv6Stmt.all(safeLimit).map(normalizeAsnRow).filter(Boolean);
+                const row = selectTopAsnsByIpv4CountStmt.get();
+                const total = Number.isFinite(row?.total) ? row.total : Number.parseInt(row?.total, 10);
+                return Number.isFinite(total) && total > 0 ? total : 0;
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query top IPv4 ASN count', error);
+                return 0;
+            }
+        };
+
+        const getTopAsnsByIpv6 = (limit = 25, offset = 0) => {
+            const safeLimit = normalizeLimit(limit, 25);
+            const safeOffset = normalizeOffset(offset);
+            try {
+                return selectTopAsnsByIpv6Stmt.all(safeLimit, safeOffset).map(normalizeAsnRow).filter(Boolean);
             } catch (error) {
                 // eslint-disable-next-line no-console
                 console.error('Failed to query top IPv6 ASNs', error);
@@ -269,10 +326,23 @@ export const createAsnInfoStore = (dbPath) => {
             }
         };
 
-        const getTopOrganizationsByIpv4 = (limit = 25) => {
-            const safeLimit = normalizeLimit(limit, 25);
+        const getTopAsnsByIpv6Count = () => {
             try {
-                return selectTopOrganizationsByIpv4Stmt.all(safeLimit).map((row) => {
+                const row = selectTopAsnsByIpv6CountStmt.get();
+                const total = Number.isFinite(row?.total) ? row.total : Number.parseInt(row?.total, 10);
+                return Number.isFinite(total) && total > 0 ? total : 0;
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query top IPv6 ASN count', error);
+                return 0;
+            }
+        };
+
+        const getTopOrganizationsByIpv4 = (limit = 25, offset = 0) => {
+            const safeLimit = normalizeLimit(limit, 25);
+            const safeOffset = normalizeOffset(offset);
+            try {
+                return selectTopOrganizationsByIpv4Stmt.all(safeLimit, safeOffset).map((row) => {
                     const asnCount = Number.isFinite(row.asn_count)
                         ? row.asn_count
                         : Number.parseInt(row.asn_count, 25);
@@ -286,6 +356,18 @@ export const createAsnInfoStore = (dbPath) => {
                 // eslint-disable-next-line no-console
                 console.error('Failed to query top organizations', error);
                 return [];
+            }
+        };
+
+        const getTopOrganizationsByIpv4Count = () => {
+            try {
+                const row = selectTopOrganizationsByIpv4CountStmt.get();
+                const total = Number.isFinite(row?.total) ? row.total : Number.parseInt(row?.total, 10);
+                return Number.isFinite(total) && total > 0 ? total : 0;
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query top organizations count', error);
+                return 0;
             }
         };
 
@@ -381,8 +463,11 @@ export const createAsnInfoStore = (dbPath) => {
             parseAsnNumber,
             getAsnInfo,
             getTopAsnsByIpv4,
+            getTopAsnsByIpv4Count,
             getTopAsnsByIpv6,
+            getTopAsnsByIpv6Count,
             getTopOrganizationsByIpv4,
+            getTopOrganizationsByIpv4Count,
             getAsnsForOrg,
             getOrgSummaryBySlug,
             getAsnsByOrgSlug,

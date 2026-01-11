@@ -21,6 +21,8 @@
         'Return to the <a href="/">main nossl.sh page</a>.',
         relatedLinks.length ? `Related ASN rankings: ${relatedLinks.join(', ')}.` : null,
       ].filter(Boolean);
+      const showingStart = totalEntries ? offset + 1 : 0;
+      const showingEnd = totalEntries ? Math.min(offset + entries.length, totalEntries) : 0;
     %>
     <%- include('partials/header', {headerNote}) %>
 
@@ -61,7 +63,12 @@
             <div>
               <p class="eyebrow">Leaderboard</p>
               <h2>Top organizations by IPv4 address space</h2>
-              <p class="panel__summary">Each organization links to its top ASNs.</p>
+              <p class="panel__summary">
+                Each organization links to its top ASNs.
+                <% if (totalEntries) { %>
+                  Showing <%= showingStart %>-<%= showingEnd %> of <%= totalEntries %>.
+                <% } %>
+              </p>
             </div>
           </header>
           <div class="table-wrapper">
@@ -83,7 +90,7 @@
                 <% } else { %>
                   <% entries.forEach((entry, index) => { %>
                     <tr>
-                      <td class="mono"><%= index + 1 %></td>
+                      <td class="mono"><%= offset + index + 1 %></td>
                       <td>
                         <% if (entry.orgSlug) { %>
                           <a href="/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
@@ -114,6 +121,38 @@
             </table>
           </div>
         </section>
+        <% if (pagination && pagination.totalPages > 1) { %>
+          <section class="panel">
+            <header class="panel__header">
+              <div>
+                <p class="eyebrow">Pages</p>
+                <h2>Browse all rankings</h2>
+                <p class="panel__summary">Page <%= pagination.currentPage %> of <%= pagination.totalPages %>.</p>
+              </div>
+            </header>
+            <div class="pill-row" aria-label="Pagination">
+              <% if (pagination.prevPath) { %>
+                <a class="pill pill-muted" href="<%= pagination.prevPath %>">Previous</a>
+              <% } else { %>
+                <span class="pill pill-muted">Previous</span>
+              <% } %>
+              <% pagination.pages.forEach((page) => { %>
+                <% if (page.isEllipsis) { %>
+                  <span class="pill pill-muted"><%= page.label %></span>
+                <% } else if (page.active) { %>
+                  <span class="pill"><%= page.label %></span>
+                <% } else { %>
+                  <a class="pill pill-muted" href="<%= page.path %>"><%= page.label %></a>
+                <% } %>
+              <% }) %>
+              <% if (pagination.nextPath) { %>
+                <a class="pill pill-muted" href="<%= pagination.nextPath %>">Next</a>
+              <% } else { %>
+                <span class="pill pill-muted">Next</span>
+              <% } %>
+            </div>
+          </section>
+        <% } %>
       <% } %>
 
       <%- include('partials/support-block') %>

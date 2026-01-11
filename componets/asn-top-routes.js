@@ -12,8 +12,11 @@ const requireAsnStore = (value) => {
         !value ||
         typeof value.isAvailable !== 'function' ||
         typeof value.getTopAsnsByIpv4 !== 'function' ||
+        typeof value.getTopAsnsByIpv4Count !== 'function' ||
         typeof value.getTopAsnsByIpv6 !== 'function' ||
+        typeof value.getTopAsnsByIpv6Count !== 'function' ||
         typeof value.getTopOrganizationsByIpv4 !== 'function' ||
+        typeof value.getTopOrganizationsByIpv4Count !== 'function' ||
         typeof value.getAsnsForOrg !== 'function'
     ) {
         throw new TypeError('registerAsnTopRoutes requires an ASN info store with ranking helpers');
@@ -54,6 +57,62 @@ const parseNumber = (value) => {
         return Number.isFinite(parsed) ? parsed : null;
     }
     return null;
+};
+
+const PAGE_SIZE = 250;
+
+const parsePage = (value) => {
+    const parsed = Number.parseInt(String(value ?? '').trim(), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return 1;
+    }
+    return parsed;
+};
+
+const buildPagePath = (basePath, page) => (page <= 1 ? basePath : `${basePath}?page=${page}`);
+
+const buildPagination = ({currentPage, totalPages, basePath}) => {
+    const safeTotalPages = Math.max(1, totalPages);
+    const safeCurrent = Math.min(Math.max(currentPage, 1), safeTotalPages);
+    const maxLinks = 7;
+    let start = Math.max(1, safeCurrent - Math.floor(maxLinks / 2));
+    let end = Math.min(safeTotalPages, start + maxLinks - 1);
+    if (end - start + 1 < maxLinks) {
+        start = Math.max(1, end - maxLinks + 1);
+    }
+
+    const pages = [];
+    const pushPage = (page) => {
+        pages.push({
+            label: String(page),
+            path: buildPagePath(basePath, page),
+            active: page === safeCurrent,
+            isEllipsis: false,
+        });
+    };
+    if (start > 1) {
+        pushPage(1);
+        if (start > 2) {
+            pages.push({label: '…', path: null, active: false, isEllipsis: true});
+        }
+    }
+    for (let page = start; page <= end; page += 1) {
+        pushPage(page);
+    }
+    if (end < safeTotalPages) {
+        if (end < safeTotalPages - 1) {
+            pages.push({label: '…', path: null, active: false, isEllipsis: true});
+        }
+        pushPage(safeTotalPages);
+    }
+
+    return {
+        currentPage: safeCurrent,
+        totalPages: safeTotalPages,
+        pages,
+        prevPath: safeCurrent > 1 ? buildPagePath(basePath, safeCurrent - 1) : null,
+        nextPath: safeCurrent < safeTotalPages ? buildPagePath(basePath, safeCurrent + 1) : null,
+    };
 };
 
 const formatDecimalString = (value) => {
@@ -111,29 +170,41 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
     const isIpv4 = family === 'ipv4';
     const pageTitle = isIpv4 ? 'Top ASNs by IPv4 address space' : 'Top ASNs by IPv6 address space';
     const pageDescription = isIpv4
-        ? 'Top 10 ASNs ranked by IPv4 address space, with organization details and related ASNs.'
-        : 'Top 10 ASNs ranked by IPv6 address space, with organization details and related ASNs.';
+        ? 'Top ASNs ranked by IPv4 address space, with organization details and related ASNs.'
+        : 'Top ASNs ranked by IPv6 address space, with organization details and related ASNs.';
     const heroTitle = pageTitle;
     const heroSubtitle = isIpv4
-        ? 'Top ASN Ranked by total announced IPv4 address space. Related ASNs are grouped by organization.'
-        : 'Top ASN Ranked by total announced IPv6 address space. Related ASNs are grouped by organization.';
+        ? 'Ranked by total announced IPv4 address space. Related ASNs are grouped by organization.'
+        : 'Ranked by total announced IPv6 address space. Related ASNs are grouped by organization.';
     const showSecondaryAmount = false;
     const ipv4Label = 'IPv4 addresses';
     const ipv6Label = 'IPv6 addresses (mln)';
     const primaryAmountLabel = isIpv4 ? ipv4Label : ipv6Label;
     const secondaryAmountLabel = isIpv4 ? ipv6Label : ipv4Label;
-    const pageLinks = buildPageLinks(isIpv4 ? '/top-asn-by-ip-address' : '/top-asn-by-ipv6');
+    const basePath = isIpv4 ? '/top-asn-by-ip-address' : '/top-asn-by-ipv6';
+    const pageLinks = buildPageLinks(basePath);
+    const requestedPage = parsePage(req.query.page);
 
     let errorMessage = null;
     let entries = [];
+    let pagination = null;
+    let offset = 0;
+    let totalEntries = 0;
 
     if (!asnInfoStore.isAvailable()) {
         errorMessage = 'ASN database is not configured.';
         res.status(503);
     } else {
+        totalEntries = isIpv4
+            ? asnInfoStore.getTopAsnsByIpv4Count()
+            : asnInfoStore.getTopAsnsByIpv6Count();
+        const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
+        const currentPage = Math.min(requestedPage, totalPages);
+        offset = (currentPage - 1) * PAGE_SIZE;
+        pagination = buildPagination({currentPage, totalPages, basePath});
         const rows = isIpv4
-            ? asnInfoStore.getTopAsnsByIpv4(25)
-            : asnInfoStore.getTopAsnsByIpv6(25);
+            ? asnInfoStore.getTopAsnsByIpv4(PAGE_SIZE, offset)
+            : asnInfoStore.getTopAsnsByIpv6(PAGE_SIZE, offset);
         entries = rows.map((entry) => {
             const relatedAsns = entry.organization
                 ? asnInfoStore.getAsnsForOrg(entry.organization, 3, entry.asn)
@@ -163,6 +234,10 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
         entries,
         errorMessage,
         pageLinks,
+        pagination,
+        pageSize: PAGE_SIZE,
+        offset,
+        totalEntries,
         generatedAt,
         generationTimeMs,
     });
@@ -175,19 +250,29 @@ const createTopOrgHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
     res.set('Expires', '0');
 
     const pageTitle = 'Top organizations by IPv4 address space';
-    const pageDescription = 'Top 10 organizations ranked by IPv4 address space, with related ASNs.';
+    const pageDescription = 'Top organizations ranked by IPv4 address space, with related ASNs.';
     const heroTitle = pageTitle;
     const heroSubtitle = 'Ranked by total IPv4 address space across each organization.';
-    const pageLinks = buildPageLinks('/top-organizations-by-ip-address');
+    const basePath = '/top-organizations-by-ip-address';
+    const pageLinks = buildPageLinks(basePath);
+    const requestedPage = parsePage(req.query.page);
 
     let errorMessage = null;
     let entries = [];
+    let pagination = null;
+    let offset = 0;
+    let totalEntries = 0;
 
     if (!asnInfoStore.isAvailable()) {
         errorMessage = 'ASN database is not configured.';
         res.status(503);
     } else {
-        entries = asnInfoStore.getTopOrganizationsByIpv4(25).map((entry) => {
+        totalEntries = asnInfoStore.getTopOrganizationsByIpv4Count();
+        const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
+        const currentPage = Math.min(requestedPage, totalPages);
+        offset = (currentPage - 1) * PAGE_SIZE;
+        pagination = buildPagination({currentPage, totalPages, basePath});
+        entries = asnInfoStore.getTopOrganizationsByIpv4(PAGE_SIZE, offset).map((entry) => {
             const topAsns = entry.organization
                 ? asnInfoStore.getAsnsForOrg(entry.organization, 3).map((asnEntry) => ({
                     ...asnEntry,
@@ -219,6 +304,10 @@ const createTopOrgHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
         entries,
         errorMessage,
         pageLinks,
+        pagination,
+        pageSize: PAGE_SIZE,
+        offset,
+        totalEntries,
         generatedAt,
         generationTimeMs,
     });
