@@ -1,4 +1,5 @@
 import {SEO_PAGES} from './seo-pages.js';
+import {setNoCacheHeaders} from './cache-headers.js';
 
 const CANONICAL_BASE_URL = 'https://nossl.sh';
 
@@ -28,9 +29,7 @@ const createSeoPageRenderer =
                     shareReportUrl = shareData?.shareReportUrl ?? null;
                 }
 
-                res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
-                res.set('Pragma', 'no-cache');
-                res.set('Expires', '0');
+                setNoCacheHeaders(res, {includeLegacy: true});
 
                 res.render('seo-page', {
                     ...baseData,

@@ -9,7 +9,6 @@
   </head>
   <body>
     <% 
-      const formattedGeneratedAt = generatedAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
       const headerNote = 'Latest requests hitting /.env honeypot';
       const footerLines = [];
     %>
@@ -53,7 +52,7 @@
                 <td class="mono"><%= row.hits %></td>
                 <td class="mono">
                   <% if (row.lastSeen) { %>
-                    <%= new Date(row.lastSeen).toISOString().replace('T', ' ').replace(/\..+/, ' UTC') %>
+                    <%= formatTimestamp(row.lastSeen) %>
                   <% } else { %>
                     &mdash;
                   <% } %>
@@ -80,6 +79,6 @@
       </section>
     </main>
 
-    <%- include('partials/footer', {formattedGeneratedAt, generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>

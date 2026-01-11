@@ -1,4 +1,7 @@
 import {normalizeOrgSlug} from './org-slug.js';
+import {formatIpv4Amount} from './asn-format.js';
+import {extractPrefixes} from './asn-prefixes.js';
+import {setNoCacheHeaders} from './cache-headers.js';
 
 const requireHelper = (value, name) => {
     if (typeof value !== 'function') {
@@ -19,48 +22,6 @@ const requireAsnStore = (value) => {
     return value;
 };
 
-const normalizePrefix = (entry) => {
-    if (typeof entry === 'string') {
-        return entry;
-    }
-    if (entry && typeof entry === 'object') {
-        for (const key of ['prefix', 'cidr', 'network', 'subnet']) {
-            if (typeof entry[key] === 'string') {
-                return entry[key];
-            }
-        }
-    }
-    return null;
-};
-
-const extractPrefixes = (asnData, family) => {
-    if (!asnData || typeof asnData !== 'object') {
-        return [];
-    }
-    for (const containerKey of ['prefixes', 'subnets']) {
-        const container = asnData[containerKey];
-        if (container && typeof container === 'object') {
-            const prefixes = container[family];
-            if (Array.isArray(prefixes)) {
-                return prefixes.map(normalizePrefix).filter(Boolean);
-            }
-        }
-    }
-    const topLevel = asnData[family];
-    if (Array.isArray(topLevel)) {
-        return topLevel.map(normalizePrefix).filter(Boolean);
-    }
-    return [];
-};
-
-const formatIpv4Amount = (value) => {
-    const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
-    if (!raw || !/^\d+$/.test(raw)) {
-        return value == null ? 'N/A' : String(value);
-    }
-    return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-};
-
 const buildOrgPageTitle = (orgName, slug) => {
     if (orgName) {
         return `${orgName} ASNs`;
@@ -79,9 +40,7 @@ const buildOrgPageDescription = (orgName, ipv4Prefixes, ipv6Prefixes, domain) =>
 
 const createOrgPageHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
+    setNoCacheHeaders(res, {includeLegacy: true});
 
     const orgParam = req.params.orgSlug;
     const orgSlug = normalizeOrgSlug(orgParam);

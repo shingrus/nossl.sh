@@ -1,17 +1,7 @@
 <%
-  const formatFooterTimestamp = (value) => {
-    try {
-      const dt = value instanceof Date ? value : new Date(value);
-      if (Number.isNaN(dt.getTime())) return '';
-      return dt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
-    } catch (error) {
-      return '';
-    }
-  };
-
   const footerTimestamp = typeof formattedGeneratedAt === 'string' && formattedGeneratedAt.length
     ? formattedGeneratedAt
-    : formatFooterTimestamp(generatedAt);
+    : formatTimestamp(generatedAt);
   const footerRenderTime = typeof generationTimeMs === 'number' ? `${generationTimeMs.toFixed(2)} ms` : 'N/A';
   const extraLines = Array.isArray(footerLines) ? footerLines : [];
 %>
