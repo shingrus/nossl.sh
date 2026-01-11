@@ -14,6 +14,7 @@ Usage:
   python3 pdb_cache_and_asn_geo.py --cache-dir /tmp/.pdbcache --sleep 1.0
   python3 pdb_cache_and_asn_geo.py --clean --force
   python3 pdb_cache_and_asn_geo.py --asn-db ./asn.sqlite --threshold 0.3
+  python3 pdb_cache_and_asn_geo.py --debug-asn 13335
 
 Notes:
 - This is NOT prefix/inetnum geolocation. It's "org HQ + ASN presence" inferred from PeeringDB.
@@ -374,6 +375,187 @@ def build_asn_geo_from_cache(
     return out
 
 
+def debug_asn_from_cache(
+    cache: Dict[str, Path],
+    asn: int,
+    threshold: float,
+    log: logging.Logger,
+) -> None:
+    log.info("Debugging ASN %d from cache...", asn)
+
+    net_records: List[Dict[str, Any]] = []
+    org_ids: set[int] = set()
+    net_ids: set[int] = set()
+    for n in read_jsonl(cache["net"], log=log, label="net"):
+        if n.get("asn") == asn:
+            net_records.append(n)
+            nid = n.get("id")
+            oid = n.get("org_id")
+            if isinstance(nid, int):
+                net_ids.add(nid)
+            if isinstance(oid, int):
+                org_ids.add(oid)
+
+    if not net_records:
+        log.warning("ASN %d: no net records found", asn)
+        return
+
+    org_records: List[Dict[str, Any]] = []
+    org_loc: Dict[int, Tuple[Optional[str], Optional[str]]] = {}
+    for o in read_jsonl(cache["org"], log=log, label="org"):
+        oid = o.get("id")
+        if isinstance(oid, int) and oid in org_ids:
+            org_records.append(o)
+            org_loc[oid] = (o.get("country") or None, norm_city(o.get("city")))
+
+    netfac_records: List[Dict[str, Any]] = []
+    fac_ids: set[int] = set()
+    for nf in read_jsonl(cache["netfac"], log=log, label="netfac"):
+        nid = nf.get("net_id")
+        fid = nf.get("fac_id")
+        if isinstance(nid, int) and nid in net_ids:
+            netfac_records.append(nf)
+            if isinstance(fid, int):
+                fac_ids.add(fid)
+
+    netixlan_records: List[Dict[str, Any]] = []
+    ix_ids: set[int] = set()
+    for nx in read_jsonl(cache["netixlan"], log=log, label="netixlan"):
+        nid = nx.get("net_id")
+        ixid = nx.get("ix_id")
+        if isinstance(nid, int) and nid in net_ids:
+            netixlan_records.append(nx)
+            if isinstance(ixid, int):
+                ix_ids.add(ixid)
+
+    fac_records: List[Dict[str, Any]] = []
+    fac_loc: Dict[int, Tuple[Optional[str], Optional[str]]] = {}
+    for f in read_jsonl(cache["fac"], log=log, label="fac"):
+        fid = f.get("id")
+        if isinstance(fid, int) and fid in fac_ids:
+            fac_records.append(f)
+            fac_loc[fid] = (f.get("country") or None, norm_city(f.get("city")))
+
+    ix_records: List[Dict[str, Any]] = []
+    ix_loc: Dict[int, Tuple[Optional[str], Optional[str]]] = {}
+    for x in read_jsonl(cache["ix"], log=log, label="ix"):
+        xid = x.get("id")
+        if isinstance(xid, int) and xid in ix_ids:
+            ix_records.append(x)
+            ix_loc[xid] = (x.get("country") or None, norm_city(x.get("city")))
+
+    log.info("ASN %d: net records=%d", asn, len(net_records))
+    for n in net_records:
+        log.info("net: %s", json.dumps(n, sort_keys=True, ensure_ascii=False))
+
+    log.info("ASN %d: org records=%d", asn, len(org_records))
+    for o in org_records:
+        log.info("org: %s", json.dumps(o, sort_keys=True, ensure_ascii=False))
+
+    log.info("ASN %d: netfac records=%d", asn, len(netfac_records))
+    for nf in netfac_records:
+        log.info("netfac: %s", json.dumps(nf, sort_keys=True, ensure_ascii=False))
+
+    log.info("ASN %d: fac records=%d", asn, len(fac_records))
+    for f in fac_records:
+        log.info("fac: %s", json.dumps(f, sort_keys=True, ensure_ascii=False))
+
+    log.info("ASN %d: netixlan records=%d", asn, len(netixlan_records))
+    for nx in netixlan_records:
+        log.info("netixlan: %s", json.dumps(nx, sort_keys=True, ensure_ascii=False))
+
+    log.info("ASN %d: ix records=%d", asn, len(ix_records))
+    for x in ix_records:
+        log.info("ix: %s", json.dumps(x, sort_keys=True, ensure_ascii=False))
+
+    missing_orgs = sorted(org_ids - set(org_loc.keys()))
+    if missing_orgs:
+        log.info("ASN %d: missing org IDs in cache: %s", asn, missing_orgs)
+
+    missing_facs = sorted(fac_ids - set(fac_loc.keys()))
+    if missing_facs:
+        log.info("ASN %d: missing fac IDs in cache: %s", asn, missing_facs)
+
+    missing_ix = sorted(ix_ids - set(ix_loc.keys()))
+    if missing_ix:
+        log.info("ASN %d: missing ix IDs in cache: %s", asn, missing_ix)
+
+    hq_country = None
+    hq_city = None
+    hq_candidates = set()
+    for n in net_records:
+        oid = n.get("org_id")
+        if isinstance(oid, int) and oid in org_loc:
+            hq_country, hq_city = org_loc[oid]
+            hq_candidates.add((hq_country, hq_city))
+
+    log.info("ASN %d: HQ candidates=%s", asn, sorted(hq_candidates))
+    log.info("ASN %d: HQ used country=%s city=%s", asn, hq_country, hq_city)
+
+    points: List[PresencePoint] = []
+    point_rows: List[Dict[str, Any]] = []
+    for nf in netfac_records:
+        nid = nf.get("net_id")
+        fid = nf.get("fac_id")
+        country, city = fac_loc.get(fid, (None, None))
+        points.append(PresencePoint(country=country, city=city))
+        point_rows.append(
+            {
+                "source": "fac",
+                "net_id": nid,
+                "id": fid,
+                "country": country,
+                "city": city,
+            }
+        )
+
+    for nx in netixlan_records:
+        nid = nx.get("net_id")
+        ixid = nx.get("ix_id")
+        country, city = ix_loc.get(ixid, (None, None))
+        points.append(PresencePoint(country=country, city=city))
+        point_rows.append(
+            {
+                "source": "ix",
+                "net_id": nid,
+                "id": ixid,
+                "country": country,
+                "city": city,
+            }
+        )
+
+    log.info("ASN %d: presence points=%d", asn, len(points))
+    for row in point_rows:
+        log.info("point: %s", json.dumps(row, sort_keys=True, ensure_ascii=False))
+
+    best_country, best_city, share = best_from_presence(points, hq_country=hq_country, threshold=threshold)
+    countries = [p.country for p in points if p.country]
+    city_pairs = [(p.country, p.city) for p in points if p.country and p.city]
+    country_counts = Counter(countries)
+    pair_counts = Counter(city_pairs)
+    pairs_rendered = {f"{c}|{city}": count for (c, city), count in pair_counts.items()}
+
+    log.info("ASN %d: country counts=%s", asn, dict(country_counts))
+    log.info("ASN %d: city pair counts=%s", asn, pairs_rendered)
+    log.info(
+        "ASN %d: best country=%s city=%s dominance=%.6f threshold=%.3f",
+        asn,
+        best_country,
+        best_city,
+        share,
+        threshold,
+    )
+    if not city_pairs:
+        log.info("ASN %d: no city pairs with country+city; city unset", asn)
+    elif share < threshold:
+        log.info(
+            "ASN %d: top city share %.6f below threshold %.3f; city unset",
+            asn,
+            share,
+            threshold,
+        )
+
+
 # --------------------------
 # SQLite upsert
 # --------------------------
@@ -571,6 +753,13 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=25, help="HTTP timeout seconds (default 25)")
     ap.add_argument("--force", action="store_true", help="Redownload even if cache files exist")
     ap.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    ap.add_argument(
+        "--debug-asn",
+        action="append",
+        type=int,
+        default=[],
+        help="Print cached objects and calculation details for the given ASN (repeatable)",
+    )
     ap.add_argument("--api-key", default=None, help="PeeringDB API key (or use env PDB_KEY)")
     args = ap.parse_args()
 
@@ -634,6 +823,14 @@ def main() -> int:
     log.info("Writing manifest...")
     cache["manifest"].write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     log.info("Wrote manifest: %s", cache["manifest"])
+
+    if args.debug_asn:
+        required = ["org", "net", "fac", "ix", "netfac", "netixlan"]
+        missing = [k for k in required if not cache[k].exists()]
+        if missing:
+            raise RuntimeError(f"Missing cache files: {missing}. Run download first (or without --debug-asn).")
+        for debug_asn in args.debug_asn:
+            debug_asn_from_cache(cache, debug_asn, threshold=args.threshold, log=log)
 
     if args.asn_db:
         db_path = Path(args.asn_db).expanduser().resolve()
