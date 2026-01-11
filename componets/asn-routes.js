@@ -1,6 +1,12 @@
 import {buildOrgSlug} from './org-slug.js';
 import {extractPrefixes} from './asn-prefixes.js';
 import {setNoCacheHeaders} from './cache-headers.js';
+import {
+    buildCountryAsnListPath,
+    countryCodeToFlag,
+    countryCodeToName,
+    normalizeCountryCode,
+} from './country-utils.js';
 
 const requireHelper = (value, name) => {
     if (typeof value !== 'function') {
@@ -67,6 +73,33 @@ const extractOrgName = (asnData) => {
 const extractHandle = (asnData) => {
     const metadata = asnData?.metadata;
     return trimString(metadata?.handle) || trimString(asnData?.handle);
+};
+
+const extractCountryValue = (asnData) => {
+    const metadata = asnData?.metadata;
+    return (
+        trimString(asnData?.country) ||
+        trimString(asnData?.country_code) ||
+        trimString(asnData?.countryCode) ||
+        trimString(metadata?.country) ||
+        trimString(metadata?.country_code) ||
+        trimString(metadata?.countryCode)
+    );
+};
+
+const buildCountryDisplay = (value) => {
+    const normalized = trimString(value);
+    if (!normalized) {
+        return null;
+    }
+    const code = normalizeCountryCode(normalized);
+    if (!code) {
+        return normalized;
+    }
+    const name = countryCodeToName(code);
+    const flag = countryCodeToFlag(code);
+    const label = name || code;
+    return flag ? `${flag} ${label}` : label;
 };
 
 const buildRelatedAsns = (asnInfoStore, orgName, currentAsn) => {
@@ -146,6 +179,8 @@ const createAsnPageHandler =
                     orgSlug: null,
                     handle: null,
                     relatedAsns: [],
+                    countryDisplay: null,
+                    countryPath: null,
                     pageTitle: 'ASN lookup error',
                     pageDescription: 'Invalid ASN value provided.',
                     errorMessage: 'Invalid ASN value.',
@@ -172,6 +207,8 @@ const createAsnPageHandler =
                     orgSlug: null,
                     handle: null,
                     relatedAsns: [],
+                    countryDisplay: null,
+                    countryPath: null,
                     pageTitle: `AS${asnNumber}`,
                     pageDescription: `AS${asnNumber} details are unavailable because the ASN database is not configured.`,
                     errorMessage: 'ASN database is not configured.',
@@ -199,6 +236,8 @@ const createAsnPageHandler =
                     orgSlug: null,
                     handle: null,
                     relatedAsns: [],
+                    countryDisplay: null,
+                    countryPath: null,
                     pageTitle: `AS${asnNumber}`,
                     pageDescription: `No ASN record found for ${asnNumber}.`,
                     errorMessage: `AS${asnNumber} not found.`,
@@ -217,6 +256,9 @@ const createAsnPageHandler =
             const handle = extractHandle(asnData);
             const orgSlug = orgName ? buildOrgSlug(orgName) : null;
             const relatedAsns = buildRelatedAsns(asnInfoStore, orgName, asnNumber);
+            const countryValue = extractCountryValue(asnData);
+            const countryDisplay = buildCountryDisplay(countryValue);
+            const countryPath = buildCountryAsnListPath(countryValue);
             const pageTitle = buildAsnPageTitle(asnNumber, orgName, handle);
             const pageDescription = buildAsnPageDescription(
                 asnNumber,
@@ -239,6 +281,8 @@ const createAsnPageHandler =
                 orgSlug,
                 handle,
                 relatedAsns,
+                countryDisplay,
+                countryPath,
                 pageTitle,
                 pageDescription,
                 errorMessage: asnInfo.parseError ? 'ASN record could not be parsed.' : null,

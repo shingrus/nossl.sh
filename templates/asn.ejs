@@ -59,6 +59,17 @@
                 <dt>Domain</dt>
                 <dd class="mono"><%= (typeof domain === 'string' && domain.trim()) ? domain.trim() : 'N/A' %></dd>
               </div>
+                <% if (countryDisplay) {%>
+              <div>
+                <dt>Country</dt>
+                <dd>
+                  <% if (countryDisplay && countryPath) { %>
+                    <a href="<%= countryPath %>"><%= countryDisplay %></a>
+                  <% } else { %>
+                    <%= countryDisplay || 'N/A' %>
+                  <% } %>
+                </dd>
+              </div> <% } %>
             </dl>
           </div>
           <div class="hero-secondary">

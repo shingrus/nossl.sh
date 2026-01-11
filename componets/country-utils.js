@@ -45,6 +45,20 @@ export const buildCountrySlug = (value) => {
     return cleaned || null;
 };
 
+export const buildCountryAsnListPath = (value) => {
+    if (!value || typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return null;
+    }
+    const code = normalizeCountryCode(trimmed);
+    const name = code ? countryCodeToName(code) : null;
+    const slug = buildCountrySlug(name || trimmed);
+    return slug ? `/${slug}-asn-list` : null;
+};
+
 export const countryCodeToFlag = (countryCode) => {
     const code = normalizeCountryCode(countryCode);
     if (!code) {

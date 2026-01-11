@@ -2,6 +2,7 @@ import {buildOrgSlug} from './org-slug.js';
 import {formatIpv4Amount} from './asn-format.js';
 import {setNoCacheHeaders} from './cache-headers.js';
 import {
+    buildCountryAsnListPath,
     buildCountrySlug,
     countryCodeToFlag,
     countryCodeToName,
@@ -283,11 +284,7 @@ const createTopCountryHandler = ({asnInfoStore, getRenderMeta}) => (req, res) =>
                 const displayCountry = countryDisplay.flag
                     ? `${countryDisplay.flag} ${countryDisplay.label}`
                     : countryDisplay.label;
-                const slugBase = countryDisplay.name || countryDisplay.label;
-                const countrySlug = buildCountrySlug(slugBase);
-                const countryPath = countrySlug
-                    ? `/${countrySlug}-asn-list`
-                    : null;
+                const countryPath = buildCountryAsnListPath(entry.country);
                 return {
                     ...entry,
                     displayCountry,
@@ -383,9 +380,7 @@ const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlu
                 primaryAmountDisplay: formatIpv4Amount(entry.ipv4Amount),
             }));
 
-            const slugBase = countryCodeToName(countryCode) || countryValue;
-            const countrySlug = buildCountrySlug(slugBase);
-            const basePath = countrySlug ? `/${countrySlug}-asn-list` : '/list-of-countries-by-ipv4-allocation';
+            const basePath = buildCountryAsnListPath(countryValue) || '/list-of-countries-by-ipv4-allocation';
             const buildPageUrl = (pageNumber) =>
                 pageNumber === 1 ? basePath : `${basePath}?page=${pageNumber}`;
             pagination = {
