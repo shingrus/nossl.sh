@@ -778,6 +778,19 @@ app.get('/disclaimer', (req, res) => {
     });
 });
 
+app.get('/service-status', (req, res) => {
+    const baseData = getBaseRequestData(req, res);
+    const {generatedAt, generationTimeMs, counters, totalRequests} = baseData;
+
+    setNoCacheHeaders(res, {includeLegacy: true});
+    res.render('service-status', {
+        generatedAt,
+        generationTimeMs,
+        counters,
+        totalRequests,
+    });
+});
+
 registerSeoRoutes(app, {getBaseRequestData, buildShareLinkForRequest});
 registerAsnOrgRoutes(app, {asnInfoStore, getRenderMeta});
 registerAsnRoutes(app, {asnInfoStore, getRenderMeta});
