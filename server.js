@@ -203,10 +203,6 @@ const isPrivateIp = (ip) => {
 };
 
 export const lookupGeo = (ip) => {
-    //TIP: maybe we need only 1 ip lookup, from ASN database only, as it has a country code record
-    if (process.env.TEST_IP) {
-        ip = process.env.TEST_IP;
-    }
 
     if (!geoReader || isPrivateIp(ip)) {
         return null;
@@ -283,8 +279,11 @@ const getBaseRequestData = (req, res) => {
     const scheme = getScheme(req);
     const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
     const headers = normalizeHeaders(req.headers);
-    const clientIp = getClientIp(req);
+    var clientIp = getClientIp(req);
     const clientIpv6 = extractClientIpv6(clientIp);
+    if (process.env.TEST_IP) {
+        clientIp = process.env.TEST_IP;
+    }
     const geo = lookupGeo(clientIp);
     const requestMethod = req.method;
     const requestPath = req.originalUrl || req.url || req.path;
@@ -357,6 +356,23 @@ const getClientIp = (req) => {
         return realIp;
     }
     return req.ip;
+};
+
+const getLookupIp = (req) => {
+    const query = req.query || {};
+    const candidates = [query.ip, query.address, query.q].filter((value) => typeof value === 'string');
+    const directMatch = candidates.map((value) => value.trim()).find((value) => value.length > 0);
+    if (directMatch) {
+        return directMatch;
+    }
+
+    const keys = Object.keys(query);
+    if (keys.length === 1) {
+        const candidate = keys[0].trim();
+        return candidate.length > 0 ? candidate : null;
+    }
+
+    return null;
 };
 
 const extractClientIpv6 = (ip) => {
@@ -631,6 +647,36 @@ app.get('/api/request-info', async (req, res) => {
 });
 
 app.options('/api/request-info', (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.sendStatus(204);
+});
+
+app.get('/api/ip', (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.vary('Origin');
+
+    setNoCacheHeaders(res);
+
+    const ip = getLookupIp(req);
+    if (!ip) {
+        res.status(400).json({error: 'missing_ip'});
+        return;
+    }
+
+    const geo = lookupGeo(ip);
+    if (!geo) {
+        res.status(404).json({error: 'not_found'});
+        return;
+    }
+
+    res.json(geo);
+});
+
+app.options('/api/ip', (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
