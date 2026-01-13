@@ -96,6 +96,8 @@ def rdap_lookup_domain(
             domain = extract_domain_from_rdap(data)
             if not domain:
                 return " "
+            if domain == "gmail.com":
+                return " "
             return domain
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
