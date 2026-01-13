@@ -96,6 +96,8 @@ def rdap_lookup_domain(
             domain = extract_domain_from_rdap(data)
             if not domain:
                 return " "
+            if domain == "gmail.com":
+                return " "
             return domain
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
@@ -128,6 +130,24 @@ def ensure_tables(connection):
             "domain TEXT"
             ")"
         )
+
+
+def has_asn_geo_pdb_table(connection):
+    row = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='asn_geo_pdb'"
+    ).fetchone()
+    return row is not None
+
+
+def domain_from_asn_geo_pdb(connection, asn: int):
+    row = connection.execute(
+        "SELECT domain FROM asn_geo_pdb "
+        "WHERE asn = ? AND domain IS NOT NULL AND TRIM(domain) != ''",
+        (asn,),
+    ).fetchone()
+    if not row:
+        return None
+    return normalize_domain(str(row[0]))
 
 
 def iter_pending_asns(connection, limit):
@@ -219,6 +239,13 @@ def main():
             print("error: missing table 'asn' in database", file=sys.stderr)
             return 2
 
+        geo_table_available = has_asn_geo_pdb_table(connection)
+        if not geo_table_available:
+            print(
+                "warning: missing table 'asn_geo_pdb'; skipping PeeringDB domain lookup",
+                file=sys.stderr,
+            )
+
         total = 0
         updated = 0
         missing = 0
@@ -231,12 +258,21 @@ def main():
         for asn in iter_pending_asns(connection, args.limit):
             total += 1
             print(f"checking AS{asn} ({total}/{planned_total})")
-            domain = rdap_lookup_domain(
-                asn,
-                args.timeout,
-                args.user_agent,
-                args.rate_limit_timeout,
-            )
+            domain = None
+            if geo_table_available:
+                domain = domain_from_asn_geo_pdb(connection, asn)
+                if domain:
+                    print(f"found PeeringDB domain for AS{asn}: {domain}")
+                else:
+                    print(f"no PeeringDB domain for AS{asn}, falling back to RDAP")
+
+            if not domain:
+                domain = rdap_lookup_domain(
+                    asn,
+                    args.timeout,
+                    args.user_agent,
+                    args.rate_limit_timeout,
+                )
             if domain:
                 if domain == " ":
                     print(f"no domain for AS{asn}, storing placeholder")

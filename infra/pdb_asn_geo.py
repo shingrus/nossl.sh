@@ -32,6 +32,7 @@ import shutil
 import sqlite3
 import sys
 import time
+from urllib.parse import urlparse
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -216,6 +217,39 @@ def norm_city(v: Optional[str]) -> Optional[str]:
     return s or None
 
 
+def normalize_domain(value: str) -> Optional[str]:
+    if not value:
+        return None
+    domain = value.strip().lower().strip(".")
+    if not domain:
+        return None
+    try:
+        domain = domain.encode("idna").decode("ascii")
+    except Exception:
+        return domain
+    return domain
+
+
+def domain_from_website(value: Any) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, list):
+        for item in value:
+            domain = domain_from_website(item)
+            if domain:
+                return domain
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    if "://" not in raw:
+        raw = f"http://{raw}"
+    parsed = urlparse(raw)
+    if not parsed.hostname:
+        return None
+    return normalize_domain(parsed.hostname)
+
+
 def best_from_presence(
     points: List[PresencePoint],
     hq_country: Optional[str],
@@ -247,26 +281,30 @@ def build_asn_geo_from_cache(
     cache: Dict[str, Path],
     threshold: float,
     log: logging.Logger,
-) -> Dict[int, Tuple[Optional[str], Optional[str], float]]:
+) -> Dict[int, Tuple[Optional[str], Optional[str], float, Optional[str]]]:
     """
     Produces mapping:
-      asn -> (country, city, dominance_share)
+      asn -> (country, city, dominance_share, domain)
 
     Uses:
       net (asn, org_id, id)
-      org (hq city/country)
+      org (hq city/country, website)
       netfac -> fac -> (city/country)
       netixlan -> ix -> (city/country)
     """
     log.info("Loading cached datasets into memory...")
 
-    # org_id -> (country, city)
-    org_loc: Dict[int, Tuple[Optional[str], Optional[str]]] = {}
+    # org_id -> (country, city, domain)
+    org_loc: Dict[int, Tuple[Optional[str], Optional[str], Optional[str]]] = {}
     log.info("Loading org records...")
     for o in read_jsonl(cache["org"], log=log, label="org"):
         oid = o.get("id")
         if isinstance(oid, int):
-            org_loc[oid] = (o.get("country") or None, norm_city(o.get("city")))
+            org_loc[oid] = (
+                o.get("country") or None,
+                norm_city(o.get("city")),
+                domain_from_website(o.get("website")),
+            )
 
     # fac_id -> (country, city)
     fac_loc: Dict[int, Tuple[Optional[str], Optional[str]]] = {}
@@ -327,14 +365,17 @@ def build_asn_geo_from_cache(
     asn_points: Dict[int, List[PresencePoint]] = defaultdict(list)
     asn_hq_country: Dict[int, Optional[str]] = {}
     asn_hq_city: Dict[int, Optional[str]] = {}
+    asn_domain: Dict[int, Optional[str]] = {}
 
     net_count = 0
     point_count = 0
     for nid, (asn, org_id) in net_info.items():
         net_count += 1
-        hq_country, hq_city = org_loc.get(org_id, (None, None))
+        hq_country, hq_city, org_domain = org_loc.get(org_id, (None, None, None))
         asn_hq_country[asn] = hq_country
         asn_hq_city[asn] = hq_city
+        if org_domain and not asn_domain.get(asn):
+            asn_domain[asn] = org_domain
 
         for fid in net_to_fac.get(nid, []):
             c, city = fac_loc.get(fid, (None, None))
@@ -352,13 +393,13 @@ def build_asn_geo_from_cache(
     log.info("Processed %d nets and %d presence points", net_count, point_count)
 
     log.info("Computing best country/city per ASN...")
-    out: Dict[int, Tuple[Optional[str], Optional[str], float]] = {}
+    out: Dict[int, Tuple[Optional[str], Optional[str], float, Optional[str]]] = {}
     asn_count = 0
     for asn, points in asn_points.items():
         best_country, best_city, share = best_from_presence(
             points, hq_country=asn_hq_country.get(asn), threshold=threshold
         )
-        out[asn] = (best_country, best_city, share)
+        out[asn] = (best_country, best_city, share, asn_domain.get(asn))
         asn_count += 1
         if asn_count % 100_000 == 0:
             log.info("... computed %d ASNs", asn_count)
@@ -369,7 +410,7 @@ def build_asn_geo_from_cache(
     for asn in all_asns:
         if asn not in out:
             # Country can still come from HQ; city remains null (HQ isn't presence)
-            out[asn] = (asn_hq_country.get(asn), None, 0.0)
+            out[asn] = (asn_hq_country.get(asn), None, 0.0, asn_domain.get(asn))
 
     log.info("Computed geo records for %d ASNs", len(out))
     return out
@@ -401,12 +442,16 @@ def debug_asn_from_cache(
         return
 
     org_records: List[Dict[str, Any]] = []
-    org_loc: Dict[int, Tuple[Optional[str], Optional[str]]] = {}
+    org_loc: Dict[int, Tuple[Optional[str], Optional[str], Optional[str]]] = {}
     for o in read_jsonl(cache["org"], log=log, label="org"):
         oid = o.get("id")
         if isinstance(oid, int) and oid in org_ids:
             org_records.append(o)
-            org_loc[oid] = (o.get("country") or None, norm_city(o.get("city")))
+            org_loc[oid] = (
+                o.get("country") or None,
+                norm_city(o.get("city")),
+                domain_from_website(o.get("website")),
+            )
 
     netfac_records: List[Dict[str, Any]] = []
     fac_ids: set[int] = set()
@@ -486,8 +531,8 @@ def debug_asn_from_cache(
     for n in net_records:
         oid = n.get("org_id")
         if isinstance(oid, int) and oid in org_loc:
-            hq_country, hq_city = org_loc[oid]
-            hq_candidates.add((hq_country, hq_city))
+            hq_country, hq_city, org_domain = org_loc[oid]
+            hq_candidates.add((hq_country, hq_city, org_domain))
 
     log.info("ASN %d: HQ candidates=%s", asn, sorted(hq_candidates))
     log.info("ASN %d: HQ used country=%s city=%s", asn, hq_country, hq_city)
@@ -566,27 +611,33 @@ def ensure_table(conn: sqlite3.Connection) -> None:
           asn INTEGER PRIMARY KEY,
           country TEXT,
           city TEXT,
-          dominance REAL
+          dominance REAL,
+          domain TEXT
         )
         """
     )
     conn.commit()
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(asn_geo_pdb)")}
+    if "domain" not in columns:
+        conn.execute("ALTER TABLE asn_geo_pdb ADD COLUMN domain TEXT")
+        conn.commit()
 
 
 def upsert_rows(
     conn: sqlite3.Connection,
-    rows: Iterable[Tuple[int, Optional[str], Optional[str], float]],
+    rows: Iterable[Tuple[int, Optional[str], Optional[str], float, Optional[str]]],
     log: logging.Logger,
 ) -> None:
     sql = """
-      INSERT INTO asn_geo_pdb (asn, country, city, dominance)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO asn_geo_pdb (asn, country, city, dominance, domain)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(asn) DO UPDATE SET
         country=excluded.country,
         city=excluded.city,
-        dominance=excluded.dominance
+        dominance=excluded.dominance,
+        domain=excluded.domain
     """
-    batch: List[Tuple[int, Optional[str], Optional[str], float]] = []
+    batch: List[Tuple[int, Optional[str], Optional[str], float, Optional[str]]] = []
     n = 0
     for r in rows:
         batch.append(r)
@@ -789,7 +840,7 @@ def main() -> int:
     client = PDBClient(api_key=api_key, sleep_s=args.sleep, timeout_s=args.timeout, log=log)
 
     datasets = [
-        ("org", "id,city,country"),
+        ("org", "id,city,country,website"),
         ("net", "id,asn,org_id"),
         ("fac", "id,city,country"),
         ("ix", "id,city,country"),
@@ -850,7 +901,10 @@ def main() -> int:
             geo = build_asn_geo_from_cache(cache, threshold=args.threshold, log=log)
             log.info("Upserting ASN geo rows into SQLite...")
 
-            rows = ((asn, country, city, float(dom)) for asn, (country, city, dom) in geo.items())
+            rows = (
+                (asn, country, city, float(dom), domain)
+                for asn, (country, city, dom, domain) in geo.items()
+            )
             upsert_rows(conn, rows, log)
 
             if args.dump_geofeed:
