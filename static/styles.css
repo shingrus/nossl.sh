@@ -428,6 +428,38 @@ a:focus-visible {
   margin-top: 4px;
 }
 
+/* ---------- Lookup form ---------- */
+
+.lookup-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.lookup-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.lookup-input {
+  flex: 1 1 260px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lookup-input:focus {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
 .meta-grid dt {
   font-size: 0.8rem;
   letter-spacing: 0.05em;

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Free Geo IP Lookup + ASN | nossl.sh</title>
+    <meta name="description" content="Free Geo IP lookup with ASN, organization, and city info. Search any IP address and get instant JSON results." />
+    <link rel="canonical" href="http://nossl.sh/free-geo-ip" />
+    <meta property="og:title" content="Free Geo IP Lookup + ASN | nossl.sh" />
+    <meta property="og:description" content="Free Geo IP lookup with ASN, organization, and city info. Search any IP address and get instant JSON results." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="http://nossl.sh/free-geo-ip" />
+    <meta property="og:site_name" content="nossl.sh" />
+    <meta property="og:image" content="/static/og-image.png" />
+    <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Free Geo IP Lookup + ASN | nossl.sh" />
+    <meta name="twitter:description" content="Free Geo IP lookup with ASN, organization, and city info. Search any IP address and get instant JSON results." />
+    <meta name="twitter:image" content="/static/og-image.png" />
+    <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const headerNote = 'Free Geo IP lookup';
+      const footerLines = ['Return to the <a href="/">main nossl.sh page</a>.'];
+      const hasReport = Boolean(ip);
+      const geo = reportGeo;
+      const locationLabel = geo?.countryName || geo?.cityName
+        ? [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ')
+        : null;
+      const geoSummary = locationLabel ? [geo?.countryFlag, locationLabel].filter(Boolean).join(' ') : null;
+      const orgLink = geo?.asn ? `/as${geo.asn}` : null;
+      const asnLabel = geo?.asn ? `AS${geo.asn}` : null;
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container page">
+      <section class="card hero">
+        <div class="card__header">
+          <div>
+            <p class="eyebrow">Free lookup</p>
+            <h1 class="card__title">Free Geo IP lookup + ASN</h1>
+            <p class="panel__summary">Search for Geo IP, ASN, and organization details behind any IP address.</p>
+          </div>
+        </div>
+        <form class="lookup-form" method="get" action="/free-geo-ip">
+          <label class="label" for="lookup-ip">IP address</label>
+          <div class="lookup-field">
+            <input
+              id="lookup-ip"
+              name="ip"
+              type="text"
+              class="lookup-input mono"
+              value="<%= ip %>"
+              placeholder="208.80.152.201 or 2a03:b0c0:2:f0:0:1:e23:b001"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="submit" class="btn btn-outline">Lookup</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card info-card" aria-labelledby="lookup-result">
+        <p class="eyebrow">IP report</p>
+        <h2 id="lookup-result" class="card__title">Lookup result</h2>
+        <% if (!hasReport) { %>
+          <p class="muted">Enter an IP and press Lookup to see the report.</p>
+        <% } else if (!geo) { %>
+          <p class="muted">No Geo or ASN data found for <span class="mono"><%= ip %></span>.</p>
+        <% } else { %>
+          <div class="hero-grid">
+            <div class="hero-primary">
+              <p class="label">IP address</p>
+              <div class="ip-row">
+                <span class="ip-value mono"><%= ip %></span>
+              </div>
+              <% if (geoSummary) { %>
+                <p class="ip-location mono">
+                  <%= geoSummary %>
+                  <% if (geo?.orgName) { %>
+                    /
+                    <% if (orgLink) { %>
+                      <a href="<%= orgLink %>"><%= geo.orgName %></a>
+                    <% } else { %>
+                      <%= geo.orgName %>
+                    <% } %>
+                  <% } %>
+                </p>
+              <% } %>
+            </div>
+            <div class="hero-secondary">
+              <dl class="meta-grid meta-grid--compact">
+                <div>
+                  <dt>Country</dt>
+                  <dd class="mono">
+                    <% if (countryPath && geo.countryCode) { %>
+                      <a href="<%= countryPath %>"><%= geo.countryCode %></a>
+                    <% } else { %>
+                      <%= geo.countryCode || 'N/A' %>
+                    <% } %>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Country name</dt>
+                  <dd>
+                    <% if (countryPath && geo.countryName) { %>
+                      <a href="<%= countryPath %>"><%= geo.countryName %></a>
+                    <% } else { %>
+                      <%= geo.countryName || 'N/A' %>
+                    <% } %>
+                  </dd>
+                </div>
+                <div>
+                  <dt>City</dt>
+                  <dd><%= geo.cityName || 'N/A' %></dd>
+                </div>
+                <div>
+                  <dt>Organization</dt>
+                  <dd>
+                    <% if (orgLink && geo.orgName) { %>
+                      <a href="<%= orgLink %>"><%= geo.orgName %></a>
+                    <% } else { %>
+                      <%= geo.orgName || 'N/A' %>
+                    <% } %>
+                  </dd>
+                </div>
+                <div>
+                  <dt>ASN</dt>
+                  <dd class="mono">
+                    <% if (orgLink && asnLabel) { %>
+                      <a href="<%= orgLink %>"><%= asnLabel %></a>
+                    <% } else { %>
+                      <%= asnLabel || 'N/A' %>
+                    <% } %>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        <% } %>
+      </section>
+
+      <section class="card info-card" aria-labelledby="geoip-api">
+        <p class="eyebrow">API</p>
+        <h2 id="geoip-api" class="card__title">Geo IP API</h2>
+        <p class="muted">Use the JSON endpoint to fetch country, city, org, and ASN details for any IP address.</p>
+        <% if (hasReport && geo) { %>
+          <% const apiQuery = ip ? `?${encodeURIComponent(ip)}` : '?1.1.1.1'; %>
+          <div class="code-block">
+            <code class="mono">$ curl 'http://nossl.sh/api/ip<%= apiQuery %>'</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="curl 'http://nossl.sh/api/ip<%= apiQuery %>'">Copy</button>
+            <pre class="code-example mono">→ <%= JSON.stringify(geo, null, 2) %></pre>
+          </div>
+        <% } else { %>
+          <p class="muted">Run a lookup to see the live API response for that IP.</p>
+        <% } %>
+      </section>
+
+      <%- include('partials/support-block') %>
+    </main>
+
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>

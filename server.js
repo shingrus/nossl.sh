@@ -12,7 +12,7 @@ import {registerAsnOrgRoutes} from './componets/asn-org-routes.js';
 import {registerAsnRoutes} from './componets/asn-routes.js';
 import {registerAsnTopRoutes} from './componets/asn-top-routes.js';
 import {setNoCacheHeaders} from './componets/cache-headers.js';
-import {countryCodeToFlag, countryCodeToName} from './componets/country-utils.js';
+import {buildCountryAsnListPath, countryCodeToFlag, countryCodeToName} from './componets/country-utils.js';
 import {formatTimestamp} from './componets/format-utils.js';
 import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
@@ -90,6 +90,8 @@ const COUNTER_NAMES = Object.freeze([
     'honeypotCount',
     'seoLandingCount',
     'reportCount',
+    'geoIpCount',
+    'apiIpCount',
     'ascounter',
 ]);
 
@@ -412,6 +414,10 @@ const collectCountersForRequest = (req) => {
         countersToBump.add('apiCount');
     }
 
+    if (req.path === '/api/ip') {
+        countersToBump.add('apiIpCount');
+    }
+
     if (req.path === '/check') {
         countersToBump.add('checkCount');
     }
@@ -423,6 +429,10 @@ const collectCountersForRequest = (req) => {
 
     if (req.path === '/healthz') {
         countersToBump.add('healthzCount');
+    }
+
+    if (req.path === '/free-geo-ip') {
+        countersToBump.add('geoIpCount');
     }
 
     if (req.path.startsWith('/honeypot')) {
@@ -586,6 +596,27 @@ app.get('/', async (req, res) => {
 
 app.get('/check', async (req, res) => {
     await renderIndex(req, res);
+});
+
+app.get('/free-geo-ip', (req, res) => {
+    const clientIp = getClientIp(req);
+    const lookupQueryIp = getLookupIp(req);
+    const ip = (process.env.TEST_IP || lookupQueryIp || clientIp || '').trim();
+    const reportGeo = ip ? lookupGeo(ip) : null;
+    const countryPath = reportGeo
+        ? buildCountryAsnListPath(reportGeo.countryCode || reportGeo.countryName)
+        : null;
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
+
+    setNoCacheHeaders(res, {includeLegacy: true});
+
+    res.render('free-geo-ip', {
+        ip,
+        reportGeo,
+        countryPath,
+        generatedAt,
+        generationTimeMs,
+    });
 });
 
 app.all(/^.*\/\.env*/i, honeypotService.handleEnvRequest);
