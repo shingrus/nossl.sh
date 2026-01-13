@@ -157,7 +157,7 @@
           <div class="code-block">
             <code class="mono">$ curl 'http://nossl.sh/api/ip<%= apiQuery %>'</code>
             <button type="button" class="btn btn-outline btn-small" data-copy-text="curl 'http://nossl.sh/api/ip<%= apiQuery %>'">Copy</button>
-            <pre class="code-example mono">→ <%= JSON.stringify(geo, null, 2) %></pre>
+            <pre class="code-example mono">→ <%= JSON.stringify({ip, ...geo}, null, 2) %></pre>
           </div>
         <% } else { %>
           <p class="muted">Run a lookup to see the live API response for that IP.</p>

@@ -692,7 +692,9 @@ app.get('/api/ip', (req, res) => {
 
     setNoCacheHeaders(res);
 
-    const ip = getLookupIp(req);
+    const lookupQueryIp = getLookupIp(req);
+    const clientIp = getClientIp(req);
+    const ip = (lookupQueryIp || process.env.TEST_IP || clientIp || '').trim();
     if (!ip) {
         res.status(400).json({error: 'missing_ip'});
         return;
@@ -700,11 +702,11 @@ app.get('/api/ip', (req, res) => {
 
     const geo = lookupGeo(ip);
     if (!geo) {
-        res.status(404).json({error: 'not_found'});
+        res.status(404).json({error: 'not_found', ip});
         return;
     }
 
-    res.json(geo);
+    res.json({ip, ...geo});
 });
 
 app.options('/api/ip', (req, res) => {
@@ -778,7 +780,7 @@ app.get('/disclaimer', (req, res) => {
     });
 });
 
-app.get('/service-status', (req, res) => {
+app.get('/ss', (req, res) => {
     const baseData = getBaseRequestData(req, res);
     const {generatedAt, generationTimeMs, counters, totalRequests} = baseData;
 

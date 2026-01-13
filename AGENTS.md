@@ -22,7 +22,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `/healthz` health check
 - `/status/:code` return any HTTP status (optional `?location=`)
 - `/honeypot` HTML summary, `/api/honeypot` JSON summary
-- `/service-status` service status page with request counters and updates
+- `/ss` service status page with request counters and updates
 - `/asNNN` ASN detail HTML (requires ASN info DB)
 - `/api/asNNN` ASN detail JSON (requires ASN info DB)
 - `/report/:id` shared report (requires Redis)
