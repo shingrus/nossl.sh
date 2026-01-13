@@ -167,6 +167,64 @@
       <%- include('partials/support-block') %>
     </main>
 
+    <script>
+      (() => {
+        const fallbackCopyText = (text) => {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'absolute';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+
+          let successful;
+          try {
+            successful = document.execCommand('copy');
+          } catch (error) {
+            successful = false;
+          }
+
+          document.body.removeChild(textarea);
+          return successful;
+        };
+
+        const copyText = async (text) => {
+          if (!text) {
+            return false;
+          }
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            try {
+              await navigator.clipboard.writeText(text);
+              return true;
+            } catch (error) {
+              // fall back to execCommand
+            }
+          }
+          return fallbackCopyText(text);
+        };
+
+        const flashButton = (button, label) => {
+          if (!button) return;
+          const originalLabel = button.textContent.trim();
+          button.textContent = label;
+          button.disabled = true;
+          setTimeout(() => {
+            button.textContent = originalLabel;
+            button.disabled = false;
+          }, 2000);
+        };
+
+        document.querySelectorAll('[data-copy-text]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const text = button.getAttribute('data-copy-text');
+            const copied = await copyText(text);
+            flashButton(button, copied ? 'Copied' : 'Copy failed');
+          });
+        });
+      })();
+    </script>
+
     <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
   </body>
 </html>
