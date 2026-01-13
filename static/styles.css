@@ -444,20 +444,27 @@ a:focus-visible {
 }
 
 .lookup-input {
-  flex: 1 1 260px;
+  flex: 1 1 320px;
+  width: 100%;
+  max-width: 48ch;
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 2px solid var(--border-strong);
   border-radius: 10px;
-  background: var(--surface-soft);
+  background: #ffffff;
   color: var(--text);
   font-size: 1rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .lookup-input:focus {
-  border-color: var(--border-hover);
+  border-color: var(--link);
   box-shadow: 0 0 0 3px var(--focus-ring);
   outline: none;
+}
+
+.lookup-input::placeholder {
+  color: #94a3b8;
 }
 
 .meta-grid dt {

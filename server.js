@@ -601,7 +601,7 @@ app.get('/check', async (req, res) => {
 app.get('/free-geo-ip', (req, res) => {
     const clientIp = getClientIp(req);
     const lookupQueryIp = getLookupIp(req);
-    const ip = (process.env.TEST_IP || lookupQueryIp || clientIp || '').trim();
+    const ip = (lookupQueryIp|| process.env.TEST_IP  || clientIp || '').trim();
     const reportGeo = ip ? lookupGeo(ip) : null;
     const countryPath = reportGeo
         ? buildCountryAsnListPath(reportGeo.countryCode || reportGeo.countryName)
