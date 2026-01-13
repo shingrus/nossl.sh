@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nossl.sh - Service status</title>
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const headerNote = 'Service status and request counters';
+      const footerLines = [
+        'View JSON counters at <a href="/api/counters" rel="nofollow">/api/counters</a>.'
+      ];
+      const formattedGeneratedAt = formatTimestamp(generatedAt);
+      const latestUpdates = [
+        {
+          date: '2026-01-13',
+          title: 'Free Geo IP API and lookup',
+          summary: 'Published the free Geo IP API and lookup page for quick Geo + ASN checks.'
+        },
+        {
+          date: '2024-12-30',
+          title: 'Shared report links',
+          summary: 'Redis backed snapshots let support teams review request details fast.'
+        },
+        {
+          date: '2024-11-22',
+          title: 'ASN and GeoIP enrichment',
+          summary: 'Request info and IP lookups now include ASN metadata and country data.'
+        },
+        {
+          date: '2024-11-12',
+          title: 'Honeypot dashboard',
+          summary: 'Added a dedicated honeypot summary page with a JSON endpoint.'
+        },
+        {
+          date: '2024-01-10',
+          title: 'Self-built GeoIP database',
+          summary: 'Migrated to an in-house GeoIP dataset for faster, more consistent lookups.'
+        }
+      ];
+      const displayedUpdates = latestUpdates.slice(0, 10);
+      const statItems = [
+        {label: 'Total requests', value: totalRequests},
+        {label: 'API requests', value: counters.apiCount},
+        {label: 'Health checks', value: counters.healthzCount},
+        {label: 'cURL detected', value: counters.curlCount},
+        {label: 'Honeypot hits', value: counters.honeypotCount},
+        {label: 'Report views', value: counters.reportCount},
+        {label: 'Geo IP lookups', value: counters.geoIpCount},
+        {label: 'API IP lookups', value: counters.apiIpCount},
+        {label: 'ASN detail views', value: counters.ascounter}
+      ];
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container dashboard">
+      <section class="panel">
+        <header class="panel__header">
+          <div>
+            <p class="eyebrow">Status</p>
+            <h1>Service status</h1>
+            <p class="panel__summary">Updated at <span class="mono"><%= formattedGeneratedAt %></span></p>
+          </div>
+          <div class="pill-row">
+            <span class="pill">Operational</span>
+          </div>
+        </header>
+        <div class="stat-grid">
+          <% statItems.forEach((item) => { %>
+            <div class="stat">
+              <span class="stat-label"><%= item.label %></span>
+              <span class="stat-value mono"><%= item.value.toLocaleString('en-US') %></span>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header class="panel__header">
+          <div>
+            <p class="eyebrow">Latest updates</p>
+            <h2>Recent changes</h2>
+            <p class="panel__summary">Highlights from the latest releases.</p>
+          </div>
+        </header>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Date (UTC)</th>
+                <th scope="col">Update</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% displayedUpdates.forEach((update) => { %>
+                <tr>
+                  <th scope="row" class="mono"><%= update.date %></th>
+                  <td>
+                    <strong><%= update.title %></strong>
+                    <div class="muted"><%= update.summary %></div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>

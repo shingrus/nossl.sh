@@ -17,9 +17,12 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 ## Key routes
 - `/` main HTML diagnostics page
 - `/api/request-info` JSON diagnostics
+- `/free-geo-ip` free GeoIP + ASN lookup page
+- `/api/ip` GeoIP + ASN JSON lookup (use `?ip=`)
 - `/healthz` health check
 - `/status/:code` return any HTTP status (optional `?location=`)
 - `/honeypot` HTML summary, `/api/honeypot` JSON summary
+- `/service-status` service status page with request counters and updates
 - `/asNNN` ASN detail HTML (requires ASN info DB)
 - `/api/asNNN` ASN detail JSON (requires ASN info DB)
 - `/report/:id` shared report (requires Redis)
@@ -57,6 +60,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - Keep the `componets/` directory name unchanged; other files import it.
 - When adjusting routes, update both server handlers and template links.
 - Preserve no-cache headers on privacy-sensitive endpoints.
+- Service status updates are hardcoded in `templates/service-status.ejs`; keep 10 or fewer items and prune older entries.
 - Prefer analyzing and reusing existing functions; extend minimally, and only add new functionality if existing helpers are insufficient.
 - Avoid editing local data files (`*.mmdb`, `*.sqlite3`, `counters.db`) unless
   the task explicitly requires it.

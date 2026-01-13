@@ -12,7 +12,7 @@ import {registerAsnOrgRoutes} from './componets/asn-org-routes.js';
 import {registerAsnRoutes} from './componets/asn-routes.js';
 import {registerAsnTopRoutes} from './componets/asn-top-routes.js';
 import {setNoCacheHeaders} from './componets/cache-headers.js';
-import {countryCodeToFlag, countryCodeToName} from './componets/country-utils.js';
+import {buildCountryAsnListPath, countryCodeToFlag, countryCodeToName} from './componets/country-utils.js';
 import {formatTimestamp} from './componets/format-utils.js';
 import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
@@ -90,6 +90,8 @@ const COUNTER_NAMES = Object.freeze([
     'honeypotCount',
     'seoLandingCount',
     'reportCount',
+    'geoIpCount',
+    'apiIpCount',
     'ascounter',
 ]);
 
@@ -203,10 +205,6 @@ const isPrivateIp = (ip) => {
 };
 
 export const lookupGeo = (ip) => {
-    //TIP: maybe we need only 1 ip lookup, from ASN database only, as it has a country code record
-    if (process.env.TEST_IP) {
-        ip = process.env.TEST_IP;
-    }
 
     if (!geoReader || isPrivateIp(ip)) {
         return null;
@@ -283,8 +281,11 @@ const getBaseRequestData = (req, res) => {
     const scheme = getScheme(req);
     const status = scheme === 'https' ? 'Secure connection' : 'Unsecure connection';
     const headers = normalizeHeaders(req.headers);
-    const clientIp = getClientIp(req);
+    var clientIp = getClientIp(req);
     const clientIpv6 = extractClientIpv6(clientIp);
+    if (process.env.TEST_IP) {
+        clientIp = process.env.TEST_IP;
+    }
     const geo = lookupGeo(clientIp);
     const requestMethod = req.method;
     const requestPath = req.originalUrl || req.url || req.path;
@@ -359,6 +360,23 @@ const getClientIp = (req) => {
     return req.ip;
 };
 
+const getLookupIp = (req) => {
+    const query = req.query || {};
+    const candidates = [query.ip, query.address, query.q].filter((value) => typeof value === 'string');
+    const directMatch = candidates.map((value) => value.trim()).find((value) => value.length > 0);
+    if (directMatch) {
+        return directMatch;
+    }
+
+    const keys = Object.keys(query);
+    if (keys.length === 1) {
+        const candidate = keys[0].trim();
+        return candidate.length > 0 ? candidate : null;
+    }
+
+    return null;
+};
+
 const extractClientIpv6 = (ip) => {
     const normalized = (ip || '').trim();
     if (!normalized || normalized.startsWith('::ffff:')) {
@@ -396,6 +414,10 @@ const collectCountersForRequest = (req) => {
         countersToBump.add('apiCount');
     }
 
+    if (req.path === '/api/ip') {
+        countersToBump.add('apiIpCount');
+    }
+
     if (req.path === '/check') {
         countersToBump.add('checkCount');
     }
@@ -407,6 +429,10 @@ const collectCountersForRequest = (req) => {
 
     if (req.path === '/healthz') {
         countersToBump.add('healthzCount');
+    }
+
+    if (req.path === '/free-geo-ip') {
+        countersToBump.add('geoIpCount');
     }
 
     if (req.path.startsWith('/honeypot')) {
@@ -572,6 +598,27 @@ app.get('/check', async (req, res) => {
     await renderIndex(req, res);
 });
 
+app.get('/free-geo-ip', (req, res) => {
+    const clientIp = getClientIp(req);
+    const lookupQueryIp = getLookupIp(req);
+    const ip = (lookupQueryIp|| process.env.TEST_IP  || clientIp || '').trim();
+    const reportGeo = ip ? lookupGeo(ip) : null;
+    const countryPath = reportGeo
+        ? buildCountryAsnListPath(reportGeo.countryCode || reportGeo.countryName)
+        : null;
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
+
+    setNoCacheHeaders(res, {includeLegacy: true});
+
+    res.render('free-geo-ip', {
+        ip,
+        reportGeo,
+        countryPath,
+        generatedAt,
+        generationTimeMs,
+    });
+});
+
 app.all(/^.*\/\.env*/i, honeypotService.handleEnvRequest);
 
 app.get('/api/counters', (req, res) => {
@@ -631,6 +678,36 @@ app.get('/api/request-info', async (req, res) => {
 });
 
 app.options('/api/request-info', (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.sendStatus(204);
+});
+
+app.get('/api/ip', (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.vary('Origin');
+
+    setNoCacheHeaders(res);
+
+    const ip = getLookupIp(req);
+    if (!ip) {
+        res.status(400).json({error: 'missing_ip'});
+        return;
+    }
+
+    const geo = lookupGeo(ip);
+    if (!geo) {
+        res.status(404).json({error: 'not_found'});
+        return;
+    }
+
+    res.json(geo);
+});
+
+app.options('/api/ip', (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
@@ -698,6 +775,19 @@ app.get('/disclaimer', (req, res) => {
         generationTimeMs,
         scheme,
         canonicalUrl: DISCLAIMER_CANONICAL_URL,
+    });
+});
+
+app.get('/service-status', (req, res) => {
+    const baseData = getBaseRequestData(req, res);
+    const {generatedAt, generationTimeMs, counters, totalRequests} = baseData;
+
+    setNoCacheHeaders(res, {includeLegacy: true});
+    res.render('service-status', {
+        generatedAt,
+        generationTimeMs,
+        counters,
+        totalRequests,
     });
 });
 
