@@ -180,19 +180,28 @@
 
     if (shareButton) {
       const shareUrl = shareButton.getAttribute('data-share-url') || '';
+      const shareLabel = shareButton.querySelector('[data-share-label]');
+
+      const setShareLabel = (label) => {
+        if (shareLabel) {
+          shareLabel.textContent = label;
+        } else {
+          shareButton.textContent = label;
+        }
+      };
 
       shareButton.addEventListener('click', async () => {
         if (!shareUrl) {
           return;
         }
-        shareButton.textContent = 'Copying...';
+        setShareLabel('Copying...');
         shareButton.disabled = true;
         try {
           const copied = await copyText(shareUrl);
-          shareButton.textContent = copied ? 'Link copied' : 'Copy failed';
+          setShareLabel(copied ? 'Link copied' : 'Copy failed');
         } finally {
           setTimeout(() => {
-            shareButton.textContent = 'Share';
+            setShareLabel('Share');
             shareButton.disabled = false;
           }, 2000);
         }

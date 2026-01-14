@@ -2,8 +2,8 @@
   const connectionReport = (() => {
     const headerPairs = Array.isArray(headers) ? headers : [];
     const headerCount = headerPairs.length;
-    const schemeLabel = scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
-    const httpLabel = (httpVersion ? `HTTP/${httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
+    // const schemeLabel = scheme === 'https' ? '(TLS)' : '(no TLS)';
+    const httpLabel = (httpVersion ? `HTTP/${httpVersion}` : 'HTTP/1.1');// + '·' + schemeLabel;
     const formattedGeneratedAt = formatTimestamp(generatedAt);
     let geoSummary = null;
     if (geo?.countryName || geo?.cityName) {
@@ -26,13 +26,18 @@
 <section aria-labelledby="connection-report" class="card hero">
   <div class="card__header">
     <div>
-      <p class="eyebrow">Live snapshot</p>
-      <h1 id="connection-report" class="card__title">Connection report</h1>
-    </div>
-    <div class="card__actions">
-      <% if (shareReportEnabled) { %>
-        <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">Share</button>
-      <% } %>
+      <div class="card__title-row">
+        <h1 id="connection-report" class="card__title">Connection report</h1>
+        <% if (shareReportEnabled) { %>
+          <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 3l4 4m-4-4l-4 4m4-4v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span data-share-label>Share</span>
+          </button>
+        <% } %>
+      </div>
     </div>
   </div>
   <div class="hero-grid">
@@ -71,15 +76,13 @@
           <% } %>
         </p>
       <% } %>
-      <dl class="meta-grid meta-grid--compact hero-meta">
+    </div>
+    <div class="hero-secondary">
+      <dl class="meta-grid meta-grid--compact">
         <div>
           <dt>🌐 Protocol</dt>
           <dd class="mono"><%= connectionReport.httpLabel %></dd>
         </div>
-      </dl>
-    </div>
-    <div class="hero-secondary">
-      <dl class="meta-grid meta-grid--compact">
         <div>
           <dt>📡 Ping</dt>
           <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
