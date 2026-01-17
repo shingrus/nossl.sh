@@ -211,7 +211,7 @@
           mode: 'cors',
         });
         if (!response.ok) {
-          if (response.status === 404 && attempt < 3) {
+          if (response.status === 404 && attempt < 10) {
             setTimeout(() => fetchBeacon(attempt + 1), 1000);
             return;
           }
