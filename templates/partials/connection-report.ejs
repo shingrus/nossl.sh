@@ -63,12 +63,7 @@
           <button type="button" class="btn btn-ghost" data-copy-text="">Copy</button>
         </div>
       </div>
-      <div class="ip6-block" data-beacon-row>
-        <p class="label">🗼 Your DNS Resolver</p>
-        <div class="ip-row">
-          <span class="ip6-value mono" data-beacon-resolver>...</span>
-        </div>
-      </div>
+
       <% if (connectionReport.geoSummary) { %>
         <p class="ip-location mono">
           <%= connectionReport.geoSummary %>
@@ -85,17 +80,21 @@
     </div>
     <div class="hero-secondary">
       <dl class="meta-grid meta-grid--compact">
-        <div>
-          <dt>🌐 Protocol</dt>
-          <dd class="mono"><%= connectionReport.httpLabel %></dd>
+          <div>
+              <dt>🗼 Your DNS Resolver</dt>
+              <dd><span class="ip6-value mono" data-beacon-resolver>...</span></dd>
+          </div>
+          <div>
+            <dt>🌐 Protocol</dt>
+            <dd class="mono"><%= connectionReport.httpLabel %></dd>
         </div>
-        <div>
-          <dt>📡 Ping</dt>
-          <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
+          <div>
+            <dt>📡 Ping</dt>
+            <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
         </div>
-        <div>
-          <dt>🧾 Headers captured</dt>
-          <dd><%= connectionReport.headerCount %></dd>
+          <div>
+            <dt>🧾 Headers captured</dt>
+            <dd><%= connectionReport.headerCount %></dd>
         </div>
         <div>
           <dt>🕒 Generated</dt>
