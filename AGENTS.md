@@ -3,7 +3,8 @@
 ## Purpose
 This repository hosts `nossl.sh`, an Express + EJS diagnostic page that reports
 client IP, headers, and connection details. It also exposes JSON endpoints,
-honeypot stats, shared report links (Redis), and optional GeoIP/ASN enrichment.
+honeypot stats, shared report links (Redis), a Redis-backed beacon lookup, and
+optional GeoIP/ASN enrichment.
 
 ## Quick start
 - Install deps: `npm install`
@@ -19,6 +20,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `/api/request-info` JSON diagnostics
 - `/free-geo-ip` free GeoIP + ASN lookup page
 - `/api/ip` GeoIP + ASN JSON lookup (use `?ip=`)
+- `/api/beacon` beacon payload lookup via `<uniq>.r.nossl.sh` host (Redis)
 - `/healthz` health check
 - `/status/:code` return any HTTP status (optional `?location=`)
 - `/honeypot` HTML summary, `/api/honeypot` JSON summary
@@ -44,6 +46,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `templates/` EJS views, `templates/partials/` shared fragments
 - `static/` CSS, icons, and robots files
 - `infra/` data tooling (ASN aggregation, domain population)
+- `infra/beacon/` Go service that ingests dnstap and stores `beacon:<uniq>` in Redis
 - `infra/mmdb-builder/` Go toolchain for building the ASN MMDB from per-ASN `aggregated.json` files
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
 
