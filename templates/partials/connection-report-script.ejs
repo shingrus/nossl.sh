@@ -213,7 +213,7 @@
         });
         if (!response.ok) {
           if (response.status === 404 && attempt < 4) {
-            setTimeout(() => fetchBeacon(attempt + 1, uniq), 1000*attempt);
+            setTimeout(() => fetchBeacon(attempt + 1, uniq), 2000*attempt);
             return;
           }
           setBeaconResolver('');
