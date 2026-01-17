@@ -3,8 +3,9 @@
 ## Purpose
 This repository hosts `nossl.sh`, an Express + EJS diagnostic page that reports
 client IP, headers, and connection details. It also exposes JSON endpoints,
-honeypot stats, shared report links (Redis), a Redis-backed beacon lookup, and
-optional GeoIP/ASN enrichment.
+honeypot stats, shared report links (Redis), a Redis-backed beacon lookup with
+client-side 404 retries to wait for DNS/Redis propagation, and optional
+GeoIP/ASN enrichment.
 
 ## Quick start
 - Install deps: `npm install`
@@ -63,6 +64,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - Keep the `componets/` directory name unchanged; other files import it.
 - When adjusting routes, update both server handlers and template links.
 - Preserve no-cache headers on privacy-sensitive endpoints.
+- Beacon resolver lookups retry on 404 and reuse the same `uniq`; keep this in sync with the client script.
 - Service status updates are hardcoded in `templates/service-status.ejs`; keep 10 or fewer items and prune older entries.
 - Prefer analyzing and reusing existing functions; extend minimally, and only add new functionality if existing helpers are insufficient.
 - Avoid editing local data files (`*.mmdb`, `*.sqlite3`, `counters.db`) unless
