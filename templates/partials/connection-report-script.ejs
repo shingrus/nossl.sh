@@ -197,7 +197,7 @@
       beaconResolverEl.textContent = label = value && value.trim() ? value.trim() : 'n/a';
     };
 
-    const fetchBeacon = async () => {
+    const fetchBeacon = async (attempt = 0) => {
       if (!beaconResolverEl) {
         return;
       }
@@ -211,6 +211,10 @@
           mode: 'cors',
         });
         if (!response.ok) {
+          if (response.status === 404 && attempt < 3) {
+            setTimeout(() => fetchBeacon(attempt + 1), 1000);
+            return;
+          }
           setBeaconResolver('');
           return;
         }
