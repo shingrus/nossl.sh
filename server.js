@@ -775,7 +775,47 @@ app.get('/api/beacon', async (req, res) => {
     }
 
     const key = `beacon:${uniq}`;
-    const payload = await shareReportStore.readJsonByKey?.(key);
+    const hashPayload = await shareReportStore.readHashByKey?.(key);
+    const payload = hashPayload
+        ? (() => {
+            const toNumber = (value) => {
+                const parsed = Number.parseInt(value, 10);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+            const resolverIp =
+                (hashPayload.resolver_ip ||
+                    hashPayload.resolver_ip_a ||
+                    hashPayload.resolver_ip_aaaa ||
+                    '').trim();
+            const normalized = {
+                resolver_ip: resolverIp,
+                ecs: hashPayload.ecs || '',
+                qtype: hashPayload.qtype || '',
+                ts: toNumber(hashPayload.ts),
+            };
+            if (hashPayload.resolver_ip_a) {
+                normalized.resolver_ip_a = hashPayload.resolver_ip_a;
+            }
+            if (hashPayload.resolver_ip_aaaa) {
+                normalized.resolver_ip_aaaa = hashPayload.resolver_ip_aaaa;
+            }
+            if (hashPayload.ecs_a) {
+                normalized.ecs_a = hashPayload.ecs_a;
+            }
+            if (hashPayload.ecs_aaaa) {
+                normalized.ecs_aaaa = hashPayload.ecs_aaaa;
+            }
+            const tsA = toNumber(hashPayload.ts_a);
+            if (tsA !== null) {
+                normalized.ts_a = tsA;
+            }
+            const tsAaaa = toNumber(hashPayload.ts_aaaa);
+            if (tsAaaa !== null) {
+                normalized.ts_aaaa = tsAaaa;
+            }
+            return normalized;
+        })()
+        : await shareReportStore.readJsonByKey?.(key);
     if (!payload) {
         if (!shareReportStore.isAvailable?.()) {
             res.status(503).json({error: 'no light'});

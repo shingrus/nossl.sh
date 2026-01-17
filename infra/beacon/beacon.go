@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"log"
@@ -18,13 +17,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"crypto/tls"
 )
-
-type Payload struct {
-	ResolverIP string `json:"resolver_ip"`
-	ECS        string `json:"ecs"`   // e.g. "203.0.113.0/24" or ""
-	Qtype      string `json:"qtype"` // "A", "AAAA", ...
-	TS         int64  `json:"ts"`
-}
 
 func main() {
 	var (
@@ -121,16 +113,26 @@ func main() {
 		}
 
 		key := *keyPrefix + uniq
-		payload := Payload{
-			ResolverIP: resolverIP,
-			ECS:        ecs,
-			Qtype:      qtype,
-			TS:         time.Now().Unix(),
+		ts := time.Now().Unix()
+		fields := map[string]interface{}{
+			"resolver_ip": resolverIP,
+			"ecs":         ecs,
+			"qtype":       qtype,
+			"ts":          ts,
 		}
-		b, _ := json.Marshal(payload)
+		switch qtype {
+		case "A", "AAAA":
+			suffix := strings.ToLower(qtype)
+			fields["resolver_ip_"+suffix] = resolverIP
+			fields["ecs_"+suffix] = ecs
+			fields["ts_"+suffix] = ts
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
-		_ = rdb.Set(ctx, key, b, *ttl).Err() // latest only (overwrite) + TTL
+		pipe := rdb.Pipeline()
+		pipe.HSet(ctx, key, fields)
+		pipe.Expire(ctx, key, *ttl)
+		_, _ = pipe.Exec(ctx)
 		cancel()
 	}
 }

@@ -105,6 +105,32 @@ const createShareReportStore = ({redisUrl, ttlSeconds, connectTimeoutMs = 1000})
         }
     };
 
+    const readHashByKey = async (key) => {
+        if (!key) {
+            return null;
+        }
+        try {
+            const redis = await getClient();
+            if (!redis) {
+                return null;
+            }
+            const keyType = await redis.type(key);
+            if (keyType !== 'hash') {
+                return null;
+            }
+            const payload = await redis.hGetAll(key);
+            if (!payload || Object.keys(payload).length === 0) {
+                return null;
+            }
+            available = true;
+            return payload;
+        } catch (error) {
+            available = false;
+            resetClient();
+            return null;
+        }
+    };
+
     const readSnapshot = async (reportId) => {
         if (!reportId) {
             return null;
@@ -152,6 +178,7 @@ const createShareReportStore = ({redisUrl, ttlSeconds, connectTimeoutMs = 1000})
         readSnapshot,
         writeSnapshot: updateSnapshot,
         readJsonByKey,
+        readHashByKey,
     };
 };
 
