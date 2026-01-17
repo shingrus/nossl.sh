@@ -14,5 +14,6 @@ ips.txt
 ips*txt
 build_mmdb
 
-go.sum
 .pdbcache/
+
+infra/beacon/beacon
