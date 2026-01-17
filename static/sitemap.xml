@@ -181,6 +181,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>http://nossl.sh/captive-portal-login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>http://nossl.sh/captive-portal-test-url</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
