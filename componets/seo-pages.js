@@ -1184,6 +1184,72 @@ export const SEO_PAGES = Object.freeze([
         ],
     },
     {
+        path: '/captive-portal-login',
+        title: 'Captive portal login page guide',
+        description:
+            'Trigger captive portal login pages on public Wi-Fi with nossl.sh, then verify you are truly online.',
+        keywords:
+            'captive portal login, captive portal login page, wifi login, public wifi sign in, portal splash page',
+        category: 'troubleshooting',
+        hero: 'Captive portal login help',
+        tagline:
+            'Use a plain HTTP request to bring up the Wi-Fi sign-in page and confirm access.',
+        sections: [
+            {
+                heading: 'Force the login page to load',
+                paragraphs: [
+                    'Captive portals intercept unencrypted HTTP traffic. Join the Wi-Fi network and open http://nossl.sh so the gateway can redirect you.',
+                    'If the portal does not appear, pause VPNs or private relay features that hide the first request.',
+                ],
+                bullets: [
+                    'Join the network and accept any device prompts.',
+                    'Open http://nossl.sh in a browser tab.',
+                    'Complete the portal login and wait for a success message.',
+                ],
+            },
+            {
+                heading: 'Confirm you are online',
+                paragraphs: [
+                    'Reload this page after you sign in. If you see your IP and headers without a redirect, the portal released you.',
+                    'Share the request snapshot with support if browsing still fails.',
+                ],
+                bullets: [
+                    'Check that the URL stays on http://nossl.sh.',
+                    'Look for a 200 response instead of a redirect.',
+                    'Use the share link to show timing and headers.',
+                ],
+            },
+            {
+                heading: 'If the login page never appears',
+                paragraphs: [
+                    'Forget the Wi-Fi network and reconnect, or try the device captive portal checks for Apple and Android.',
+                ],
+                bullets: [
+                    'Toggle Wi-Fi off and back on.',
+                    'Disable VPNs, private relay, or custom DNS apps temporarily.',
+                    'Try another browser or a private window.',
+                ],
+            },
+        ],
+        faqs: [
+            {
+                question: 'Why does the captive portal login page keep looping?',
+                answer:
+                    'The gateway might not like HTTPS-first traffic or cached cookies. Reload the HTTP page, clear the browser cache, or reconnect to force a fresh redirect.',
+            },
+            {
+                question: 'Is it safe to log in over HTTP?',
+                answer:
+                    'Captive portals are commonly delivered over HTTP. Avoid entering sensitive data beyond the login itself and switch to HTTPS sites after you are online.',
+            },
+            {
+                question: 'How can I tell the portal released me?',
+                answer:
+                    'Reload http://nossl.sh and confirm you see the diagnostics page without being redirected to the portal.',
+            },
+        ],
+    },
+    {
         path: '/captive-portal-test-url',
         title: 'Captive portal test URL that always stays on HTTP',
         description:
