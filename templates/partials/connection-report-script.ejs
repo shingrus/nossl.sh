@@ -197,22 +197,23 @@
       beaconResolverEl.textContent = label = value && value.trim() ? value.trim() : 'n/a';
     };
 
-    const fetchBeacon = async (attempt = 0) => {
+    const fetchBeacon = async (attempt = 1, uniq ='') => {
       if (!beaconResolverEl) {
         return;
       }
       try {
+        uniq = uniq === ''  ? generateBeaconUniq() : uniq;
         const apiUrl = isDev
           ? new URL('/api/beacon', window.location.origin)
-          : new URL(`http://${generateBeaconUniq()}${beaconHostSuffix}/api/beacon`);
+          : new URL(`http://${uniq}${beaconHostSuffix}/api/beacon`);
         const response = await fetch(apiUrl.toString(), {
           headers: { Accept: 'application/json' },
           cache: 'no-store',
           mode: 'cors',
         });
         if (!response.ok) {
-          if (response.status === 404 && attempt < 10) {
-            setTimeout(() => fetchBeacon(attempt + 1), 1000);
+          if (response.status === 404 && attempt < 4) {
+            setTimeout(() => fetchBeacon(attempt + 1, uniq), 1000*attempt);
             return;
           }
           setBeaconResolver('');
