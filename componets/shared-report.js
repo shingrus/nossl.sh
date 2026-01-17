@@ -78,14 +78,17 @@ const createShareReportStore = ({redisUrl, ttlSeconds, connectTimeoutMs = 1000})
         }
     };
 
-    const readSnapshot = async (reportId) => {
+    const readJsonByKey = async (key) => {
+        if (!key) {
+            return null;
+        }
         try {
             const redis = await getClient();
             if (!redis) {
                 return null;
             }
 
-            const raw = await redis.get(`shared_report:${reportId}`);
+            const raw = await redis.get(key);
             if (!raw) {
                 return null;
             }
@@ -100,6 +103,13 @@ const createShareReportStore = ({redisUrl, ttlSeconds, connectTimeoutMs = 1000})
             resetClient();
             return null;
         }
+    };
+
+    const readSnapshot = async (reportId) => {
+        if (!reportId) {
+            return null;
+        }
+        return readJsonByKey(`shared_report:${reportId}`);
     };
 
     const updateSnapshot = async (reportId, snapshot) => {
@@ -141,6 +151,7 @@ const createShareReportStore = ({redisUrl, ttlSeconds, connectTimeoutMs = 1000})
         saveSnapshot,
         readSnapshot,
         writeSnapshot: updateSnapshot,
+        readJsonByKey,
     };
 };
 

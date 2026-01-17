@@ -52,6 +52,7 @@ app.set('trust proxy', true);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
 app.locals.formatTimestamp = formatTimestamp;
+app.locals.isDev = isDev;
 
 app.use((req, res, next) => {
     res.locals.requestStartTime = process.hrtime.bigint();
@@ -326,6 +327,7 @@ app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}
 const faviconPath = path.join(__dirname, 'static', 'favicon.ico');
 const NO_BODY_STATUS_CODES = new Set([204, 304]);
 const REDIRECT_STATUS_CODES = new Set([300, 301, 302, 303, 307, 308]);
+const BEACON_HOST_SUFFIX = '.r.nossl.sh';
 
 app.get('/favicon.ico', (req, res) => {
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
@@ -358,6 +360,42 @@ const getClientIp = (req) => {
         return realIp;
     }
     return req.ip;
+};
+
+const   getHostnameFromHostHeader = (req) => {
+    const hostHeader = typeof req.get === 'function' ? req.get('host') : '';
+    if (!hostHeader) {
+        return '';
+    }
+    const rawHost = hostHeader.split(',')[0].trim().toLowerCase();
+    if (!rawHost) {
+        return '';
+    }
+    let hostname = rawHost;
+    if (hostname.startsWith('[')) {
+        const endBracket = hostname.indexOf(']');
+        if (endBracket !== -1) {
+            hostname = hostname.slice(1, endBracket);
+        }
+    } else if (hostname.includes(':')) {
+        hostname = hostname.split(':')[0];
+    }
+    if (hostname.endsWith('.')) {
+        hostname = hostname.slice(0, -1);
+    }
+    return hostname;
+};
+
+const getBeaconUniqFromHostname = (hostname) => {
+    if (!hostname || !hostname.endsWith(BEACON_HOST_SUFFIX)) {
+        return null;
+    }
+    const prefix = hostname.slice(0, -BEACON_HOST_SUFFIX.length);
+    const parts = prefix.split('.').filter(Boolean);
+    if (parts.length === 0) {
+        return null;
+    }
+    return parts[0];
 };
 
 const getLookupIp = (req) => {
@@ -710,6 +748,47 @@ app.get('/api/ip', (req, res) => {
 });
 
 app.options('/api/ip', (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.sendStatus(204);
+});
+
+app.get('/api/beacon', async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.vary('Origin');
+
+    setNoCacheHeaders(res);
+
+    if (process.env.TEST_IP) {
+        res.json({resolver_ip: process.env.TEST_IP});
+        return;
+    }
+
+    const hostname = getHostnameFromHostHeader(req);
+    const uniq = getBeaconUniqFromHostname(hostname);
+    if (!uniq) {
+        res.status(400).json({error: 'missing key'});
+        return;
+    }
+
+    const key = `beacon:${uniq}`;
+    const payload = await shareReportStore.readJsonByKey?.(key);
+    if (!payload) {
+        if (!shareReportStore.isAvailable?.()) {
+            res.status(503).json({error: 'no light'});
+            return;
+        }
+        res.status(404).json({error: 'the lights went off', uniq});
+        return;
+    }
+
+    res.json(payload);
+});
+
+app.options('/api/beacon', (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');

@@ -7,8 +7,11 @@
     const ipv6Block = document.querySelector('[data-ipv6-row]');
     const ipv6ValueEl = ipv6Block?.querySelector('[data-ipv6-value]');
     const ipv6CopyButton = ipv6Block?.querySelector('[data-copy-text]');
+    const beaconResolverEl = document.querySelector('[data-beacon-resolver]');
     const mainIp = (<%- JSON.stringify(clientIp || '') %>).trim();
     const shareReportId = <%- JSON.stringify(shareReportId || null) %>;
+    const beaconHostSuffix = '.r.nossl.sh';
+    const isDev = <%- JSON.stringify(Boolean(isDev)) %>;
 
     const fallbackCopyText = (text) => {
       const textarea = document.createElement('textarea');
@@ -177,6 +180,48 @@
     };
 
     fetchIpv6();
+
+    const generateBeaconUniq = () => {
+      if (window.crypto?.getRandomValues) {
+        const bytes = new Uint8Array(10);
+        window.crypto.getRandomValues(bytes);
+        return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+      }
+      return Math.random().toString(36).slice(2, 14);
+    };
+
+    const setBeaconResolver = (value) => {
+      if (!beaconResolverEl) {
+        return;
+      }
+      beaconResolverEl.textContent = label = value && value.trim() ? value.trim() : 'n/a';
+    };
+
+    const fetchBeacon = async () => {
+      if (!beaconResolverEl) {
+        return;
+      }
+      try {
+        const apiUrl = isDev
+          ? new URL('/api/beacon', window.location.origin)
+          : new URL(`http://${generateBeaconUniq()}${beaconHostSuffix}/api/beacon`);
+        const response = await fetch(apiUrl.toString(), {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+          mode: 'cors',
+        });
+        if (!response.ok) {
+          setBeaconResolver('');
+          return;
+        }
+        const payload = await response.json();
+        setBeaconResolver(payload?.resolver_ip || '');
+      } catch (error) {
+        setBeaconResolver('');
+      }
+    };
+
+    fetchBeacon();
 
     if (shareButton) {
       const shareUrl = shareButton.getAttribute('data-share-url') || '';
