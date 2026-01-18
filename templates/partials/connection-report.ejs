@@ -23,128 +23,277 @@
   })();
 %>
 
-<section aria-labelledby="connection-report" class="card hero">
-  <div class="card__header">
-    <div>
-      <div class="card__title-row">
-        <h1 id="connection-report" class="card__title">Connection report</h1>
-        <% if (shareReportEnabled) { %>
-          <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">
-            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M12 3l4 4m-4-4l-4 4m4-4v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-              <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-            <span data-share-label>Share</span>
-          </button>
-        <% } %>
-      </div>
-    </div>
-  </div>
-  <div class="hero-grid">
-    <div class="hero-primary">
-      <p class="label">IP address</p>
-      <button type="button" class="ip-row ip-copy" data-copy-text="<%= clientIp %>" data-flash-mode="overlay">
-        <span class="ip-value mono"><%= clientIp %></span>
-        <span class="ip-copy-icon" aria-hidden="true">⧉</span>
-        <span class="sr-only">Copy IP address</span>
-      </button>
-      <div class="ip6-block" data-ipv6-row hidden>
-        <p class="label">IPv6 address</p>
-        <button type="button" class="ip-row ip-copy" data-copy-text="" data-flash-mode="overlay">
-          <span class="ip6-value mono" data-ipv6-value></span>
-          <span class="ip-copy-icon" aria-hidden="true">⧉</span>
-          <span class="sr-only">Copy IPv6 address</span>
-        </button>
-      </div>
-      <div class="ip6-block" data-ipv6-row hidden>
-        <p class="label">IPv6 address</p>
-        <div class="ip-row">
-          <span class="ip-value mono" data-ipv6-value></span>
-          <button type="button" class="btn btn-ghost" data-copy-text="">Copy</button>
-        </div>
-      </div>
+<%
+  const headerPreview = connectionReport.headerPairs.slice(0, 4);
+%>
 
-      <% if (connectionReport.geoSummary) { %>
-        <p class="ip-location mono">
-          <%= connectionReport.geoSummary %>
-          <% if (geo?.orgName) { %>
-            /
-            <% if (connectionReport.orgLink) { %>
-              <a href="<%= connectionReport.orgLink %>"><%= geo.orgName %></a>
-            <% } else { %>
-              <%= geo.orgName %>
-            <% } %>
-          <% } %>
-        </p>
+<section aria-labelledby="connection-report" class="dashboard">
+  <div class="dashboard__header">
+    <div>
+      <p class="eyebrow">Connection report</p>
+      <h1 id="connection-report" class="dashboard__title">Network diagnostics</h1>
+      <p class="dashboard__subtitle muted">Plain HTTP snapshot for captive portal and network checks.</p>
+    </div>
+    <div class="dashboard__actions">
+      <p class="timestamp">Generated <%= connectionReport.formattedGeneratedAt %></p>
+      <% if (shareReportEnabled) { %>
+        <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 3l4 4m-4-4l-4 4m4-4v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+          <span data-share-label>Share</span>
+        </button>
       <% } %>
     </div>
-    <div class="hero-secondary">
-      <dl class="meta-grid meta-grid--compact">
-          <div>
-              <dt>🗼 Your DNS Resolver</dt>
-              <dd><span class="ip6-value mono" data-beacon-resolver>...</span></dd>
-          </div>
-          <div>
-            <dt>🌐 Protocol</dt>
-            <dd class="mono"><%= connectionReport.httpLabel %></dd>
-        </div>
-          <div>
-            <dt>📡 Ping</dt>
-            <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
-        </div>
-          <div>
-            <dt>🧾 Headers captured</dt>
-            <dd><%= connectionReport.headerCount %></dd>
-        </div>
-        <div>
-          <dt>🕒 Generated</dt>
-          <dd><%= connectionReport.formattedGeneratedAt %></dd>
-        </div>
-      </dl>
-    </div>
   </div>
-</section>
 
-<section aria-labelledby="request-headers" class="card collapsible">
-  <div class="card__header card__header--toggle card__header_clickable">
-    <div>
-      <p class="eyebrow">Headers</p>
-      <h2 id="request-headers" class="card__title">Request headers</h2>
-    </div>
-    <div class="header-actions">
-      <span class="pill pill-muted"><%= connectionReport.headerCount %> headers</span>
-      <button
-        type="button"
-        class="btn btn-outline toggle"
-        data-toggle-headers
-        aria-expanded="false"
-        data-expanded="false"
-        aria-controls="headers-content"
-      >
-        <span data-toggle-label>Show</span>
-        <span class="chevron" aria-hidden="true"></span>
-      </button>
-      <button type="button" class="btn btn-ghost" data-copy-headers>Copy JSON</button>
-    </div>
-  </div>
-  <div class="collapsible__content" id="headers-content" hidden>
-    <div class="table-wrapper headers-table-wrapper">
-      <table class="headers-table">
-        <thead>
-          <tr>
-            <th scope="col">Header</th>
-            <th scope="col">Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% connectionReport.headerPairs.forEach(([key, value]) => { %>
-            <tr>
-              <th scope="row"><span class="mono"><%= key %></span></th>
-              <td><span class="mono"><%= value %></span></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
+  <div class="dashboard__grid">
+    <section class="card ip-card" aria-labelledby="your-ip">
+      <div class="card__header">
+        <h2 id="your-ip" class="card__title">Your IP</h2>
+      </div>
+      <div class="ip-stack">
+        <p class="label">IPv4 address</p>
+        <button type="button" class="ip-row ip-copy" data-copy-text="<%= clientIp %>" data-flash-mode="overlay">
+          <span class="ip-value mono"><%= clientIp %></span>
+          <span class="ip-copy-icon" aria-hidden="true">Copy</span>
+          <span class="sr-only">Copy IP address</span>
+        </button>
+        <div class="ip6-block" data-ipv6-row hidden>
+          <p class="label">IPv6 address</p>
+          <button type="button" class="ip-row ip-copy" data-copy-text="" data-flash-mode="overlay">
+            <span class="ip6-value mono" data-ipv6-value></span>
+            <span class="ip-copy-icon" aria-hidden="true">Copy</span>
+            <span class="sr-only">Copy IPv6 address</span>
+          </button>
+        </div>
+        <% if (connectionReport.geoSummary) { %>
+          <p class="ip-location mono">
+            <%= connectionReport.geoSummary %>
+            <% if (geo?.orgName) { %>
+              /
+              <% if (connectionReport.orgLink) { %>
+                <a href="<%= connectionReport.orgLink %>"><%= geo.orgName %></a>
+              <% } else { %>
+                <%= geo.orgName %>
+              <% } %>
+            <% } %>
+          </p>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="card snapshot-card" aria-labelledby="network-snapshot">
+      <div class="card__header">
+        <h2 id="network-snapshot" class="card__title">Network Snapshot</h2>
+      </div>
+      <div class="snapshot-grid">
+        <div class="snapshot-item">
+          <span class="snapshot-label">DNS resolver</span>
+          <span class="snapshot-value mono" data-beacon-resolver>...</span>
+        </div>
+        <div class="snapshot-item">
+          <span class="snapshot-label">Protocol</span>
+          <span class="snapshot-value mono"><%= connectionReport.httpLabel %></span>
+        </div>
+        <div class="snapshot-item">
+          <span class="snapshot-label">Ping</span>
+          <span class="snapshot-value mono" data-api-latency aria-live="polite">Measuring…</span>
+        </div>
+        <div class="snapshot-item">
+          <span class="snapshot-label">Headers</span>
+          <span class="snapshot-value mono"><%= connectionReport.headerCount %></span>
+        </div>
+      </div>
+      <div class="snapshot-footer">
+        <div class="snapshot-request mono">GET / · <%= connectionReport.httpLabel %></div>
+        <div class="snapshot-actions">
+          <button type="button" class="btn btn-outline btn-small" data-copy-headers>Copy JSON</button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-small"
+            data-copy-text="curl http://nossl.sh/api/request-info"
+          >
+            Copy cURL
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card headers-card" aria-labelledby="request-headers">
+      <div class="card__header">
+        <div>
+          <p class="eyebrow">Headers</p>
+          <h2 id="request-headers" class="card__title">Request headers</h2>
+        </div>
+        <button type="button" class="btn btn-ghost btn-small" data-copy-headers>Copy JSON</button>
+      </div>
+      <div class="headers-preview">
+        <% headerPreview.forEach(([key, value]) => { %>
+          <div class="header-row">
+            <span class="mono"><%= key %></span>
+            <span class="mono"><%= value %></span>
+          </div>
+        <% }) %>
+      </div>
+      <div class="headers-footer">
+        <span class="pill pill-muted"><%= connectionReport.headerCount %> headers</span>
+        <button
+          type="button"
+          class="btn btn-outline btn-small toggle"
+          data-toggle-headers
+          aria-expanded="false"
+          data-expanded="false"
+          aria-controls="headers-content"
+        >
+          <span data-toggle-label>Show</span>
+          <span class="chevron" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="collapsible__content" id="headers-content" hidden>
+        <div class="table-wrapper headers-table-wrapper">
+          <table class="headers-table">
+            <thead>
+              <tr>
+                <th scope="col">Header</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% connectionReport.headerPairs.forEach(([key, value]) => { %>
+                <tr>
+                  <th scope="row"><span class="mono"><%= key %></span></th>
+                  <td><span class="mono"><%= value %></span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card quick-card" aria-labelledby="quick-commands">
+      <div class="card__header">
+        <div>
+          <p class="eyebrow">Quick Commands</p>
+          <h2 id="quick-commands" class="card__title">cURL shortcuts</h2>
+        </div>
+        <div class="quick-tabs">
+          <span class="pill pill-muted">IP</span>
+          <span class="pill pill-muted">IPv6</span>
+          <span class="pill pill-muted">Status</span>
+          <span class="pill pill-muted">Lookup</span>
+        </div>
+      </div>
+      <div class="quick-list">
+        <div class="quick-row">
+          <code class="mono">curl http://nossl.sh</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://nossl.sh">Copy</button>
+        </div>
+        <div class="quick-row">
+          <code class="mono">curl http://v6.nossl.sh</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://v6.nossl.sh">Copy</button>
+        </div>
+        <div class="quick-row">
+          <code class="mono">curl -i http://nossl.sh/status/418</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -i http://nossl.sh/status/418">Copy</button>
+        </div>
+        <div class="quick-row">
+          <code class="mono">curl 'http://nossl.sh/api/ip?1.1.1.1'</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl 'http://nossl.sh/api/ip?1.1.1.1'">Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card tools-card" aria-labelledby="tools">
+      <div class="card__header">
+        <div>
+          <p class="eyebrow">Tools</p>
+          <h2 id="tools" class="card__title">Wi-Fi helpers</h2>
+        </div>
+      </div>
+      <div class="tool-grid">
+        <a class="tool-link" href="/captive-portal">
+          <span class="tool-icon">📡</span>
+          <span>Captive portal diagnostics</span>
+        </a>
+        <a class="tool-link" href="/wifi-login-page">
+          <span class="tool-icon">📶</span>
+          <span>Wi‑Fi login page tester</span>
+        </a>
+        <a class="tool-link" href="/mobile-wifi">
+          <span class="tool-icon">📱</span>
+          <span>Mobile Wi‑Fi troubleshooting</span>
+        </a>
+        <a class="tool-link" href="/list-of-countries-by-ipv4-allocation">
+          <span class="tool-icon">🌍</span>
+          <span>List of countries</span>
+        </a>
+        <a class="tool-link" href="/top-asn-by-ip-address">
+          <span class="tool-icon">🏢</span>
+          <span>Top ASNs</span>
+        </a>
+        <a class="tool-link" href="/free-geo-ip" rel="nofollow">
+          <span class="tool-icon">🧭</span>
+          <span>Free Geo + ASN lookup</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="card api-card" aria-labelledby="api">
+      <div class="card__header">
+        <div>
+          <p class="eyebrow">API</p>
+          <h2 id="api" class="card__title">JSON endpoints</h2>
+        </div>
+      </div>
+      <div class="api-list">
+        <div class="api-row">
+          <code class="mono">/api/request-info</code>
+          <button type="button" class="btn btn-ghost btn-small" data-copy-text="http://nossl.sh/api/request-info">Copy</button>
+        </div>
+        <div class="api-row">
+          <code class="mono">/api/counters</code>
+          <button type="button" class="btn btn-ghost btn-small" data-copy-text="http://nossl.sh/api/counters">Copy</button>
+        </div>
+        <div class="api-row">
+          <code class="mono">/api/honeypot</code>
+          <button type="button" class="btn btn-ghost btn-small" data-copy-text="http://nossl.sh/api/honeypot">Copy</button>
+        </div>
+        <div class="api-row">
+          <code class="mono">/api/ip?1.1.1.1</code>
+          <button type="button" class="btn btn-ghost btn-small" data-copy-text="http://nossl.sh/api/ip?1.1.1.1">Copy</button>
+        </div>
+        <div class="api-row">
+          <code class="mono">/status/200</code>
+          <button type="button" class="btn btn-ghost btn-small" data-copy-text="http://nossl.sh/status/200">Copy</button>
+        </div>
+      </div>
+      <p class="muted api-footnote">Need ASN details? Try <a href="/api/as15169" rel="nofollow">/api/as15169</a>.</p>
+    </section>
+
+    <section class="card guide-card" aria-labelledby="guide">
+      <div class="card__header">
+        <div>
+          <p class="eyebrow">Guide & FAQ</p>
+          <h2 id="guide" class="card__title">Getting online fast</h2>
+        </div>
+      </div>
+      <ul class="guide-list">
+        <li>
+          <a class="guide-item" href="/guides">Why plain HTTP?</a>
+        </li>
+        <li>
+          <a class="guide-item" href="/captive-portal">Captive portals</a>
+        </li>
+        <li>
+          <a class="guide-item" href="/wifi-login-page">Wi‑Fi login tester</a>
+        </li>
+        <li>
+          <a class="guide-item" href="/mobile-wifi">Mobile Wi‑Fi troubleshooting</a>
+        </li>
+      </ul>
+    </section>
   </div>
 </section>
