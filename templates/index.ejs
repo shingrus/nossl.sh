@@ -95,8 +95,8 @@
     <main class="container page">
       <%- include('partials/connection-report') %>
 
-      <div class="info-grid">
-        <section class="card info-card" aria-labelledby="how-to-use">
+      <div class="info-grid bento-grid">
+        <section class="card info-card bento-card bento-card--wide bento-card--tall" aria-labelledby="how-to-use">
           <p class="eyebrow">How to use this page</p>
           <h3 id="how-to-use" class="card__title">Plain HTTP for quick checks</h3>
           <p class="muted">See your real IP, request method, and headers without HTTPS in the way. Great for captive portals, firewall tests, or debugging VPN/proxy quirks.</p>
@@ -116,7 +116,7 @@
           </ul>
         </section>
 
-        <section class="card info-card" aria-labelledby="curl-examples">
+        <section class="card info-card bento-card bento-card--narrow bento-card--tall" aria-labelledby="curl-examples">
           <p class="eyebrow">cURL examples</p>
           <h3 id="curl-examples" class="card__title">cURL IPv4/IPv6, any HTTP status</h3>
           <p class="muted">cURL your public IP - the alternative to <code class="mono">ifconfig.me</code>.</p>
@@ -155,7 +155,7 @@
           <p class="muted">Need service counters? Visit the <a href="/ss">service status page</a>.</p>
         </section>
 
-        <section class="card info-card" aria-labelledby="faq">
+        <section class="card info-card bento-card bento-card--mid" aria-labelledby="faq">
           <p class="eyebrow">FAQ</p>
           <h3 id="faq" class="card__title">Why plain HTTP?</h3>
           <dl class="faq">
