@@ -399,20 +399,24 @@ const getBeaconUniqFromHostname = (hostname) => {
 };
 
 const getLookupIp = (req) => {
-    const query = req.query || {};
-    const candidates = [query.ip, query.address, query.q].filter((value) => typeof value === 'string');
-    const directMatch = candidates.map((value) => value.trim()).find((value) => value.length > 0);
-    if (directMatch) {
-        return directMatch;
+    const originalUrl = typeof req.originalUrl === 'string' ? req.originalUrl : '';
+    const queryIndex = originalUrl.indexOf('?');
+    if (queryIndex === -1) {
+        return null;
+    }
+    const rawQuery = originalUrl.slice(queryIndex + 1).trim();
+    if (!rawQuery || rawQuery.includes('=') || rawQuery.includes('&')) {
+        return null;
     }
 
-    const keys = Object.keys(query);
-    if (keys.length === 1) {
-        const candidate = keys[0].trim();
-        return candidate.length > 0 ? candidate : null;
+    let candidate;
+    try {
+        candidate = decodeURIComponent(rawQuery).trim();
+    } catch (error) {
+        return null;
     }
 
-    return null;
+    return net.isIP(candidate) ? candidate : null;
 };
 
 const extractClientIpv6 = (ip) => {

@@ -52,7 +52,6 @@
           <div class="lookup-field">
             <input
               id="lookup-ip"
-              name="ip"
               type="text"
               class="lookup-input mono"
               value="<%= ip %>"
@@ -169,6 +168,36 @@
 
     <script>
       (() => {
+        const lookupForm = document.querySelector('.lookup-form');
+        const lookupInput = document.getElementById('lookup-ip');
+        if (lookupForm && lookupInput) {
+          const selectLookupValue = () => {
+            if (document.activeElement !== lookupInput) {
+              lookupInput.focus({preventScroll: true});
+            }
+            lookupInput.select();
+            if (typeof lookupInput.setSelectionRange === 'function') {
+              lookupInput.setSelectionRange(0, lookupInput.value.length);
+            }
+          };
+
+          requestAnimationFrame(() => {
+            setTimeout(selectLookupValue, 0);
+          });
+          lookupInput.addEventListener('focus', selectLookupValue);
+
+          lookupForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const value = lookupInput.value.trim();
+            const baseUrl = '/free-geo-ip';
+            if (!value) {
+              window.location.href = baseUrl;
+              return;
+            }
+            window.location.href = `${baseUrl}?${encodeURIComponent(value)}`;
+          });
+        }
+
         const fallbackCopyText = (text) => {
           const textarea = document.createElement('textarea');
           textarea.value = text;
