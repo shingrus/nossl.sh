@@ -12,24 +12,81 @@
     }
     const orgLink = geo?.asn ? `/as${geo.asn}` : null;
 
+    const requestSummary = `${requestMethod || 'GET'} ${requestPath || '/'}`;
+    const requestHost = host || 'nossl.sh';
+    const apiUrl = requestHost ? `http://${requestHost}/api/request-info` : '/api/request-info';
+    const requestSource = clientIp ? `From ${clientIp}` : null;
+
     return {
       formattedGeneratedAt,
       geoSummary,
       headerCount,
       headerPairs,
       httpLabel,
-      orgLink
+      orgLink,
+      requestSummary,
+      requestHost,
+      requestSource,
+      apiUrl
     };
   })();
 %>
 
-<section aria-labelledby="connection-report" class="card hero">
-  <div class="card__header">
-    <div>
-      <div class="card__title-row">
-        <h1 id="connection-report" class="card__title">Connection report</h1>
+<section aria-labelledby="connection-report" class="bento-section">
+  <div class="bento-grid bento-grid--hero">
+    <article class="tile tile--span-6 tile--primary">
+      <div class="tile__header">
+        <div>
+          <p class="eyebrow">Your IP</p>
+          <h1 id="connection-report" class="tile__title">Your IP</h1>
+        </div>
+      </div>
+      <div class="tile__body">
+        <p class="label">IP address</p>
+        <button type="button" class="ip-row ip-copy" data-copy-text="<%= clientIp %>" data-flash-mode="overlay">
+          <span class="ip-value mono"><%= clientIp %></span>
+          <span class="ip-copy-icon" aria-hidden="true">⧉</span>
+          <span class="sr-only">Copy IP address</span>
+        </button>
+        <div class="ip6-block" data-ipv6-row hidden>
+          <p class="label">IPv6 address</p>
+          <button type="button" class="ip-row ip-copy" data-copy-text="" data-flash-mode="overlay">
+            <span class="ip6-value mono" data-ipv6-value></span>
+            <span class="ip-copy-icon" aria-hidden="true">⧉</span>
+            <span class="sr-only">Copy IPv6 address</span>
+          </button>
+        </div>
+        <div class="ip6-block" data-ipv6-row hidden>
+          <p class="label">IPv6 address</p>
+          <div class="ip-row">
+            <span class="ip-value mono" data-ipv6-value></span>
+            <button type="button" class="btn btn-ghost" data-copy-text="">Copy</button>
+          </div>
+        </div>
+
+        <% if (connectionReport.geoSummary) { %>
+          <p class="ip-location mono">
+            <%= connectionReport.geoSummary %>
+            <% if (geo?.orgName) { %>
+              /
+              <% if (connectionReport.orgLink) { %>
+                <a href="<%= connectionReport.orgLink %>"><%= geo.orgName %></a>
+              <% } else { %>
+                <%= geo.orgName %>
+              <% } %>
+            <% } %>
+          </p>
+        <% } %>
+      </div>
+    </article>
+    <article class="tile tile--span-6 tile--snapshot">
+      <div class="tile__header">
+        <div>
+          <p class="eyebrow">Network snapshot</p>
+          <h2 class="tile__title">Network snapshot</h2>
+        </div>
         <% if (shareReportEnabled) { %>
-          <button type="button" class="btn btn-outline" data-share-report data-share-url="<%= shareReportUrl %>">
+          <button type="button" class="btn btn-outline btn-small" data-share-report data-share-url="<%= shareReportUrl %>">
             <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M12 3l4 4m-4-4l-4 4m4-4v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
               <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -38,113 +95,89 @@
           </button>
         <% } %>
       </div>
-    </div>
-  </div>
-  <div class="hero-grid">
-    <div class="hero-primary">
-      <p class="label">IP address</p>
-      <button type="button" class="ip-row ip-copy" data-copy-text="<%= clientIp %>" data-flash-mode="overlay">
-        <span class="ip-value mono"><%= clientIp %></span>
-        <span class="ip-copy-icon" aria-hidden="true">⧉</span>
-        <span class="sr-only">Copy IP address</span>
-      </button>
-      <div class="ip6-block" data-ipv6-row hidden>
-        <p class="label">IPv6 address</p>
-        <button type="button" class="ip-row ip-copy" data-copy-text="" data-flash-mode="overlay">
-          <span class="ip6-value mono" data-ipv6-value></span>
-          <span class="ip-copy-icon" aria-hidden="true">⧉</span>
-          <span class="sr-only">Copy IPv6 address</span>
-        </button>
-      </div>
-      <div class="ip6-block" data-ipv6-row hidden>
-        <p class="label">IPv6 address</p>
-        <div class="ip-row">
-          <span class="ip-value mono" data-ipv6-value></span>
-          <button type="button" class="btn btn-ghost" data-copy-text="">Copy</button>
+      <div class="snapshot-grid">
+        <div class="snapshot-item">
+          <span class="snapshot-label">DNS resolver</span>
+          <span class="snapshot-value mono" data-beacon-resolver>...</span>
+        </div>
+        <div class="snapshot-item">
+          <span class="snapshot-label">Protocol</span>
+          <span class="snapshot-value mono"><%= connectionReport.httpLabel %></span>
+        </div>
+        <div class="snapshot-item">
+          <span class="snapshot-label">Ping</span>
+          <span class="snapshot-value mono" data-api-latency aria-live="polite">Measuring…</span>
+        </div>
+        <div class="snapshot-item">
+          <span class="snapshot-label">Headers</span>
+          <span class="snapshot-value"><%= connectionReport.headerCount %></span>
+        </div>
+        <div class="snapshot-item">
+          <span class="snapshot-label">Generated</span>
+          <span class="snapshot-value"><%= connectionReport.formattedGeneratedAt %></span>
         </div>
       </div>
-
-      <% if (connectionReport.geoSummary) { %>
-        <p class="ip-location mono">
-          <%= connectionReport.geoSummary %>
-          <% if (geo?.orgName) { %>
-            /
-            <% if (connectionReport.orgLink) { %>
-              <a href="<%= connectionReport.orgLink %>"><%= geo.orgName %></a>
-            <% } else { %>
-              <%= geo.orgName %>
-            <% } %>
+      <div class="request-bar">
+        <div class="request-meta">
+          <span class="request-pill mono"><%= connectionReport.requestSummary %></span>
+          <span class="request-pill mono"><%= connectionReport.httpLabel %></span>
+          <span class="request-pill mono"><%= connectionReport.requestHost %></span>
+          <% if (connectionReport.requestSource) { %>
+            <span class="request-pill"><%= connectionReport.requestSource %></span>
           <% } %>
-        </p>
-      <% } %>
-    </div>
-    <div class="hero-secondary">
-      <dl class="meta-grid meta-grid--compact">
-          <div>
-              <dt>🗼 Your DNS Resolver</dt>
-              <dd><span class="ip6-value mono" data-beacon-resolver>...</span></dd>
-          </div>
-          <div>
-            <dt>🌐 Protocol</dt>
-            <dd class="mono"><%= connectionReport.httpLabel %></dd>
         </div>
-          <div>
-            <dt>📡 Ping</dt>
-            <dd class="mono" data-api-latency aria-live="polite">Measuring…</dd>
+        <div class="request-actions">
+          <button type="button" class="btn btn-ghost btn-small" data-copy-text="<%= connectionReport.apiUrl %>">Copy JSON</button>
         </div>
-          <div>
-            <dt>🧾 Headers captured</dt>
-            <dd><%= connectionReport.headerCount %></dd>
-        </div>
-        <div>
-          <dt>🕒 Generated</dt>
-          <dd><%= connectionReport.formattedGeneratedAt %></dd>
-        </div>
-      </dl>
-    </div>
+      </div>
+    </article>
   </div>
 </section>
 
-<section aria-labelledby="request-headers" class="card collapsible">
-  <div class="card__header card__header--toggle card__header_clickable">
-    <div>
-      <p class="eyebrow">Headers</p>
-      <h2 id="request-headers" class="card__title">Request headers</h2>
-    </div>
-    <div class="header-actions">
-      <span class="pill pill-muted"><%= connectionReport.headerCount %> headers</span>
-      <button
-        type="button"
-        class="btn btn-outline toggle"
-        data-toggle-headers
-        aria-expanded="false"
-        data-expanded="false"
-        aria-controls="headers-content"
-      >
-        <span data-toggle-label>Show</span>
-        <span class="chevron" aria-hidden="true"></span>
-      </button>
-      <button type="button" class="btn btn-ghost" data-copy-headers>Copy JSON</button>
-    </div>
-  </div>
-  <div class="collapsible__content" id="headers-content" hidden>
-    <div class="table-wrapper headers-table-wrapper">
-      <table class="headers-table">
-        <thead>
-          <tr>
-            <th scope="col">Header</th>
-            <th scope="col">Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% connectionReport.headerPairs.forEach(([key, value]) => { %>
-            <tr>
-              <th scope="row"><span class="mono"><%= key %></span></th>
-              <td><span class="mono"><%= value %></span></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
+<section aria-labelledby="request-headers" class="bento-section">
+  <div class="bento-grid bento-grid--details">
+    <article class="tile tile--span-8 tile--headers collapsible">
+      <div class="tile__header card__header--toggle card__header_clickable">
+        <div>
+          <p class="eyebrow">Headers</p>
+          <h2 id="request-headers" class="tile__title">Request headers</h2>
+        </div>
+        <div class="header-actions">
+          <span class="pill pill-muted"><%= connectionReport.headerCount %> headers</span>
+          <button
+            type="button"
+            class="btn btn-outline toggle"
+            data-toggle-headers
+            aria-expanded="false"
+            data-expanded="false"
+            aria-controls="headers-content"
+          >
+            <span data-toggle-label>Show</span>
+            <span class="chevron" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="btn btn-ghost" data-copy-headers>Copy JSON</button>
+        </div>
+      </div>
+      <div class="collapsible__content" id="headers-content" hidden>
+        <div class="table-wrapper headers-table-wrapper">
+          <table class="headers-table">
+            <thead>
+              <tr>
+                <th scope="col">Header</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% connectionReport.headerPairs.forEach(([key, value]) => { %>
+                <tr>
+                  <th scope="row"><span class="mono"><%= key %></span></th>
+                  <td><span class="mono"><%= value %></span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
   </div>
 </section>
