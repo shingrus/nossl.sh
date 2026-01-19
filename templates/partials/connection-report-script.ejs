@@ -190,11 +190,27 @@
       return Math.random().toString(36).slice(2, 14);
     };
 
-    const setBeaconResolver = (value) => {
+    const buildFreeGeoUrl = (ip) => `/free-geo-ip?${encodeURIComponent(ip)}`;
+
+    const setBeaconResolver = (value, {linkToGeo = false} = {}) => {
       if (!beaconResolverEl) {
         return;
       }
-      beaconResolverEl.textContent = label = value && value.trim() ? value.trim() : 'n/a';
+      const label = value && value.trim() ? value.trim() : 'n/a';
+      beaconResolverEl.textContent = '';
+      if (label === 'n/a') {
+        beaconResolverEl.textContent = label;
+        return;
+      }
+      if (linkToGeo) {
+        const link = document.createElement('a');
+        link.href = buildFreeGeoUrl(label);
+        link.rel = 'nofollow';
+        link.textContent = label;
+        beaconResolverEl.appendChild(link);
+        return;
+      }
+      beaconResolverEl.textContent = label;
     };
 
     const fetchBeacon = async (attempt = 1, uniq ='') => {
@@ -220,7 +236,8 @@
           return;
         }
         const payload = await response.json();
-        setBeaconResolver(payload?.resolver_ip || '');
+        const resolverIp = (payload?.resolver_ip || '').trim();
+        setBeaconResolver(resolverIp, {linkToGeo: Boolean(resolverIp)});
       } catch (error) {
         setBeaconResolver('');
       }
