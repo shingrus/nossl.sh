@@ -661,18 +661,24 @@ a:focus-visible {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  overflow-wrap: anywhere;
 }
 
 .code-block code {
   font-size: 0.95rem;
   display: block;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .code-example {
   width: 100%;
   margin-top: 6px;
   color: var(--code-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .code-block .btn {

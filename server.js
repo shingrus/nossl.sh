@@ -93,6 +93,7 @@ const COUNTER_NAMES = Object.freeze([
     'reportCount',
     'geoIpCount',
     'apiIpCount',
+    'mcpCount',
     'ascounter',
 ]);
 
@@ -328,6 +329,32 @@ const faviconPath = path.join(__dirname, 'static', 'favicon.ico');
 const NO_BODY_STATUS_CODES = new Set([204, 304]);
 const REDIRECT_STATUS_CODES = new Set([300, 301, 302, 303, 307, 308]);
 const BEACON_HOST_SUFFIX = '.r.nossl.sh';
+const MCP_PROTOCOL_VERSION = '2024-11-05';
+const MCP_TOOL_NAME = 'ip_geo_lookup';
+const MCP_SERVER_INFO = {
+    name: 'nossl.sh',
+    version: '1.0.0',
+};
+const MCP_TOOL_DEFINITION = {
+    name: MCP_TOOL_NAME,
+    title: 'IP Geo Lookup',
+    description: 'Lookup GeoIP country, city, ASN, and org details for an IP address (same data as /api/ip).',
+    inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            ip: {
+                type: 'string',
+                description: 'IPv4 or IPv6 address to lookup. If omitted, the caller IP is used.',
+            },
+        },
+    },
+};
+const MCP_JSON_BODY_LIMIT = '1mb';
+const mcpJsonParser = express.json({
+    limit: MCP_JSON_BODY_LIMIT,
+    type: ['application/json', 'application/*+json'],
+});
 
 app.get('/favicon.ico', (req, res) => {
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
@@ -398,6 +425,7 @@ const getBeaconUniqFromHostname = (hostname) => {
     return parts[0];
 };
 
+
 const getLookupIp = (req) => {
     const originalUrl = typeof req.originalUrl === 'string' ? req.originalUrl : '';
     const queryIndex = originalUrl.indexOf('?');
@@ -417,6 +445,138 @@ const getLookupIp = (req) => {
     }
 
     return net.isIP(candidate) ? candidate : null;
+};
+
+const buildMcpTextSummary = (ip, geo) => {
+    if (!geo) {
+        return `No GeoIP data found for ${ip}.`;
+    }
+    const parts = [];
+    if (geo.countryName || geo.countryCode) {
+        parts.push(`Country: ${geo.countryName || geo.countryCode}`);
+    }
+    if (geo.cityName) {
+        parts.push(`City: ${geo.cityName}`);
+    }
+    if (geo.asn || geo.orgName) {
+        const asnLabel = geo.asn ? `AS${geo.asn}` : 'ASN N/A';
+        const orgLabel = geo.orgName ? `(${geo.orgName})` : '';
+        parts.push(`ASN: ${asnLabel} ${orgLabel}`.trim());
+    }
+    const detail = parts.length ? ` ${parts.join(' | ')}` : '';
+    return `GeoIP lookup for ${ip}.${detail}`;
+};
+
+const buildMcpToolResult = ({ip, geo, error}) => {
+    if (error) {
+        const payload = {error, ip};
+        return {
+            content: [{type: 'text', text: `${error} for ${ip}`}],
+            isError: true,
+            structuredContent: payload,
+        };
+    }
+    const payload = {ip, ...geo};
+    return {
+        content: [{type: 'text', text: buildMcpTextSummary(ip, geo)}],
+        structuredContent: payload,
+    };
+};
+
+const buildJsonRpcError = (id, code, message, data) => {
+    const error = {code, message};
+    if (data !== undefined) {
+        error.data = data;
+    }
+    return {
+        jsonrpc: '2.0',
+        id: id ?? null,
+        error,
+    };
+};
+
+const buildJsonRpcResult = (id, result) => ({
+    jsonrpc: '2.0',
+    id,
+    result,
+});
+
+const handleMcpMessage = (message, req) => {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) {
+        return buildJsonRpcError(null, -32600, 'Invalid Request');
+    }
+
+    if (message.jsonrpc !== '2.0' || typeof message.method !== 'string') {
+        return buildJsonRpcError(message.id ?? null, -32600, 'Invalid Request');
+    }
+
+    const {method, params} = message;
+    const id = message.id;
+    const isNotification = !Object.prototype.hasOwnProperty.call(message, 'id');
+
+    if (method === 'notifications/initialized') {
+        return null;
+    }
+
+    if (method === 'initialize') {
+        const requestedVersion =
+            typeof params?.protocolVersion === 'string' && params.protocolVersion.trim()
+                ? params.protocolVersion.trim()
+                : MCP_PROTOCOL_VERSION;
+        const result = {
+            protocolVersion: requestedVersion,
+            serverInfo: MCP_SERVER_INFO,
+            capabilities: {
+                tools: {
+                    listChanged: false,
+                },
+            },
+        };
+        return isNotification ? null : buildJsonRpcResult(id ?? null, result);
+    }
+
+    if (method === 'tools/list') {
+        const result = {
+            tools: [MCP_TOOL_DEFINITION],
+        };
+        return isNotification ? null : buildJsonRpcResult(id ?? null, result);
+    }
+
+    if (method === 'tools/call') {
+        if (!params || typeof params !== 'object' || Array.isArray(params)) {
+            return isNotification ? null : buildJsonRpcError(id ?? null, -32602, 'Invalid params');
+        }
+        if (params.name !== MCP_TOOL_NAME) {
+            return isNotification ? null : buildJsonRpcError(id ?? null, -32602, 'Unknown tool');
+        }
+        const args = params.arguments;
+        if (args !== undefined && (typeof args !== 'object' || Array.isArray(args))) {
+            return isNotification ? null : buildJsonRpcError(id ?? null, -32602, 'Invalid params');
+        }
+
+        const rawIp = typeof args?.ip === 'string' ? args.ip.trim() : '';
+        const normalizedIp = rawIp && net.isIP(rawIp) ? rawIp : '';
+        const fallbackIp = (process.env.TEST_IP || getClientIp(req) || '').trim();
+        const ip = normalizedIp || fallbackIp;
+        if (!ip) {
+            const result = buildMcpToolResult({ip: '', error: 'missing_ip'});
+            return isNotification ? null : buildJsonRpcResult(id ?? null, result);
+        }
+        const geo = lookupGeo(ip);
+        if (!geo) {
+            const result = buildMcpToolResult({ip, error: 'not_found'});
+            return isNotification ? null : buildJsonRpcResult(id ?? null, result);
+        }
+
+        const result = buildMcpToolResult({ip, geo});
+        return isNotification ? null : buildJsonRpcResult(id ?? null, result);
+    }
+
+    if (method === 'ping') {
+        return isNotification ? null : buildJsonRpcResult(id ?? null, {});
+    }
+
+    return isNotification ? null : buildJsonRpcError(id ?? null, -32601, 'Method not found');
 };
 
 const extractClientIpv6 = (ip) => {
@@ -475,6 +635,9 @@ const collectCountersForRequest = (req) => {
 
     if (req.path === '/free-geo-ip') {
         countersToBump.add('geoIpCount');
+    }
+    if (req.path === '/mcp') {
+        countersToBump.add('mcpCount');
     }
 
     if (req.path.startsWith('/honeypot')) {
@@ -661,6 +824,17 @@ app.get('/free-geo-ip', (req, res) => {
     });
 });
 
+app.get('/mcp-ip-lookup', (req, res) => {
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
+
+    setNoCacheHeaders(res, {includeLegacy: true});
+
+    res.render('mcp-ip-lookup', {
+        generatedAt,
+        generationTimeMs,
+    });
+});
+
 app.all(/^.*\/\.env*/i, honeypotService.handleEnvRequest);
 
 app.get('/api/counters', (req, res) => {
@@ -755,6 +929,59 @@ app.options('/api/ip', (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.sendStatus(204);
+});
+
+const setMcpCorsHeaders = (res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.vary('Origin');
+};
+
+const handleMcpParseError = (error, req, res, next) => {
+    if (error?.type === 'entity.parse.failed') {
+        setNoCacheHeaders(res);
+        setMcpCorsHeaders(res);
+        res.status(400).json(buildJsonRpcError(null, -32700, 'Parse error'));
+        return;
+    }
+    next(error);
+};
+
+app.post('/mcp', mcpJsonParser, (req, res) => {
+    setNoCacheHeaders(res);
+    setMcpCorsHeaders(res);
+
+    const payload = req.body;
+    if (Array.isArray(payload)) {
+        if (payload.length === 0) {
+            res.json(buildJsonRpcError(null, -32600, 'Invalid Request'));
+            return;
+        }
+        const responses = payload
+            .map((message) => handleMcpMessage(message, req))
+            .filter(Boolean);
+        if (responses.length === 0) {
+            res.sendStatus(204);
+            return;
+        }
+        res.json(responses);
+        return;
+    }
+
+    const response = handleMcpMessage(payload, req);
+    if (!response) {
+        res.sendStatus(204);
+        return;
+    }
+    res.json(response);
+});
+
+app.use('/mcp', handleMcpParseError);
+
+app.options('/mcp', (req, res) => {
+    setMcpCorsHeaders(res);
     res.sendStatus(204);
 });
 
