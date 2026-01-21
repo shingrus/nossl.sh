@@ -149,6 +149,7 @@ const geoReader = await loadGeoReader(geoDbPath);
 const asnReader = await loadGeoReader(asnDbPath);
 const asnInfoStore = createAsnInfoStore(asnInfoDbPath);
 
+
 const isPrivateIpv4 = (ip) => {
 
     const octets = ip.split('.').map((part) => Number.parseInt(part, 10));
@@ -325,6 +326,8 @@ const getBaseRequestData = (req, res) => {
 app.use('/static', express.static(path.join(__dirname, 'static'), {maxAge: '1h'}));
 
 const faviconPath = path.join(__dirname, 'static', 'favicon.ico');
+const geoMmdbFilename = 'ip-to-geo-nossl-sh.mmdb';
+const asnMmdbFilename = 'ip-to-asn-nossl-sh.mmdb';
 const NO_BODY_STATUS_CODES = new Set([204, 304]);
 const REDIRECT_STATUS_CODES = new Set([300, 301, 302, 303, 307, 308]);
 const BEACON_HOST_SUFFIX = '.r.nossl.sh';
@@ -638,6 +641,22 @@ app.get('/', async (req, res) => {
 
 app.get('/check', async (req, res) => {
     await renderIndex(req, res);
+});
+
+app.get('/free-geo-ip-database', (req, res) => {
+    const baseData = getBaseRequestData(req, res) || {};
+    const {generatedAt, generationTimeMs, clientIp, geo} = baseData;
+
+    setNoCacheHeaders(res, {includeLegacy: true});
+
+    res.render('free-geo-ip-database', {
+        generatedAt,
+        generationTimeMs,
+        clientIp,
+        geo,
+        geoMmdbFilename,
+        asnMmdbFilename,
+    });
 });
 
 app.get('/free-geo-ip', (req, res) => {

@@ -663,6 +663,10 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+.code-block[hidden] {
+  display: none;
+}
+
 .code-block code {
   font-size: 0.95rem;
   display: block;
@@ -692,6 +696,40 @@ a:focus-visible {
   padding-left: 1.1rem;
   margin: 8px 0 0;
   color: var(--muted);
+}
+
+/* ---------- Code tabs ---------- */
+
+.code-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.code-tab {
+  border: 1px solid var(--border);
+  border-bottom: none;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: 10px 10px 0 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.code-tab:hover,
+.code-tab:focus-visible {
+  color: var(--text);
+  border-color: var(--border-hover);
+  outline: none;
+}
+
+.code-tab.is-active {
+  background: var(--card-bg);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 /* ---------- Info / FAQ ---------- */
