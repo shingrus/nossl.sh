@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP IP Geo Lookup | nossl.sh</title>
+    <meta name="description" content="MCP server for IP geo lookup. JSON-RPC endpoint with a single ip_geo_lookup tool that mirrors /api/ip." />
+    <link rel="canonical" href="http://nossl.sh/mcp-ip-lookup" />
+    <meta property="og:title" content="MCP IP Geo Lookup | nossl.sh" />
+    <meta property="og:description" content="MCP server for IP geo lookup. JSON-RPC endpoint with a single ip_geo_lookup tool that mirrors /api/ip." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="http://nossl.sh/mcp-ip-lookup" />
+    <meta property="og:site_name" content="nossl.sh" />
+    <meta property="og:image" content="/static/og-image.png" />
+    <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MCP IP Geo Lookup | nossl.sh" />
+    <meta name="twitter:description" content="MCP server for IP geo lookup. JSON-RPC endpoint with a single ip_geo_lookup tool that mirrors /api/ip." />
+    <meta name="twitter:image" content="/static/og-image.png" />
+    <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const headerNote = 'MCP IP geo lookup';
+      const footerLines = [
+        'Return to the <a href=\"/free-geo-ip\">free Geo IP lookup</a> or the <a href=\"/\">main diagnostics page</a>.',
+      ];
+      const endpoint = 'http://nossl.sh/mcp';
+      const toolName = 'ip_geo_lookup';
+      const protocolVersion = '2024-11-05';
+      const sampleIp = '1.1.1.1';
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container page">
+      <section class="card hero">
+        <div class="card__header">
+          <div>
+            <p class="eyebrow">MCP server</p>
+            <h1 class="card__title">IP Geo Lookup for MCP</h1>
+            <p class="panel__summary">
+              Connect any MCP-capable agent to a single tool that mirrors <span class="mono">/api/ip</span>.
+            </p>
+          </div>
+        </div>
+        <div class="code-block">
+          <code class="mono">$ curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"<%= protocolVersion %>","capabilities":{}}}'</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;initialize&quot;,&quot;params&quot;:{&quot;protocolVersion&quot;:&quot;<%= protocolVersion %>&quot;,&quot;capabilities&quot;:{}}}'">Copy</button>
+          <pre class="code-example mono">→ { &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;: 1, &quot;result&quot;: { &quot;protocolVersion&quot;: &quot;<%= protocolVersion %>&quot;, &quot;serverInfo&quot;: { &quot;name&quot;: &quot;nossl.sh&quot;, &quot;version&quot;: &quot;1.0.0&quot; }, &quot;capabilities&quot;: { &quot;tools&quot;: { &quot;listChanged&quot;: false } } } }</pre>
+        </div>
+      </section>
+
+      <section class="card info-card" aria-labelledby="mcp-endpoint">
+        <p class="eyebrow">Endpoint</p>
+        <h2 id="mcp-endpoint" class="card__title">POST /mcp</h2>
+        <p class="muted">Use JSON-RPC 2.0 over HTTP. The endpoint is stateless and safe to call from servers or agents.</p>
+        <ul class="bullets">
+          <li>URL: <span class="mono"><%= endpoint %></span></li>
+          <li>Method: <span class="mono">POST</span></li>
+          <li>Content-Type: <span class="mono">application/json</span></li>
+          <li>Protocol version: <span class="mono"><%= protocolVersion %></span> (example; the server echoes the version you send)</li>
+        </ul>
+      </section>
+
+      <section class="card info-card" aria-labelledby="mcp-steps">
+        <p class="eyebrow">Setup</p>
+        <h2 id="mcp-steps" class="card__title">Connect any agent in 3 steps</h2>
+        <ol class="bullets">
+          <li>Configure your agent to use an MCP HTTP endpoint: <span class="mono"><%= endpoint %></span></li>
+          <li>Send <span class="mono">initialize</span> once per session and then call <span class="mono">tools/list</span> (optional).</li>
+          <li>Invoke <span class="mono"><%= toolName %></span> via <span class="mono">tools/call</span> with an <span class="mono">ip</span> string.</li>
+        </ol>
+        <p class="muted">This MCP server is HTTP-only (no streaming or state). Each request is a standalone JSON-RPC call.</p>
+      </section>
+
+      <section class="card info-card" aria-labelledby="mcp-tool">
+        <p class="eyebrow">Tool</p>
+        <h2 id="mcp-tool" class="card__title"><span class="mono"><%= toolName %></span></h2>
+        <p class="muted">Returns the same GeoIP + ASN fields as <span class="mono">/api/ip</span>.</p>
+        <div class="info-grid">
+          <div class="panel panel--support">
+            <div class="panel__body">
+              <h3>Input</h3>
+              <ul class="bullets">
+                <li><span class="mono">ip</span> (optional): IPv4 or IPv6 address. If omitted, the caller IP is used.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="panel panel--support">
+            <div class="panel__body">
+              <h3>Output</h3>
+              <ul class="bullets">
+                <li><span class="mono">ip</span></li>
+                <li><span class="mono">countryCode</span>, <span class="mono">countryName</span>, <span class="mono">countryFlag</span></li>
+                <li><span class="mono">cityName</span></li>
+                <li><span class="mono">asn</span>, <span class="mono">orgName</span></li>
+              </ul>
+            </div>
+          </div>
+          <div class="panel panel--support">
+            <div class="panel__body">
+              <h3>Errors</h3>
+              <ul class="bullets">
+                <li><span class="mono">missing_ip</span>: no IP available to lookup</li>
+                <li><span class="mono">not_found</span>: GeoIP data missing for the IP</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card info-card" aria-labelledby="mcp-howto">
+        <p class="eyebrow">How to use</p>
+        <h2 id="mcp-howto" class="card__title">JSON-RPC calls</h2>
+
+        <div class="code-block">
+          <code class="mono">$ curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":10,"method":"initialize","params":{"protocolVersion":"<%= protocolVersion %>","capabilities":{}}}'</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:10,&quot;method&quot;:&quot;initialize&quot;,&quot;params&quot;:{&quot;protocolVersion&quot;:&quot;<%= protocolVersion %>&quot;,&quot;capabilities&quot;:{}}}'">Copy</button>
+          <pre class="code-example mono">→ { &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;: 10, &quot;result&quot;: { &quot;protocolVersion&quot;: &quot;<%= protocolVersion %>&quot;, &quot;serverInfo&quot;: { &quot;name&quot;: &quot;nossl.sh&quot;, &quot;version&quot;: &quot;1.0.0&quot; } } }</pre>
+        </div>
+
+        <div class="code-block">
+          <code class="mono">$ curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:2,&quot;method&quot;:&quot;tools/list&quot;}'">Copy</button>
+          <pre class="code-example mono">→ { &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;: 2, &quot;result&quot;: { &quot;tools&quot;: [ { &quot;name&quot;: &quot;<%= toolName %>&quot;, &quot;description&quot;: &quot;Lookup GeoIP country, city, ASN, and org details for an IP address (same data as /api/ip).&quot; } ] } }</pre>
+        </div>
+
+        <div class="code-block">
+          <code class="mono">$ curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"<%= toolName %>","arguments":{"ip":"<%= sampleIp %>"}}}'</code>
+          <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -s '<%= endpoint %>' -H 'Content-Type: application/json' -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:3,&quot;method&quot;:&quot;tools/call&quot;,&quot;params&quot;:{&quot;name&quot;:&quot;<%= toolName %>&quot;,&quot;arguments&quot;:{&quot;ip&quot;:&quot;<%= sampleIp %>&quot;}}}'">Copy</button>
+          <pre class="code-example mono">→ { &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;: 3, &quot;result&quot;: { &quot;content&quot;: [ { &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;GeoIP lookup for <%= sampleIp %>. Country: United States | City: Los Angeles | ASN: AS13335 (Cloudflare)&quot; } ], &quot;structuredContent&quot;: { &quot;ip&quot;: &quot;<%= sampleIp %>&quot;, &quot;countryCode&quot;: &quot;US&quot;, &quot;countryName&quot;: &quot;United States&quot;, &quot;countryFlag&quot;: &quot;US&quot;, &quot;cityName&quot;: &quot;Los Angeles&quot;, &quot;asn&quot;: 13335, &quot;orgName&quot;: &quot;Cloudflare&quot; } } }</pre>
+        </div>
+      </section>
+
+      <%- include('partials/support-block') %>
+    </main>
+
+    <script>
+      (() => {
+        const fallbackCopyText = (text) => {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'absolute';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+
+          let successful;
+          try {
+            successful = document.execCommand('copy');
+          } catch (error) {
+            successful = false;
+          }
+
+          document.body.removeChild(textarea);
+          return successful;
+        };
+
+        const copyText = async (text) => {
+          if (!text) {
+            return false;
+          }
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            try {
+              await navigator.clipboard.writeText(text);
+              return true;
+            } catch (error) {
+              // fall back to execCommand
+            }
+          }
+          return fallbackCopyText(text);
+        };
+
+        const flashButton = (button, label) => {
+          if (!button) return;
+          const originalLabel = button.textContent.trim();
+          button.textContent = label;
+          button.disabled = true;
+          setTimeout(() => {
+            button.textContent = originalLabel;
+            button.disabled = false;
+          }, 2000);
+        };
+
+        document.querySelectorAll('[data-copy-text]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const text = button.getAttribute('data-copy-text');
+            const copied = await copyText(text);
+            flashButton(button, copied ? 'Copied' : 'Copy failed');
+          });
+        });
+      })();
+    </script>
+
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>
