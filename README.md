@@ -1,28 +1,72 @@
 # nossl.sh
 
-nossl.sh is a lightweight diagnostic page. It returns a search-engine-friendly HTML
-page that reports the client's IP address, request headers, and whether the connection reached the service over HTTP or HTTPS.
-The project is packaged for deployment on Google Cloud Run.
+nossl.sh is an open project to build and publish a free, accurate Geo IP database
+from open sources and to help people connect with better network transparency.
+This repo contains the database build tooling plus a lightweight web service that
+shows your connection details and offers fast Geo IP lookups.
 
-## Features
+The service is always HTTP-only (no TLS, no HTTPS). That makes it reliable for
+captive portals and Wi-Fi onboarding flows where HTTPS can fail or be blocked.
 
-- **SEO-friendly HTML** page with descriptive metadata.
-- **Connection status** highlighting whether the request arrived via HTTP or HTTPS.
-- **Client IP** detection with support for standard proxy headers.
-- **Request header table** for quick debugging.
-- **JSON API** at `/api/request-info` for programmatic use.
-- **Health endpoint** at `/healthz` for Cloud Run monitoring.
-- **Honeypot log** at `/honeypot` (HTML) and `/api/honeypot` (JSON) showing the top IPs probing `.env`, persisted in SQLite.
-- **Status helper** at `/status/:code` to return any HTTP status (optional `?location=` for redirects).
+## Mission
 
-## Local development
+- Build an open, free, and accurate Geo IP database from publicly available data.
+- Make the data easy to use for everyone, including simple curl-friendly APIs.
+- Invite the community to improve accuracy with feedback and better sources.
+
+## Our Geo IP database
+
+We publish our own Geo IP databases (MMDB) built from IP allocation data and
+carefully curated geofeed inputs. The public landing page and download details
+live at:
+
+- https://nossl.sh/free-geo-ip-database
+
+The build pipeline lives in `infra/` and includes the MMDB builder plus scripts
+that assemble allocation and geofeed inputs.
+
+## Data sources (open)
+
+We primarily rely on open IP allocation data and geofeed metadata. Key upstream
+sources include:
+
+- NRO/RIR delegated stats (AFRINIC, APNIC, ARIN, LACNIC, RIPE NCC)
+- Public geofeeds from network operators
+- Public ASN name lists and registries
+
+## Contributing and feedback
+
+Accuracy improves with real-world feedback. Please share:
+
+- Data corrections (bad locations, wrong ASN/org, missing prefixes)
+- New or better open data sources
+- Ideas to improve the database build or the lookup service
+
+Open an issue or a PR with details, or point us to reliable sources we can add.
+
+## Fast and free Geo IP (curl-friendly)
+
+- The lookup page: `/free-geo-ip`
+- API lookup: `/api/ip?1.1.1.1`
+- Request diagnostics JSON: `/api/request-info`
+
+Examples:
+
+```bash
+curl http://nossl.sh/api/ip?8.8.8.8
+curl http://nossl.sh/api/request-info
+```
+
+The main diagnostics page (`/`) shows your IP, headers, and connection status.
+
+## Quick start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then visit [http://localhost:8080](http://localhost:8080).
+Then open http://localhost:8080.
 
 To run without live reloading:
 
@@ -32,25 +76,11 @@ npm start
 
 ## Configuration
 
-- Override the default SQLite database path by setting the `SQLDB` environment variable before starting the server.
-- Control honeypot retention with `MAX_HONEYPOT` (defaults to 1024). When the table exceeds 110% of this value, the oldest rows are pruned.
-- Optional GeoIP lookup: download a country GeoIP database (e.g., `ip-to-country.mmdb`), keep it out of version control, and point `GEOIP_DB_PATH` to the file (absolute path or relative to the project root) to enrich requests with country/region/city coordinates.
-- Optional ASN lookup: download an ASN database (e.g., `ip-to-asn.mmdb`), keep it out of version control, and point `ASNIP_DB_PATH` to the file (absolute path or relative to the project root) to enrich requests with ASN org data.
+Common environment variables:
 
-## Data sources
-- ASN - https://github.com/ipverse/as-ip-blocks
-- GEO-ip - https://github.com/iplocate/ip-address-databases/
-
-## Useful links
-
-Official ASN allocations come from RIR delegated stats. AS name lists are best-effort labels, not authoritative owner names.
-
-- NRO delegated stats (combined RIR data): https://ftp.ripe.net/pub/stats/ripencc/nro-stats/latest/nro-delegated-stats
-- AFRINIC delegated stats: https://ftp.afrinic.net/pub/stats/afrinic/
-- APNIC delegated stats: https://ftp.apnic.net/pub/stats/apnic/
-- ARIN delegated stats: https://ftp.arin.net/pub/stats/arin/
-- LACNIC delegated stats: https://ftp.lacnic.net/pub/stats/lacnic/
-- RIPE NCC delegated stats: https://ftp.ripe.net/pub/stats/ripencc/
-- RIPE asnames list: https://ftp.ripe.net/ripe/asnames/asn.txt
-- POTAROO autnums list: https://bgp.potaroo.net/cidr/autnums.html
-- RIPEstat AS overview API: https://stat.ripe.net/docs/data_api#as-overview
+- `PORT`, `LISTEN_ADDRESS`
+- `GEOIP_DB_PATH` (Geo IP MMDB)
+- `ASNIP_DB_PATH` (ASN MMDB)
+- `ASN_INFO_DB_PATH` (ASN info SQLite)
+- `REDIS_URL` (shared reports and beacons)
+- `SQLDB` (honeypot/counters SQLite)
