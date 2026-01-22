@@ -61,8 +61,8 @@ COUNTRY_REPO="${TEMP_DIR}/country-ip-blocks"
 GEOFEED_DIR="${WORK_DIR}"
 ASN_REPO="${TEMP_DIR}/asn-ip"
 
-ASN_MMDB="${WORK_DIR}/ip-to-asn-nossl-sh-${DATE_TAG}.mmdb"
-COUNTRY_MMDB="${WORK_DIR}/ip-to-country-nossl-sh-${DATE_TAG}.mmdb"
+ASN_MMDB="${WORK_DIR}/ip2asn-nossl-sh-${DATE_TAG}.mmdb"
+COUNTRY_MMDB="${WORK_DIR}/ip2geo-nossl-sh-${DATE_TAG}.mmdb"
 ASN_SQLITE="${WORK_DIR}/asn.sqlite3"
 
 safe_remove_dir() {
@@ -104,12 +104,12 @@ python3 "${BIN_DIR}/aggregate_asns.py" \
 log "building MMDBs"
 rm -f "${ASN_MMDB}" "${COUNTRY_MMDB}"
 
-#build ip-to-country mmd
+#build ip2geo mmdb
 ${BUILD_COMMAND} \
     --country-dir "${COUNTRY_REPO}/country" \
     --country-out "${COUNTRY_MMDB}" \
     --geofeed-dir "${GEOFEED_DIR}"
-#build asn mmdb 
+#build ip2asn mmdb
 ${BUILD_COMMAND} \
     --as-dir "${ASN_REPO}/as" \
     --asn-out "${ASN_MMDB}" \

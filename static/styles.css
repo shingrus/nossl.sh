@@ -849,6 +849,47 @@ table tbody tr:hover {
   color: var(--muted);
 }
 
+.download-title {
+  font-size: 1.6rem;
+}
+
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.download-link__icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.download-link__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.download-link:hover,
+.download-link:focus-visible {
+  color: var(--text);
+}
+
+.download-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-radius: 10px;
+}
+
 .guide-grid {
   display: grid;
   gap: 12px;

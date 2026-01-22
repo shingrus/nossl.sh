@@ -46,7 +46,7 @@
           <div>
             <p class="eyebrow">Free download</p>
             <h1>Free Geo + ASN MMDB databases</h1>
-            <p class="panel__summary">Direct MaxMind DB files for IP-to-Geo and IP-to-ASN lookups. It's free - no, really free.</p>
+            <p class="panel__summary">Free MaxMind DB (mmdb) files for IP-to-Geo and IP-to-ASN lookups. It's free for use.</p>
           </div>
           <p class="panel__summary">MIT license. No sign-up. No rate limits.</p>
         </header>
@@ -55,9 +55,10 @@
       <section class="panel">
         <header class="panel__header">
           <div>
-            <p class="eyebrow">Downloads</p>
-            <h2>MMDB files</h2>
-            <p class="panel__summary">Download the databases directly over HTTP. Each file includes IPv4 + IPv6 data where available.</p>
+            <h2 class="download-title">Downloads</h2>
+          </div>
+          <div>
+            <a class="btn btn-outline" href="https://buymeacoffee.com/nossl" rel="nofollow">Support the project</a>
           </div>
         </header>
         <div class="panel__body info-grid">
@@ -65,7 +66,14 @@
             <h3 class="card__title">Geo IP database</h3>
             <p class="muted">Country + city metadata for public IPs. Use this for location and country code lookups.</p>
             <p class="muted">
-              <a href="/static/<%= geoMmdbFilename %>" class="mono"><%= geoMmdbFilename %></a>
+              <a href="https://github.com/shingrus/nossl.sh/raw/refs/heads/main/mmdbs/ip2geo-nossl-sh.mmdb" class="download-link">
+                <span class="download-link__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false">
+                    <path d="M12 3v10m0 0l-4-4m4 4l4-4M5 17h14v3H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
+                <span class="download-link__text mono"><%= geoMmdbFilename %></span>
+              </a>
             </p>
             <p class="muted">Supports IPv4 + IPv6.</p>
           </article>
@@ -74,7 +82,14 @@
             <h3 class="card__title">ASN database</h3>
             <p class="muted">ASN number + organization name for public IPs. Use this for network ownership and ASN lookups.</p>
             <p class="muted">
-              <a href="/static/<%= asnMmdbFilename %>" class="mono"><%= asnMmdbFilename %></a>
+              <a href="https://github.com/shingrus/nossl.sh/raw/refs/heads/main/mmdbs/ip2asn-nossl-sh.mmdb" class="download-link">
+                <span class="download-link__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false">
+                    <path d="M12 3v10m0 0l-4-4m4 4l4-4M5 17h14v3H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
+                <span class="download-link__text mono"><%= asnMmdbFilename %></span>
+              </a>
             </p>
             <p class="muted">Supports IPv4 + IPv6.</p>
           </article>
@@ -102,21 +117,21 @@
           <div class="code-block" role="tabpanel" id="code-panel-mmdb-js" data-code-sample="js" data-code-group="mmdb">
             <code class="mono">import maxmind from 'maxmind';
 
-const reader = await maxmind.open('ip-to-geo-nossl-sh.mmdb');
+const reader = await maxmind.open('ip2geo-nossl-sh.mmdb');
 const record = reader.get('<%= apiExampleIp %>');
 console.log(record);
-// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="import maxmind from 'maxmind';\n\nconst reader = await maxmind.open('ip-to-geo-nossl-sh.mmdb');\nconst record = reader.get('<%= apiExampleIp %>');\nconsole.log(record);\n// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data">Copy</button>
+// swap file name to ip2asn-nossl-sh.mmdb for ASN data</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="import maxmind from 'maxmind';\n\nconst reader = await maxmind.open('ip2geo-nossl-sh.mmdb');\nconst record = reader.get('<%= apiExampleIp %>');\nconsole.log(record);\n// swap file name to ip2asn-nossl-sh.mmdb for ASN data">Copy</button>
           </div>
 
           <div class="code-block" role="tabpanel" id="code-panel-mmdb-python" data-code-sample="python" data-code-group="mmdb" hidden>
             <code class="mono">import maxminddb
 
-reader = maxminddb.open_database('ip-to-geo-nossl-sh.mmdb')
+reader = maxminddb.open_database('ip2geo-nossl-sh.mmdb')
 record = reader.get('<%= apiExampleIp %>')
 print(record)
-# swap file name to ip-to-asn-nossl-sh.mmdb for ASN data</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="import maxminddb\n\nreader = maxminddb.open_database('ip-to-geo-nossl-sh.mmdb')\nrecord = reader.get('<%= apiExampleIp %>')\nprint(record)\n# swap file name to ip-to-asn-nossl-sh.mmdb for ASN data">Copy</button>
+# swap file name to ip2asn-nossl-sh.mmdb for ASN data</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="import maxminddb\n\nreader = maxminddb.open_database('ip2geo-nossl-sh.mmdb')\nrecord = reader.get('<%= apiExampleIp %>')\nprint(record)\n# swap file name to ip2asn-nossl-sh.mmdb for ASN data">Copy</button>
           </div>
 
           <div class="code-block" role="tabpanel" id="code-panel-mmdb-go" data-code-sample="go" data-code-group="mmdb" hidden>
@@ -126,26 +141,26 @@ print(record)
   "github.com/oschwald/maxminddb-golang"
 )
 
-db, _ := maxminddb.Open("ip-to-geo-nossl-sh.mmdb")
+db, _ := maxminddb.Open("ip2geo-nossl-sh.mmdb")
 defer db.Close()
 
 var record map[string]interface{}
 db.Lookup(net.ParseIP("<%= apiExampleIp %>"), &record)
 fmt.Printf("%v\n", record)
-// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="import (\n  &quot;fmt&quot;\n  &quot;net&quot;\n  &quot;github.com/oschwald/maxminddb-golang&quot;\n)\n\ndb, _ := maxminddb.Open(&quot;ip-to-geo-nossl-sh.mmdb&quot;)\ndefer db.Close()\n\nvar record map[string]interface{}\ndb.Lookup(net.ParseIP(&quot;<%= apiExampleIp %>&quot;), &record)\nfmt.Printf(&quot;%v\\n&quot;, record)\n// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data">Copy</button>
+// swap file name to ip2asn-nossl-sh.mmdb for ASN data</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="import (\n  &quot;fmt&quot;\n  &quot;net&quot;\n  &quot;github.com/oschwald/maxminddb-golang&quot;\n)\n\ndb, _ := maxminddb.Open(&quot;ip2geo-nossl-sh.mmdb&quot;)\ndefer db.Close()\n\nvar record map[string]interface{}\ndb.Lookup(net.ParseIP(&quot;<%= apiExampleIp %>&quot;), &record)\nfmt.Printf(&quot;%v\\n&quot;, record)\n// swap file name to ip2asn-nossl-sh.mmdb for ASN data">Copy</button>
           </div>
 
           <div class="code-block" role="tabpanel" id="code-panel-mmdb-rust" data-code-sample="rust" data-code-group="mmdb" hidden>
             <code class="mono">use maxminddb::Reader;
 use std::net::IpAddr;
 
-let reader = Reader::open_readfile("ip-to-geo-nossl-sh.mmdb").unwrap();
+let reader = Reader::open_readfile("ip2geo-nossl-sh.mmdb").unwrap();
 let ip: IpAddr = "<%= apiExampleIp %>".parse().unwrap();
 let record: serde_json::Value = reader.lookup(ip).unwrap();
 println!("{}", record);
-// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="use maxminddb::Reader;\nuse std::net::IpAddr;\n\nlet reader = Reader::open_readfile(&quot;ip-to-geo-nossl-sh.mmdb&quot;).unwrap();\nlet ip: IpAddr = &quot;<%= apiExampleIp %>&quot;.parse().unwrap();\nlet record: serde_json::Value = reader.lookup(ip).unwrap();\nprintln!(&quot;{}&quot;, record);\n// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data">Copy</button>
+// swap file name to ip2asn-nossl-sh.mmdb for ASN data</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="use maxminddb::Reader;\nuse std::net::IpAddr;\n\nlet reader = Reader::open_readfile(&quot;ip2geo-nossl-sh.mmdb&quot;).unwrap();\nlet ip: IpAddr = &quot;<%= apiExampleIp %>&quot;.parse().unwrap();\nlet record: serde_json::Value = reader.lookup(ip).unwrap();\nprintln!(&quot;{}&quot;, record);\n// swap file name to ip2asn-nossl-sh.mmdb for ASN data">Copy</button>
           </div>
 
           <div class="code-block" role="tabpanel" id="code-panel-mmdb-java" data-code-sample="java" data-code-group="mmdb" hidden>
@@ -154,23 +169,23 @@ import java.io.File;
 import java.net.InetAddress;
 import java.util.Map;
 
-Reader reader = new Reader(new File("ip-to-geo-nossl-sh.mmdb"));
+Reader reader = new Reader(new File("ip2geo-nossl-sh.mmdb"));
 InetAddress ip = InetAddress.getByName("<%= apiExampleIp %>");
 Map&lt;String, Object&gt; record = reader.get(ip);
 System.out.println(record);
-// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="import com.maxmind.db.Reader;\nimport java.io.File;\nimport java.net.InetAddress;\nimport java.util.Map;\n\nReader reader = new Reader(new File(&quot;ip-to-geo-nossl-sh.mmdb&quot;));\nInetAddress ip = InetAddress.getByName(&quot;<%= apiExampleIp %>&quot;);\nMap<String, Object> record = reader.get(ip);\nSystem.out.println(record);\n// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data">Copy</button>
+// swap file name to ip2asn-nossl-sh.mmdb for ASN data</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="import com.maxmind.db.Reader;\nimport java.io.File;\nimport java.net.InetAddress;\nimport java.util.Map;\n\nReader reader = new Reader(new File(&quot;ip2geo-nossl-sh.mmdb&quot;));\nInetAddress ip = InetAddress.getByName(&quot;<%= apiExampleIp %>&quot;);\nMap<String, Object> record = reader.get(ip);\nSystem.out.println(record);\n// swap file name to ip2asn-nossl-sh.mmdb for ASN data">Copy</button>
           </div>
 
           <div class="code-block" role="tabpanel" id="code-panel-mmdb-php" data-code-sample="php" data-code-group="mmdb" hidden>
             <code class="mono">&lt;?php
 use MaxMind\Db\Reader;
 
-$reader = new Reader('ip-to-geo-nossl-sh.mmdb');
+$reader = new Reader('ip2geo-nossl-sh.mmdb');
 $record = $reader-&gt;get('<%= apiExampleIp %>');
 print_r($record);
-// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="<?php\nuse MaxMind\\Db\\Reader;\n\n$reader = new Reader('ip-to-geo-nossl-sh.mmdb');\n$record = $reader->get('<%= apiExampleIp %>');\nprint_r($record);\n// swap file name to ip-to-asn-nossl-sh.mmdb for ASN data">Copy</button>
+// swap file name to ip2asn-nossl-sh.mmdb for ASN data</code>
+            <button type="button" class="btn btn-outline btn-small" data-copy-text="<?php\nuse MaxMind\\Db\\Reader;\n\n$reader = new Reader('ip2geo-nossl-sh.mmdb');\n$record = $reader->get('<%= apiExampleIp %>');\nprint_r($record);\n// swap file name to ip2asn-nossl-sh.mmdb for ASN data">Copy</button>
           </div>
         </div>
       </section>

@@ -44,9 +44,9 @@ type countryRecord struct {
 
 func main() {
 	asDir := flag.String("as-dir", "as", "ASN directory with per-ASN aggregated.json files")
-	outPath := flag.String("asn-out", "nossl-sh-ip-to-asn.mmdb", "ASN output mmdb path")
+	outPath := flag.String("asn-out", "ip2asn-nossl-sh.mmdb", "ASN output mmdb path")
 	countryDir := flag.String("country-dir", "", "country directory with per-country aggregated.json files")
-	countryOutPath := flag.String("country-out", "nossl-sh-ip-to-country.mmdb", "country output mmdb path")
+	countryOutPath := flag.String("country-out", "ip2geo-nossl-sh.mmdb", "country output mmdb path")
 	geofeedDir := flag.String("geofeed-dir", "", "geofeed directory with RFC 8805 .cache files")
 	testMMDB := flag.String("test-mmdb", "", "mmdb path to test against ips.txt and builtin IPs")
 	testIP := flag.String("ip", "", "single IP to test with -test-mmdb (overrides ips.txt and builtin IPs)")
@@ -138,7 +138,7 @@ func main() {
 }
 
 func buildASNMMDB(asDir, outPath string, debugMode bool) {
-	writer, err := newMMDBWriter("ip-to-asn", "IP to ASN")
+	writer, err := newMMDBWriter("ip2asn", "IP2ASN")
 	if err != nil {
 		panic(err)
 	}
@@ -169,7 +169,7 @@ func buildASNMMDB(asDir, outPath string, debugMode bool) {
 }
 
 func buildCountryMMDB(countryDir, geofeedDir, outPath string, debugMode bool) {
-	writer, err := newMMDBWriter("ip-to-country", "IP to Country")
+	writer, err := newMMDBWriter("ip2geo", "IP2GEO")
 	if err != nil {
 		panic(err)
 	}
