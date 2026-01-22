@@ -663,6 +663,10 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+.code-block[hidden] {
+  display: none;
+}
+
 .code-block code {
   font-size: 0.95rem;
   display: block;
@@ -692,6 +696,40 @@ a:focus-visible {
   padding-left: 1.1rem;
   margin: 8px 0 0;
   color: var(--muted);
+}
+
+/* ---------- Code tabs ---------- */
+
+.code-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.code-tab {
+  border: 1px solid var(--border);
+  border-bottom: none;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: 10px 10px 0 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.code-tab:hover,
+.code-tab:focus-visible {
+  color: var(--text);
+  border-color: var(--border-hover);
+  outline: none;
+}
+
+.code-tab.is-active {
+  background: var(--card-bg);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 /* ---------- Info / FAQ ---------- */
@@ -809,6 +847,47 @@ table tbody tr:hover {
 .panel__summary {
   margin: 0;
   color: var(--muted);
+}
+
+.download-title {
+  font-size: 1.6rem;
+}
+
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.6rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.download-link__icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.download-link__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.download-link:hover,
+.download-link:focus-visible {
+  color: var(--text);
+}
+
+.download-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-radius: 10px;
 }
 
 .guide-grid {

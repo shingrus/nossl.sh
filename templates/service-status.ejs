@@ -16,6 +16,11 @@
       const formattedGeneratedAt = formatTimestamp(generatedAt);
       const latestUpdates = [
         {
+          date: '2026-01-22',
+          title: 'Free MMDB database downloads',
+          summary: 'Published free GeoIP + ASN MMDB downloads with language-specific code samples.'
+        },
+        {
           date: '2026-01-17',
           title: 'DNS beacon resolver lookups',
           summary: 'Added DNS beacon signals to surface resolver details on the connection report.'
@@ -55,6 +60,7 @@
         {label: 'Honeypot hits', value: counters.honeypotCount},
         {label: 'Report views', value: counters.reportCount},
         {label: 'Geo IP lookups', value: counters.geoIpCount},
+        {label: 'Geo IP DB downloads', value: counters.freeGeoDbCount},
         {label: 'API IP lookups', value: counters.apiIpCount},
         {label: 'ASN detail views', value: counters.ascounter}
       ];
