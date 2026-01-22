@@ -856,15 +856,15 @@ table tbody tr:hover {
 .download-link {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1.1rem;
+  gap: 12px;
+  font-size: 1.6rem;
   text-decoration: none;
   color: var(--text);
 }
 
 .download-link__icon {
-  width: 28px;
-  height: 28px;
+  width: 42px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -875,8 +875,8 @@ table tbody tr:hover {
 }
 
 .download-link__icon svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 .download-link:hover,
