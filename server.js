@@ -402,6 +402,34 @@ const getBeaconUniqFromHostname = (hostname) => {
     return parts[0];
 };
 
+const updateReportResolverIp = (reportId, resolverIp) => {
+    const trimmedReportId = typeof reportId === 'string' ? reportId.trim() : '';
+    const trimmedResolverIp = typeof resolverIp === 'string' ? resolverIp.trim() : '';
+    if (!trimmedReportId || !trimmedResolverIp || !shareReportStore?.isAvailable?.()) {
+        return;
+    }
+
+    // Fire and forget: don't block the beacon response on Redis writes.
+    (async () => {
+        try {
+            const snapshot = await shareReportStore.readSnapshot(trimmedReportId);
+            if (!snapshot) {
+                return;
+            }
+            const existingResolverIp = (snapshot.resolverIp || snapshot.resolver_ip || '').trim();
+            if (existingResolverIp) {
+                return;
+            }
+            await shareReportStore.writeSnapshot(trimmedReportId, {
+                ...snapshot,
+                resolverIp: trimmedResolverIp,
+            });
+        } catch (error) {
+            // Ignore resolver IP update failures to keep responses fast.
+        }
+    })();
+};
+
 const getLookupIp = (req) => {
     const originalUrl = typeof req.originalUrl === 'string' ? req.originalUrl : '';
     const queryIndex = originalUrl.indexOf('?');
@@ -789,8 +817,13 @@ app.get('/api/beacon', async (req, res) => {
 
     setNoCacheHeaders(res);
 
+    const reportIdParam = req.query?.reportId;
+    const reportId = typeof reportIdParam === 'string' ? reportIdParam.trim() : null;
+
     if (process.env.TEST_IP) {
-        res.json({resolver_ip: process.env.TEST_IP});
+        const payload = {resolver_ip: process.env.TEST_IP};
+        res.json(payload);
+        updateReportResolverIp(reportId, payload.resolver_ip);
         return;
     }
 
@@ -853,6 +886,7 @@ app.get('/api/beacon', async (req, res) => {
     }
 
     res.json(payload);
+    updateReportResolverIp(reportId, payload.resolver_ip);
 });
 
 app.options('/api/beacon', (req, res) => {

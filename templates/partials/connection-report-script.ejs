@@ -222,6 +222,9 @@
         const apiUrl = isDev
           ? new URL('/api/beacon', window.location.origin)
           : new URL(`http://${uniq}${beaconHostSuffix}/api/beacon`);
+        if (shareReportId) {
+          apiUrl.searchParams.set('reportId', shareReportId);
+        }
         const response = await fetch(apiUrl.toString(), {
           headers: { Accept: 'application/json' },
           cache: 'no-store',

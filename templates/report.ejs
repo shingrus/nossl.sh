@@ -12,9 +12,20 @@
     <% 
       const headerPairs = report?.headers || [];
       const headerCount = headerPairs.length;
-      const schemeLabel = report?.scheme === 'https' ? 'HTTPS (TLS)' : 'HTTP (no TLS)';
-      const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
+      // const schemeLabel = report?.scheme === 'https' ? 'HTTPS' : 'HTTP';
+      // const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
+      var httpLabel = '';
+      if (report?.scheme === 'https')  {
+          httpLabel = (report?.httpVersion ? `HTTPS/${report.httpVersion}` : 'HTTPS/1.1');
+      } else
+      {
+          httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1');
+      }
+
+
       const geo = report?.geo;
+      const resolverIp = (report?.resolverIp || report?.resolver_ip || '').trim();
+      const orgLink = geo?.asn ? `/as${geo.asn}` : null;
       const geoLocationLabel = geo?.countryName || geo?.cityName
         ? [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ')
         : null;
@@ -68,23 +79,31 @@
                 <%= geoSummary %>
                 <% if (geo?.orgName) { %>
                   /
-                  <% if (geo?.asn) { %>
-                    <a href="/as<%= geo.asn %>"><%= geo.orgName %></a>
+                  <% if (orgLink) { %>
+                    <a href="<%= orgLink %>"><%= geo.orgName %></a>
                   <% } else { %>
                     <%= geo.orgName %>
                   <% } %>
                 <% } %>
               </p>
             <% } %>
-            <dl class="meta-grid meta-grid--compact hero-meta">
+          </div>
+          <div class="hero-secondary">
+            <dl class="meta-grid meta-grid--compact">
+              <div>
+                <dt>🗼 Your DNS Resolver</dt>
+                <dd class="ip6-value mono">
+                  <% if (resolverIp) { %>
+                    <a href="/free-geo-ip?<%= encodeURIComponent(resolverIp) %>" rel="nofollow"><%= resolverIp %></a>
+                  <% } else { %>
+                    ...
+                  <% } %>
+                </dd>
+              </div>
               <div>
                 <dt>🌐 Protocol</dt>
                 <dd class="mono"><%= httpLabel %></dd>
               </div>
-            </dl>
-          </div>
-          <div class="hero-secondary">
-            <dl class="meta-grid meta-grid--compact">
               <div>
                 <dt>🕒 Captured</dt>
                 <dd><%= formatTimestamp(report.generatedAt) %></dd>
@@ -93,27 +112,34 @@
                 <dt>🧾 Headers captured</dt>
                 <dd><%= headerCount %></dd>
               </div>
-              <div>
-                <dt>📄 Status</dt>
-                <dd><%= report.status %></dd>
-              </div>
             </dl>
           </div>
         </div>
       </section>
 
       <section aria-labelledby="shared-headers" class="card collapsible">
-        <div class="card__header card__header--toggle">
+        <div class="card__header card__header--toggle card__header_clickable">
           <div>
             <p class="eyebrow">Headers</p>
             <h2 id="shared-headers" class="card__title">Request headers</h2>
           </div>
           <div class="header-actions">
             <span class="pill pill-muted"><%= headerCount %> headers</span>
+            <button
+              type="button"
+              class="btn btn-outline toggle"
+              data-toggle-headers
+              aria-expanded="false"
+              data-expanded="false"
+              aria-controls="headers-content"
+            >
+              <span data-toggle-label>Show</span>
+              <span class="chevron" aria-hidden="true"></span>
+            </button>
             <button type="button" class="btn btn-ghost" data-copy-headers>Copy JSON</button>
           </div>
         </div>
-        <div class="collapsible__content" id="headers-content">
+        <div class="collapsible__content" id="headers-content" hidden>
           <div class="table-wrapper headers-table-wrapper">
             <table class="headers-table">
               <thead>
@@ -143,6 +169,7 @@
     <script>
       (() => {
         const headersCopyButton = document.querySelector('[data-copy-headers]');
+        const headersToggleButton = document.querySelector('[data-toggle-headers]');
 
         const fallbackCopyText = (text) => {
           const textarea = document.createElement('textarea');
@@ -206,6 +233,30 @@
           });
         });
 
+        if (headersToggleButton) {
+          const targetId = headersToggleButton.getAttribute('aria-controls');
+          const content = document.getElementById(targetId);
+          const labelEl = headersToggleButton.querySelector('[data-toggle-label]');
+
+          const setState = (expanded) => {
+            headersToggleButton.setAttribute('aria-expanded', String(expanded));
+            headersToggleButton.dataset.expanded = String(expanded);
+            if (content) {
+              content.hidden = !expanded;
+            }
+            if (labelEl) {
+              labelEl.textContent = expanded ? 'Hide' : 'Show';
+            }
+          };
+
+          setState(false);
+
+          headersToggleButton.addEventListener('click', () => {
+            const isExpanded = headersToggleButton.getAttribute('aria-expanded') === 'true';
+            setState(!isExpanded);
+          });
+        }
+
         if (headersCopyButton) {
           const headerPairs = <%- JSON.stringify(headerPairs) %>;
           const headersPayload = headerPairs.reduce((acc, [key, value]) => {
@@ -223,6 +274,17 @@
           });
         }
 
+        document.querySelectorAll('.card__header_clickable').forEach((header) => {
+          header.addEventListener('click', (event) => {
+            if (event.target.closest('a, button')) {
+              return;
+            }
+            const toggleButton = header.querySelector('[data-toggle-headers]');
+            if (toggleButton) {
+              toggleButton.click();
+            }
+          });
+        });
       })();
     </script>
   </body>
