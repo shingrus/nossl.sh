@@ -39,11 +39,16 @@
         <% } %>
       </div>
     </div>
+    <div class="card__actions">
+      <a href="https://buymeacoffee.com/nossl" rel="nofollow">
+        <span class="btn btn-outline">Support the project</span>
+      </a>
+    </div>
   </div>
   <div class="hero-grid">
     <div class="hero-primary">
       <p class="label">IP address</p>
-      <button type="button" class="ip-row ip-copy" data-copy-text="<%= clientIp %>" data-flash-mode="overlay">
+      <button type="button" class="ip-row ip-copy ip-row--inline" data-copy-text="<%= clientIp %>" data-flash-mode="overlay">
         <span class="ip-value mono"><%= clientIp %></span>
         <span class="ip-copy-icon" aria-hidden="true">⧉</span>
         <span class="sr-only">Copy IP address</span>
@@ -76,6 +81,15 @@
             <% } %>
           <% } %>
         </p>
+        <a class="geo-link" href="/free-geo-ip" rel="nofollow">
+          <span class="geo-link__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16Z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+              <path d="M4 12h16M12 4c2.5 3 2.5 13 0 16M12 4c-2.5 3-2.5 13 0 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
+            </svg>
+          </span>
+          <span>Free Geo + ASN lookup</span>
+        </a>
       <% } %>
     </div>
     <div class="hero-secondary">

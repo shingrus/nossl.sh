@@ -96,59 +96,9 @@
       <%- include('partials/connection-report') %>
 
       <div class="info-grid">
-        <section class="card info-card" aria-labelledby="how-to-use">
-          <p class="eyebrow">How to use this page</p>
-          <h3 id="how-to-use" class="card__title">Plain HTTP for quick checks</h3>
-          <p class="muted">See your real IP, request method, and headers without HTTPS in the way. Great for captive portals, firewall tests, or debugging VPN/proxy quirks.</p>
-          <ul class="bullets">
-            <li>Open http://nossl.sh to trigger captive portal pages.</li>
-            <li>Share a snapshot link if support needs proof.</li>
-            <li>See the DNS resolver IP via the beacon lookup on the connection report.</li>
-          </ul>
-        </section>
-
-        <section class="card info-card" aria-labelledby="curl-examples">
-          <p class="eyebrow">cURL examples</p>
-          <h3 id="curl-examples" class="card__title">cURL IPv4/IPv6, any HTTP status</h3>
-          <p class="muted">cURL your public IP - the alternative to <code class="mono">ifconfig.me</code>.</p>
-          <div class="code-block">
-            <code class="mono">$ curl http://nossl.sh</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://nossl.sh">Copy</button>
-            <div class="code-example mono">→ <%= clientIp %></div>
-          </div>
-            <p class="muted">cURL your IPv6:</p>
-            <div class="code-block">
-                <code class="mono">$ curl http://v6.nossl.sh</code>
-                <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://v6.nossl.sh">Copy</button>
-                <div class="code-example mono">→ ipv6</div>
-            </div>
-            <p class="muted">Check any HTTP status:</p>
-          <div class="code-block">
-            <code class="mono">$ curl -i http://nossl.sh/status/418</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -i http://nossl.sh/status/418">Copy</button>
-            <div class="code-example mono">→ HTTP/1.1 418 I'm a Teapot</div>
-          </div>
-          <p class="muted">Lookup any IP (Geo + ASN):</p>
-          <div class="code-block">
-            <code class="mono">$ curl 'http://nossl.sh/api/ip?1.1.1.1'</code>
-            <button type="button" class="btn btn-outline btn-small" data-copy-text="curl 'http://nossl.sh/api/ip?1.1.1.1'">Copy</button>
-          </div>
-          <p class="muted">API references:</p>
-          <ul class="bullets">
-            <li><a href="/api/request-info" rel="nofollow">/api/request-info</a> — current IP, scheme, headers.</li>
-            <li><a href="/api/counters" rel="nofollow">/api/counters</a> — request counters snapshot.</li>
-            <li><a href="/api/honeypot" rel="nofollow">/api/honeypot</a> — honeypot hits as JSON.</li>
-            <li><a href="/api/ip?1.1.1.1" rel="nofollow">/api/ip?1.1.1.1</a> — Geo + ASN for any IP.</li>
-            <li><a href="/api/as15169" rel="nofollow">/api/as15169</a> — ASN details, org, and prefixes.</li>
-            <li><a href="/status/200" rel="nofollow">/status/:code</a> — return any HTTP status; add <code class="mono">?location=</code> for redirects.</li>
-          </ul>
-          <p class="muted">Need the honeypot console? Visit the <a href="/honeypot">/honeypot</a> dashboard.</p>
-          <p class="muted">Need service counters? Visit the <a href="/ss">service status page</a>.</p>
-        </section>
-
-        <section class="card info-card" aria-labelledby="faq">
-          <p class="eyebrow">FAQ</p>
-          <h3 id="faq" class="card__title">Why plain HTTP?</h3>
+        <section class="card info-card" aria-labelledby="quick-links">
+          <p class="eyebrow">Links</p>
+          <h3 id="quick-links" class="card__title">Guides, tools, and dashboards</h3>
           <p class="muted">Need step-by-step help? Browse the <a href="/guides">full guide index</a> for hotels, cafes, and mobile walkthroughs.</p>
           <ul class="bullets">
             <li><a href="/captive-portal">Captive portal diagnostics</a></li>
@@ -159,6 +109,62 @@
             <li><a href="/free-geo-ip" rel="nofollow">Free Geo + ASN lookup</a></li>
             <li><a href="/free-geo-ip-database">Free Geo + ASN MMDB database</a></li>
           </ul>
+          <p class="muted">Need the honeypot console? Visit the <a href="/honeypot">/honeypot</a> dashboard.</p>
+          <p class="muted">Need service counters? Visit the <a href="/ss">service status page</a>.</p>
+        </section>
+
+        <section class="card info-card" aria-labelledby="curl-examples">
+          <p class="eyebrow">cURL</p>
+          <p class="muted">cURL your public IP - the alternative to <code class="mono">ifconfig.me</code>.</p>
+          <div class="code-stack">
+            <div class="code-block code-block--tight">
+              <div class="code-inline">
+                <span class="code-label">IPv4</span>
+                <code class="mono">$ curl http://nossl.sh</code>
+              </div>
+              <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://nossl.sh">Copy</button>
+            </div>
+            <div class="code-block code-block--tight">
+              <div class="code-inline">
+                <span class="code-label">IPv6</span>
+                <code class="mono">$ curl http://v6.nossl.sh</code>
+              </div>
+              <button type="button" class="btn btn-outline btn-small" data-copy-text="curl http://v6.nossl.sh">Copy</button>
+            </div>
+            <div class="code-block code-block--tight">
+              <div class="code-inline">
+                <span class="code-label">Status</span>
+                <code class="mono">$ curl -i http://nossl.sh/status/418</code>
+              </div>
+              <button type="button" class="btn btn-outline btn-small" data-copy-text="curl -i http://nossl.sh/status/418">Copy</button>
+            </div>
+            <div class="code-block code-block--tight">
+              <div class="code-inline">
+                <span class="code-label">Geo + ASN</span>
+                <code class="mono">$ curl 'http://nossl.sh/api/ip?1.1.1.1'</code>
+              </div>
+              <button type="button" class="btn btn-outline btn-small" data-copy-text="curl 'http://nossl.sh/api/ip?1.1.1.1'">Copy</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card info-card" aria-labelledby="api-references">
+          <p class="eyebrow">APIs</p>
+          <h3 id="api-references" class="card__title">JSON endpoints</h3>
+          <p class="muted">Prefer JSON? Try <a href="/api/request-info" rel="nofollow">/api/request-info</a> for the full request breakdown.</p>
+          <ul class="bullets">
+            <li><a href="/api/request-info" rel="nofollow">/api/request-info</a> — current IP, scheme, headers.</li>
+            <li><a href="/api/counters" rel="nofollow">/api/counters</a> — request counters snapshot.</li>
+            <li><a href="/api/honeypot" rel="nofollow">/api/honeypot</a> — honeypot hits as JSON.</li>
+            <li><a href="/api/ip?1.1.1.1" rel="nofollow">/api/ip?1.1.1.1</a> — Geo + ASN for any IP.</li>
+            <li><a href="/api/as15169" rel="nofollow">/api/as15169</a> — ASN details, org, and prefixes.</li>
+            <li><a href="/status/200" rel="nofollow">/status/:code</a> — return any HTTP status; add <code class="mono">?location=</code> for redirects.</li>
+          </ul>
+        </section>
+
+        <section class="card info-card" aria-labelledby="faq">
+          <p class="eyebrow">FAQ</p>
+          <h3 id="faq" class="card__title">Why plain HTTP?</h3>
           <dl class="faq">
             <dt>Why no TLS?</dt>
             <dd>Captive portals and restrictive networks often block HTTPS handshakes. HTTP keeps the splash page visible.</dd>
@@ -169,6 +175,16 @@
             <dt>Can I see my DNS resolver?</dt>
             <dd>Yes — the connection report shows the DNS resolver IP using a beacon lookup to surface recursive resolver details.</dd>
           </dl>
+        </section>
+        <section class="card info-card info-card--wide" aria-labelledby="how-to-use">
+          <p class="eyebrow">How to use this page</p>
+          <h3 id="how-to-use" class="card__title">Plain HTTP for quick checks</h3>
+          <p class="muted">See your real IP, request method, and headers without HTTPS in the way. Great for captive portals, firewall tests, or debugging VPN/proxy quirks.</p>
+          <ul class="bullets">
+            <li>Open http://nossl.sh to trigger captive portal pages.</li>
+            <li>Share a snapshot link if support needs proof.</li>
+            <li>See the DNS resolver IP via the beacon lookup on the connection report.</li>
+          </ul>
         </section>
 
         <%- include('partials/support-block') %>

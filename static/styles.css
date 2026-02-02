@@ -273,6 +273,42 @@ a:focus-visible {
   gap: 12px;
 }
 
+.geo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.geo-link__icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.geo-link__icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.geo-link:hover,
+.geo-link:focus-visible {
+  color: var(--text);
+  text-decoration: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+  border-radius: 10px;
+}
+
 .ip-row {
   display: flex;
   align-items: center;
@@ -318,6 +354,11 @@ a:focus-visible {
 .ip-copy .ip-value,
 .ip-copy .ip6-value {
   flex: 1;
+}
+
+.ip-row--inline .ip-value,
+.ip-row--inline .ip6-value {
+  flex: 0 1 auto;
 }
 
 .ip-copy-icon {
@@ -673,6 +714,32 @@ a:focus-visible {
   white-space: pre-wrap;
 }
 
+.code-block--tight {
+  margin: 6px 0;
+  padding: 10px 12px;
+}
+
+.code-block--tight code {
+  font-size: 0.9rem;
+}
+
+.code-inline {
+  display: grid;
+  gap: 4px;
+}
+
+.code-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.code-hint {
+  color: var(--code-muted);
+  font-size: 0.85rem;
+}
+
 .code-example {
   width: 100%;
   margin-top: 6px;
@@ -737,7 +804,7 @@ a:focus-visible {
 .info-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
   align-items: start;
 }
 
@@ -749,9 +816,19 @@ a:focus-visible {
   grid-column: 1 / -1;
 }
 
+.info-grid .info-card--wide {
+  grid-column: 1 / -1;
+}
+
 .info-card {
   display: grid;
   gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .faq {

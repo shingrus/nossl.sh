@@ -69,8 +69,15 @@
       </section>
 
       <section class="card info-card" aria-labelledby="lookup-result">
-        <p class="eyebrow">IP report</p>
-        <h2 id="lookup-result" class="card__title">Lookup result</h2>
+        <div class="card__header">
+          <div>
+            <p class="eyebrow">IP report</p>
+            <h2 id="lookup-result" class="card__title">Lookup result</h2>
+          </div>
+          <div class="card__actions">
+            <a class="btn btn-outline" href="https://buymeacoffee.com/nossl" rel="nofollow">Support the project</a>
+          </div>
+        </div>
         <% if (!hasReport) { %>
           <p class="muted">Enter an IP and press Lookup to see the report.</p>
         <% } else if (!geo) { %>
