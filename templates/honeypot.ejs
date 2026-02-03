@@ -48,7 +48,9 @@
               <% rows.forEach((row) => { %>
               <tr>
                 <td><%= row.index %></td>
-                <td class="mono"><%= row.ip %></td>
+                <td class="mono">
+                  <a href="/free-geo-ip?<%= encodeURIComponent(row.ip) %>" rel="nofollow"><%= row.ip %></a>
+                </td>
                 <td class="mono"><%= row.hits %></td>
                 <td class="mono">
                   <% if (row.lastSeen) { %>
