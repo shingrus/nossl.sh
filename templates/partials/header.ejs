@@ -1,11 +1,29 @@
 <header class="top-bar">
   <div class="container top-bar__row">
-    <a class="brand" href="/" aria-label="nossl.sh home">
-      <span class="brand-dot" aria-hidden="true"></span>
-      <div class="brand-text brand-text--stacked">
-        <span class="brand-name">nossl.sh</span>
-      </div>
-    </a>
+    <div class="top-bar__cluster">
+      <a class="brand" href="/" aria-label="nossl.sh home">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <div class="brand-text brand-text--stacked">
+          <span class="brand-name">nossl.sh</span>
+        </div>
+      </a>
+      <form class="top-bar__lookup" method="get" action="/lookup" role="search">
+        <label class="sr-only" for="top-bar-lookup">Smart lookup</label>
+        <div class="top-bar__lookup-field">
+          <input
+            id="top-bar-lookup"
+            name="q"
+            type="text"
+            class="lookup-input lookup-input--header mono"
+            placeholder="Lookup IP or ASN"
+            inputmode="search"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </div>
+      </form>
+    </div>
     <% if (headerNote) { %>
       <p class="top-bar__note"><%= headerNote %></p>
     <% } %>

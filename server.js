@@ -450,6 +450,33 @@ const getLookupIp = (req) => {
     return net.isIP(candidate) ? candidate : null;
 };
 
+const getLookupQuery = (req) => {
+    const queryValue = req.query?.q;
+    if (typeof queryValue === 'string') {
+        const trimmed = queryValue.trim();
+        if (trimmed) {
+            return trimmed;
+        }
+    }
+
+    const originalUrl = typeof req.originalUrl === 'string' ? req.originalUrl : '';
+    const queryIndex = originalUrl.indexOf('?');
+    if (queryIndex === -1) {
+        return null;
+    }
+    const rawQuery = originalUrl.slice(queryIndex + 1).trim();
+    if (!rawQuery || rawQuery.includes('=') || rawQuery.includes('&')) {
+        return null;
+    }
+
+    try {
+        const candidate = decodeURIComponent(rawQuery).trim();
+        return candidate || null;
+    } catch (error) {
+        return null;
+    }
+};
+
 const extractClientIpv6 = (ip) => {
     const normalized = (ip || '').trim();
     if (!normalized || normalized.startsWith('::ffff:')) {
@@ -710,6 +737,68 @@ app.get('/free-geo-ip', (req, res) => {
         generatedAt,
         generationTimeMs,
         canonicalUrl: new URL('/free-geo-ip', CANONICAL_BASE_URL).toString(),
+    });
+});
+
+app.get('/lookup', (req, res) => {
+    const {generatedAt, generationTimeMs} = getRenderMeta(res);
+    setNoCacheHeaders(res, {includeLegacy: true});
+
+    const rawLookup = getLookupQuery(req);
+    const lookupValue = typeof rawLookup === 'string' ? rawLookup.trim().slice(0, 200) : '';
+
+    if (!lookupValue) {
+        res.status(400);
+        res.render('lookup-not-found', {
+            lookupValue: '',
+            message: 'Enter an IP address, ASN, or organization name to look it up.',
+            generatedAt,
+            generationTimeMs,
+        });
+        return;
+    }
+
+    if (net.isIP(lookupValue)) {
+        const encoded = encodeURIComponent(lookupValue);
+        res.redirect(`/free-geo-ip?${encoded}`);
+        return;
+    }
+
+    const asnMatch = lookupValue.match(/^(?:as|asn)?\s*(\d+)$/i);
+    if (asnMatch) {
+        const asnNumber = asnInfoStore.parseAsnNumber(asnMatch[1]);
+        if (asnNumber && asnInfoStore.isAvailable()) {
+            const asnInfo = asnInfoStore.getAsnInfo(asnNumber);
+            if (asnInfo) {
+                res.redirect(`/as${asnNumber}`);
+                return;
+            }
+        }
+        const asnLabel = asnNumber ?? asnMatch[1];
+        res.status(404);
+        res.render('lookup-not-found', {
+            lookupValue,
+            message: `Nothing found for ASN ${asnLabel}.`,
+            generatedAt,
+            generationTimeMs,
+        });
+        return;
+    }
+
+    if (asnInfoStore.isAvailable() && typeof asnInfoStore.findOrgByPrefix === 'function') {
+        const orgMatch = asnInfoStore.findOrgByPrefix(lookupValue);
+        if (orgMatch?.slug) {
+            res.redirect(`/asn-${orgMatch.slug}`);
+            return;
+        }
+    }
+
+    res.status(404);
+    res.render('lookup-not-found', {
+        lookupValue,
+        message: `Nothing found for "${lookupValue}".`,
+        generatedAt,
+        generationTimeMs,
     });
 });
 

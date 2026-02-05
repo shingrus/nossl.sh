@@ -116,6 +116,24 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+.top-bar__cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.top-bar__lookup {
+  margin: 0;
+}
+
+.top-bar__lookup-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .brand,
 .branding {
   display: inline-flex;
@@ -496,8 +514,8 @@ a:focus-visible {
   width: 100%;
   max-width: 48ch;
   padding: 10px 12px;
-  border: 2px solid var(--border-strong);
-  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
   background: #ffffff;
   color: var(--text);
   font-size: 1rem;
@@ -513,6 +531,37 @@ a:focus-visible {
 
 .lookup-input::placeholder {
   color: #94a3b8;
+}
+
+.lookup-input--header {
+  flex: 1 1 180px;
+  max-width: 28ch;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border-radius: 6px;
+}
+
+.lookup-form--center {
+  justify-items: center;
+}
+
+.lookup-field--center {
+  justify-content: center;
+}
+
+.lookup-empty {
+  min-height: 40vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.lookup-empty__inner {
+  width: 100%;
+  max-width: 560px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
 }
 
 .meta-grid dt {
@@ -1086,6 +1135,15 @@ table tbody tr:hover {
   .top-bar__note,
   .top-bar__hint {
     width: 100%;
+  }
+
+  .top-bar__lookup-field {
+    width: 100%;
+  }
+
+  .lookup-input--header {
+    max-width: none;
+    flex: 1 1 100%;
   }
 
   .share-row {

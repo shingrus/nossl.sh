@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nossl.sh - Lookup</title>
+    <meta name="description" content="Smart lookup for IP addresses, ASNs, and organizations on nossl.sh." />
+    <meta property="og:title" content="nossl.sh - Lookup" />
+    <meta property="og:description" content="Smart lookup for IP addresses, ASNs, and organizations on nossl.sh." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="nossl.sh" />
+    <meta property="og:image" content="/static/og-image.png" />
+    <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="nossl.sh - Lookup" />
+    <meta name="twitter:description" content="Smart lookup for IP addresses, ASNs, and organizations on nossl.sh." />
+    <meta name="twitter:image" content="/static/og-image.png" />
+    <meta name="twitter:image:alt" content="Abstract teal and navy banner for nossl.sh" />
+    <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css?v=2" />
+  </head>
+  <body>
+    <%
+      const headerNote = 'Smart lookup';
+      const footerLines = ['Return to the <a href="/">main nossl.sh page</a>.'];
+    %>
+    <%- include('partials/header', {headerNote}) %>
+
+    <main class="container page">
+      <section class="card lookup-empty">
+        <div class="lookup-empty__inner">
+          <p class="eyebrow">Lookup</p>
+          <h1 class="card__title">Nothing found</h1>
+          <% if (message) { %>
+            <p class="muted"><%= message %></p>
+          <% } else if (lookupValue) { %>
+            <p class="muted">Nothing found for <span class="mono"><%= lookupValue %></span>.</p>
+          <% } else { %>
+            <p class="muted">Enter an IP address, ASN, or organization name to look it up.</p>
+          <% } %>
+          <form class="lookup-form lookup-form--center" method="get" action="/lookup">
+            <label class="label" for="lookup-value">Lookup</label>
+            <div class="lookup-field lookup-field--center">
+              <input
+                id="lookup-value"
+                name="q"
+                type="text"
+                class="lookup-input mono"
+                value="<%= lookupValue %>"
+                placeholder="1.1.1.1, AS13335, or Google"
+                inputmode="search"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                autofocus
+              />
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
+  </body>
+</html>

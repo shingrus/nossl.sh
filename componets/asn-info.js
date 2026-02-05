@@ -74,6 +74,7 @@ const createEmptyStore = () => ({
     getAsnsForOrg: () => [],
     getOrgSummaryBySlug: () => null,
     getAsnsByOrgSlug: () => [],
+    findOrgByPrefix: () => null,
 });
 
 export const createAsnInfoStore = (dbPath) => {
@@ -209,6 +210,29 @@ export const createAsnInfoStore = (dbPath) => {
                    AND d.domain IS NOT NULL
                    AND TRIM(d.domain) != ''
                  ORDER BY a.asn
+                 LIMIT 1
+            `)
+            : null;
+        const selectOrgByPrefixStmt = hasOrgSlugColumn
+            ? db.prepare(`
+                SELECT a.organization_slug AS slug,
+                       NULLIF(TRIM(a.organization), '') AS organization,
+                       ${IPV4_AMOUNT_SUM_TEXT_SQL} AS ipv4_amount,
+                       ${IPV6_AMOUNT_SUM_REAL_SQL} AS ipv6_amount,
+                       COUNT(*) AS asn_count
+                  FROM asn a
+                 WHERE a.organization IS NOT NULL
+                   AND TRIM(a.organization) != ''
+                   AND a.organization_slug IS NOT NULL
+                   AND TRIM(a.organization_slug) != ''
+                   AND LOWER(TRIM(a.organization)) LIKE LOWER(?)
+                 GROUP BY a.organization_slug, TRIM(a.organization)
+                HAVING ${IPV4_AMOUNT_SUM_SQL} > 0
+                    OR ${IPV6_AMOUNT_SUM_SQL} > 0
+                 ORDER BY LENGTH(${IPV4_AMOUNT_SUM_TEXT_SQL}) DESC,
+                          ${IPV4_AMOUNT_SUM_SQL} DESC,
+                          ${IPV6_AMOUNT_SUM_SQL} DESC,
+                          a.organization_slug ASC
                  LIMIT 1
             `)
             : null;
@@ -475,6 +499,50 @@ export const createAsnInfoStore = (dbPath) => {
             }
         };
 
+        const findOrgByPrefix = (prefix) => {
+            if (!selectOrgByPrefixStmt) {
+                return null;
+            }
+            const normalized = normalizeText(prefix);
+            if (!normalized) {
+                return null;
+            }
+            const safePrefix = normalized.replace(/[%_]+/g, '').slice(0, 100);
+            if (!safePrefix) {
+                return null;
+            }
+            try {
+                // eslint-disable-next-line no-console
+                console.log('ASN org prefix lookup', {prefix: normalized, query: `${safePrefix}%`});
+                const row = selectOrgByPrefixStmt.get(`${safePrefix}%`);
+                if (!row) {
+                    // eslint-disable-next-line no-console
+                    console.log('ASN org prefix lookup result: none');
+                    return null;
+                }
+                const asnCount = Number.isFinite(row.asn_count)
+                    ? row.asn_count
+                    : Number.parseInt(row.asn_count, 10);
+                // eslint-disable-next-line no-console
+                console.log('ASN org prefix lookup result', {
+                    slug: row.slug,
+                    organization: row.organization,
+                    asnCount,
+                });
+                return {
+                    slug: normalizeOrgSlug(row.slug),
+                    organization: normalizeText(row.organization),
+                    ipv4Amount: row.ipv4_amount ?? null,
+                    ipv6Amount: row.ipv6_amount ?? null,
+                    asnCount: Number.isFinite(asnCount) ? asnCount : 0,
+                };
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to query organization prefix', error);
+                return null;
+            }
+        };
+
         return {
             isAvailable: () => true,
             parseAsnNumber,
@@ -489,6 +557,7 @@ export const createAsnInfoStore = (dbPath) => {
             getAsnsForOrg,
             getOrgSummaryBySlug,
             getAsnsByOrgSlug,
+            findOrgByPrefix,
         };
     } catch (error) {
         // eslint-disable-next-line no-console
