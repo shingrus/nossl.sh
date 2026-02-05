@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= pageTitle %></title>
     <meta name="description" content="<%= pageDescription %>" />
+    <% if (canonicalUrl) { %>
+      <link rel="canonical" href="<%= canonicalUrl %>" />
+    <% } %>
     <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/styles.css?v=2" />
   </head>

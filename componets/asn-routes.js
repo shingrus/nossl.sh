@@ -8,6 +8,8 @@ import {
     normalizeCountryCode,
 } from './country-utils.js';
 
+const CANONICAL_BASE_URL = 'http://nossl.sh';
+
 const requireHelper = (value, name) => {
     if (typeof value !== 'function') {
         throw new TypeError(`registerAsnRoutes expected a function for ${name}`);
@@ -162,6 +164,9 @@ const createAsnPageHandler =
 
             const asnParam = req.params.asn;
             const asnNumber = asnInfoStore.parseAsnNumber(asnParam);
+            const canonicalUrl = asnNumber
+                ? new URL(`/as${asnNumber}`, CANONICAL_BASE_URL).toString()
+                : null;
             const apiUrl = asnNumber ? `${apiPath}${asnNumber}` : null;
 
             if (!asnNumber) {
@@ -186,6 +191,7 @@ const createAsnPageHandler =
                     errorMessage: 'Invalid ASN value.',
                     rawJson: null,
                     apiUrl: null,
+                    canonicalUrl,
                     generatedAt,
                     generationTimeMs,
                 });
@@ -214,6 +220,7 @@ const createAsnPageHandler =
                     errorMessage: 'ASN database is not configured.',
                     rawJson: null,
                     apiUrl,
+                    canonicalUrl,
                     generatedAt,
                     generationTimeMs,
                 });
@@ -243,6 +250,7 @@ const createAsnPageHandler =
                     errorMessage: `AS${asnNumber} not found.`,
                     rawJson: null,
                     apiUrl,
+                    canonicalUrl,
                     generatedAt,
                     generationTimeMs,
                 });
@@ -288,6 +296,7 @@ const createAsnPageHandler =
                 errorMessage: asnInfo.parseError ? 'ASN record could not be parsed.' : null,
                 rawJson: asnInfo.parseError ? asnInfo.rawJson : null,
                 apiUrl,
+                canonicalUrl,
                 generatedAt,
                 generationTimeMs,
             });
