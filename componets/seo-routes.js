@@ -1,8 +1,6 @@
 import {SEO_PAGES} from './seo-pages.js';
 import {setNoCacheHeaders} from './cache-headers.js';
 
-const CANONICAL_BASE_URL = 'https://nossl.sh';
-
 const requireHelper = (value, name) => {
     if (typeof value !== 'function') {
         throw new TypeError(`registerSeoRoutes expected a function for ${name}`);
@@ -11,10 +9,10 @@ const requireHelper = (value, name) => {
 };
 
 const createSeoPageRenderer =
-    ({getBaseRequestData, buildShareLinkForRequest}) =>
+    ({getBaseRequestData, buildShareLinkForRequest, canonicalBaseUrl}) =>
         (page) =>
             async (req, res) => {
-                const canonicalUrl = new URL(page.path, CANONICAL_BASE_URL);
+                const canonicalUrl = new URL(page.path, canonicalBaseUrl);
                 const baseData = getBaseRequestData(req, res) || {};
                 const counters = baseData.counters || {};
                 const totalRequests = baseData.totalRequests ?? 0;
@@ -49,9 +47,11 @@ export const registerSeoRoutes = (app, helpers = {}) => {
     }
 
     const getBaseRequestData = requireHelper(helpers.getBaseRequestData, 'getBaseRequestData');
+    const canonicalBaseUrl = helpers.canonicalBaseUrl;
     const renderSeoPage = createSeoPageRenderer({
         getBaseRequestData,
         buildShareLinkForRequest: helpers.buildShareLinkForRequest,
+        canonicalBaseUrl,
     });
 
     SEO_PAGES.forEach((page) => {

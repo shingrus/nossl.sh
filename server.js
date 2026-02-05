@@ -29,8 +29,7 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
     ? Number.parseInt(process.env.REPORT_TTL_SECONDS, 10)
     : 24 * 60 * 60;
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
-const GUIDE_INDEX_CANONICAL_URL = 'http://nossl.sh/guides';
-const DISCLAIMER_CANONICAL_URL = 'http://nossl.sh/disclaimer';
+const CANONICAL_BASE_URL = process.env.CANONICAL_BASE_URL?.trim() || 'http://nossl.sh';
 
 const geoDbPathEnv = process.env.GEOIP_DB_PATH;
 const asnDbPathEnv = process.env.ASNIP_DB_PATH;
@@ -688,6 +687,7 @@ app.get('/free-geo-ip-database', (req, res) => {
         geo,
         geoMmdbFilename,
         asnMmdbFilename,
+        canonicalUrl: new URL('/free-geo-ip-database', CANONICAL_BASE_URL).toString(),
     });
 });
 
@@ -709,6 +709,7 @@ app.get('/free-geo-ip', (req, res) => {
         countryPath,
         generatedAt,
         generationTimeMs,
+        canonicalUrl: new URL('/free-geo-ip', CANONICAL_BASE_URL).toString(),
     });
 });
 
@@ -939,7 +940,7 @@ app.get('/guides', (req, res) => {
         generatedAt,
         generationTimeMs,
         totalRequests,
-        canonicalUrl: GUIDE_INDEX_CANONICAL_URL,
+        canonicalUrl: new URL('/guides', CANONICAL_BASE_URL).toString(),
     });
 });
 
@@ -956,7 +957,7 @@ app.get('/disclaimer', (req, res) => {
         generatedAt,
         generationTimeMs,
         scheme,
-        canonicalUrl: DISCLAIMER_CANONICAL_URL,
+        canonicalUrl: new URL('/disclaimer', CANONICAL_BASE_URL).toString(),
     });
 });
 
@@ -973,10 +974,10 @@ app.get('/ss', (req, res) => {
     });
 });
 
-registerSeoRoutes(app, {getBaseRequestData, buildShareLinkForRequest});
-registerAsnOrgRoutes(app, {asnInfoStore, getRenderMeta});
-registerAsnRoutes(app, {asnInfoStore, getRenderMeta});
-registerAsnTopRoutes(app, {asnInfoStore, getRenderMeta});
+registerSeoRoutes(app, {getBaseRequestData, buildShareLinkForRequest, canonicalBaseUrl: CANONICAL_BASE_URL});
+registerAsnOrgRoutes(app, {asnInfoStore, getRenderMeta, canonicalBaseUrl: CANONICAL_BASE_URL});
+registerAsnRoutes(app, {asnInfoStore, getRenderMeta, canonicalBaseUrl: CANONICAL_BASE_URL});
+registerAsnTopRoutes(app, {asnInfoStore, getRenderMeta, canonicalBaseUrl: CANONICAL_BASE_URL});
 
 app.get('/healthz', (req, res) => {
     res.json({status: 'ok'});

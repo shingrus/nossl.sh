@@ -8,8 +8,6 @@ import {
     normalizeCountryCode,
 } from './country-utils.js';
 
-const CANONICAL_BASE_URL = 'http://nossl.sh';
-
 const requireHelper = (value, name) => {
     if (typeof value !== 'function') {
         throw new TypeError(`registerAsnRoutes expected a function for ${name}`);
@@ -157,7 +155,7 @@ const createAsnApiHandler = ({asnInfoStore}) => (req, res) => {
 };
 
 const createAsnPageHandler =
-    ({asnInfoStore, getRenderMeta, apiPath}) =>
+    ({asnInfoStore, getRenderMeta, apiPath, canonicalBaseUrl}) =>
         (req, res) => {
             const {generatedAt, generationTimeMs} = getRenderMeta(res);
             setNoCacheHeaders(res, {includeLegacy: true});
@@ -165,7 +163,7 @@ const createAsnPageHandler =
             const asnParam = req.params.asn;
             const asnNumber = asnInfoStore.parseAsnNumber(asnParam);
             const canonicalUrl = asnNumber
-                ? new URL(`/as${asnNumber}`, CANONICAL_BASE_URL).toString()
+                ? new URL(`/as${asnNumber}`, canonicalBaseUrl).toString()
                 : null;
             const apiUrl = asnNumber ? `${apiPath}${asnNumber}` : null;
 
@@ -311,7 +309,8 @@ export const registerAsnRoutes = (app, helpers = {}) => {
     const getRenderMeta = requireHelper(helpers.getRenderMeta, 'getRenderMeta');
     const asPath = typeof helpers.asPath === 'string' ? helpers.asPath : '/as';
     const apiPath = typeof helpers.apiPath === 'string' ? helpers.apiPath : '/api/as';
+    const canonicalBaseUrl = helpers.canonicalBaseUrl;
 
     app.get(`${apiPath}:asn`, createAsnApiHandler({asnInfoStore}));
-    app.get(`${asPath}:asn`, createAsnPageHandler({asnInfoStore, getRenderMeta, apiPath}));
+    app.get(`${asPath}:asn`, createAsnPageHandler({asnInfoStore, getRenderMeta, apiPath, canonicalBaseUrl}));
 };

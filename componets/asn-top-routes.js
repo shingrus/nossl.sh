@@ -48,6 +48,17 @@ const buildPageLinks = (activePath) =>
         active: page.path === activePath,
     }));
 
+const buildCanonicalUrl = (canonicalBaseUrl, path, pageNumber = null) => {
+    if (!path) {
+        return null;
+    }
+    const url = new URL(path, canonicalBaseUrl);
+    if (pageNumber && pageNumber > 1) {
+        url.searchParams.set('page', String(pageNumber));
+    }
+    return url.toString();
+};
+
 const parseNumber = (value) => {
     if (typeof value === 'number') {
         return Number.isFinite(value) ? value : null;
@@ -191,7 +202,7 @@ const getCountryDisplay = (value) => {
     };
 };
 
-const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res) => {
+const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family, canonicalBaseUrl}) => (req, res) => {
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
     setNoCacheHeaders(res, {includeLegacy: true});
 
@@ -204,6 +215,10 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
     const heroSubtitle = isIpv4
         ? 'Top ASN Ranked by total announced IPv4 address space. Related ASNs are grouped by organization.'
         : 'Top ASN Ranked by total announced IPv6 address space. Related ASNs are grouped by organization.';
+    const canonicalUrl = buildCanonicalUrl(
+        canonicalBaseUrl,
+        isIpv4 ? '/top-asn-by-ip-address' : '/top-asn-by-ipv6',
+    );
     const showSecondaryAmount = false;
     const ipv4Label = 'IPv4 addresses';
     const ipv6Label = 'IPv6 addresses (mln)';
@@ -252,12 +267,13 @@ const createTopAsnHandler = ({asnInfoStore, getRenderMeta, family}) => (req, res
         entries,
         errorMessage,
         pageLinks,
+        canonicalUrl,
         generatedAt,
         generationTimeMs,
     });
 };
 
-const createTopCountryHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
+const createTopCountryHandler = ({asnInfoStore, getRenderMeta, canonicalBaseUrl}) => (req, res) => {
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
     setNoCacheHeaders(res, {includeLegacy: true});
 
@@ -265,6 +281,7 @@ const createTopCountryHandler = ({asnInfoStore, getRenderMeta}) => (req, res) =>
     const pageDescription = 'Countries ranked by IPv4 address allocation, based on ASN allocations.';
     const heroTitle = pageTitle;
     const heroSubtitle = 'Ranked by total IPv4 address space across ASNs registered in each country.';
+    const canonicalUrl = buildCanonicalUrl(canonicalBaseUrl, '/list-of-countries-by-ipv4-allocation');
     const pageLinks = buildPageLinks('/list-of-countries-by-ipv4-allocation');
 
     let errorMessage = null;
@@ -303,12 +320,13 @@ const createTopCountryHandler = ({asnInfoStore, getRenderMeta}) => (req, res) =>
         entries,
         errorMessage,
         pageLinks,
+        canonicalUrl,
         generatedAt,
         generationTimeMs,
     });
 };
 
-const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlugIndex}) => (req, res) => {
+const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlugIndex, canonicalBaseUrl}) => (req, res) => {
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
     setNoCacheHeaders(res, {includeLegacy: true});
 
@@ -318,6 +336,10 @@ const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlu
     const countryCode = countryEntry?.code || (countryValue ? normalizeCountryCode(countryValue) : null);
     const page = parsePageNumber(req.query?.page, 1);
     const limit = 1000;
+    const basePath = countryValue
+        ? (buildCountryAsnListPath(countryValue) || '/list-of-countries-by-ipv4-allocation')
+        : null;
+    let canonicalUrl = buildCanonicalUrl(canonicalBaseUrl, basePath, page);
 
     if (!countryValue) {
         res.status(404);
@@ -337,6 +359,7 @@ const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlu
             pageLinks: buildPageLinks(null),
             errorMessage: 'Invalid country value.',
             pagination: null,
+            canonicalUrl: null,
             generatedAt,
             generationTimeMs,
         });
@@ -380,7 +403,6 @@ const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlu
                 primaryAmountDisplay: formatIpv4Amount(entry.ipv4Amount),
             }));
 
-            const basePath = buildCountryAsnListPath(countryValue) || '/list-of-countries-by-ipv4-allocation';
             const buildPageUrl = (pageNumber) =>
                 pageNumber === 1 ? basePath : `${basePath}?page=${pageNumber}`;
             pagination = {
@@ -392,6 +414,9 @@ const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlu
                 prevUrl: safePage > 1 ? buildPageUrl(safePage - 1) : null,
                 nextUrl: safePage < totalPages ? buildPageUrl(safePage + 1) : null,
             };
+            if (safePage !== page) {
+                canonicalUrl = buildCanonicalUrl(canonicalBaseUrl, basePath, safePage);
+            }
         }
     }
 
@@ -421,12 +446,13 @@ const createCountryAsnListHandler = ({asnInfoStore, getRenderMeta, getCountrySlu
         errorMessage,
         pageLinks: buildPageLinks(null),
         pagination,
+        canonicalUrl,
         generatedAt,
         generationTimeMs,
     });
 };
 
-const createTopOrgHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
+const createTopOrgHandler = ({asnInfoStore, getRenderMeta, canonicalBaseUrl}) => (req, res) => {
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
     setNoCacheHeaders(res, {includeLegacy: true});
 
@@ -434,6 +460,7 @@ const createTopOrgHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
     const pageDescription = 'Top 10 organizations ranked by IPv4 address space, with related ASNs.';
     const heroTitle = pageTitle;
     const heroSubtitle = 'Ranked by total IPv4 address space across each organization.';
+    const canonicalUrl = buildCanonicalUrl(canonicalBaseUrl, '/top-organizations-by-ip-address');
     const pageLinks = buildPageLinks('/top-organizations-by-ip-address');
 
     let errorMessage = null;
@@ -475,6 +502,7 @@ const createTopOrgHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
         entries,
         errorMessage,
         pageLinks,
+        canonicalUrl,
         generatedAt,
         generationTimeMs,
     });
@@ -488,13 +516,19 @@ export const registerAsnTopRoutes = (app, helpers = {}) => {
     const asnInfoStore = requireAsnStore(helpers.asnInfoStore);
     const getRenderMeta = requireHelper(helpers.getRenderMeta, 'getRenderMeta');
     const getCountrySlugIndex = createCountrySlugIndex(asnInfoStore);
+    const canonicalBaseUrl = helpers.canonicalBaseUrl;
 
-    app.get('/top-asn-by-ip-address', createTopAsnHandler({asnInfoStore, getRenderMeta, family: 'ipv4'}));
-    app.get('/top-asn-by-ipv6', createTopAsnHandler({asnInfoStore, getRenderMeta, family: 'ipv6'}));
-    app.get('/top-organizations-by-ip-address', createTopOrgHandler({asnInfoStore, getRenderMeta}));
-    app.get('/list-of-countries-by-ipv4-allocation', createTopCountryHandler({asnInfoStore, getRenderMeta}));
+    app.get('/top-asn-by-ip-address', createTopAsnHandler({asnInfoStore, getRenderMeta, family: 'ipv4', canonicalBaseUrl}));
+    app.get('/top-asn-by-ipv6', createTopAsnHandler({asnInfoStore, getRenderMeta, family: 'ipv6', canonicalBaseUrl}));
+    app.get('/top-organizations-by-ip-address', createTopOrgHandler({asnInfoStore, getRenderMeta, canonicalBaseUrl}));
+    app.get('/list-of-countries-by-ipv4-allocation', createTopCountryHandler({asnInfoStore, getRenderMeta, canonicalBaseUrl}));
     app.get('/top-countries-by-ip-address', (req, res) => {
         res.redirect(301, '/list-of-countries-by-ipv4-allocation');
     });
-    app.get(/^\/([a-z0-9-]+)-asn-list$/i, createCountryAsnListHandler({asnInfoStore, getRenderMeta, getCountrySlugIndex}));
+    app.get(/^\/([a-z0-9-]+)-asn-list$/i, createCountryAsnListHandler({
+        asnInfoStore,
+        getRenderMeta,
+        getCountrySlugIndex,
+        canonicalBaseUrl,
+    }));
 };

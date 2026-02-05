@@ -38,12 +38,13 @@ const buildOrgPageDescription = (orgName, ipv4Prefixes, ipv6Prefixes, domain) =>
     return description;
 };
 
-const createOrgPageHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
+const createOrgPageHandler = ({asnInfoStore, getRenderMeta, canonicalBaseUrl}) => (req, res) => {
     const {generatedAt, generationTimeMs} = getRenderMeta(res);
     setNoCacheHeaders(res, {includeLegacy: true});
 
     const orgParam = req.params.orgSlug;
     const orgSlug = normalizeOrgSlug(orgParam);
+    const canonicalUrl = orgSlug ? new URL(`/asn-${orgSlug}`, canonicalBaseUrl).toString() : null;
     if (!orgSlug) {
         res.status(400);
         res.render('asn-org', {
@@ -59,6 +60,7 @@ const createOrgPageHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
             pageTitle: 'Organization lookup error',
             pageDescription: 'Invalid organization slug.',
             errorMessage: 'Invalid organization value.',
+            canonicalUrl,
             generatedAt,
             generationTimeMs,
         });
@@ -80,6 +82,7 @@ const createOrgPageHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
             pageTitle: buildOrgPageTitle(null, orgSlug),
             pageDescription: 'Organization details are unavailable because the ASN database is not configured.',
             errorMessage: 'ASN database is not configured.',
+            canonicalUrl,
             generatedAt,
             generationTimeMs,
         });
@@ -102,6 +105,7 @@ const createOrgPageHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
             pageTitle: buildOrgPageTitle(null, orgSlug),
             pageDescription: `No ASN organization record found for ${orgSlug}.`,
             errorMessage: `Organization ${orgSlug} not found.`,
+            canonicalUrl,
             generatedAt,
             generationTimeMs,
         });
@@ -151,6 +155,7 @@ const createOrgPageHandler = ({asnInfoStore, getRenderMeta}) => (req, res) => {
         pageTitle,
         pageDescription,
         errorMessage: null,
+        canonicalUrl,
         generatedAt,
         generationTimeMs,
     });
@@ -163,6 +168,7 @@ export const registerAsnOrgRoutes = (app, helpers = {}) => {
 
     const asnInfoStore = requireAsnStore(helpers.asnInfoStore);
     const getRenderMeta = requireHelper(helpers.getRenderMeta, 'getRenderMeta');
+    const canonicalBaseUrl = helpers.canonicalBaseUrl;
 
-    app.get('/asn-:orgSlug', createOrgPageHandler({asnInfoStore, getRenderMeta}));
+    app.get('/asn-:orgSlug', createOrgPageHandler({asnInfoStore, getRenderMeta, canonicalBaseUrl}));
 };

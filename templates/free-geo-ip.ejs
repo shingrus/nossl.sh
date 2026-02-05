@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Free Geo IP Lookup + ASN | nossl.sh</title>
     <meta name="description" content="Free Geo IP lookup with ASN, organization, and city info. Search any IP address and get instant JSON results." />
-    <link rel="canonical" href="http://nossl.sh/free-geo-ip" />
+    <% if (canonicalUrl) { %>
+      <link rel="canonical" href="<%= canonicalUrl %>" />
+    <% } %>
     <meta property="og:title" content="Free Geo IP Lookup + ASN | nossl.sh" />
     <meta property="og:description" content="Free Geo IP lookup with ASN, organization, and city info. Search any IP address and get instant JSON results." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="http://nossl.sh/free-geo-ip" />
+    <% if (canonicalUrl) { %>
+      <meta property="og:url" content="<%= canonicalUrl %>" />
+    <% } %>
     <meta property="og:site_name" content="nossl.sh" />
     <meta property="og:image" content="/static/og-image.png" />
     <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />

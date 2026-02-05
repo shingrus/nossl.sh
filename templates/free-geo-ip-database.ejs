@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Free Geo + ASN MMDB databases | nossl.sh</title>
     <meta name="description" content="Free Geo IP + ASN MMDB databases for IPv4 and IPv6 lookups. Direct downloads with usage examples and live sample data." />
-    <link rel="canonical" href="http://nossl.sh/free-geo-ip-database" />
+    <% if (canonicalUrl) { %>
+      <link rel="canonical" href="<%= canonicalUrl %>" />
+    <% } %>
     <meta property="og:title" content="Free Geo + ASN MMDB databases | nossl.sh" />
     <meta property="og:description" content="Free Geo IP + ASN MMDB databases for IPv4 and IPv6 lookups. Direct downloads with usage examples and live sample data." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="http://nossl.sh/free-geo-ip-database" />
+    <% if (canonicalUrl) { %>
+      <meta property="og:url" content="<%= canonicalUrl %>" />
+    <% } %>
     <meta property="og:site_name" content="nossl.sh" />
     <meta property="og:image" content="/static/og-image.png" />
     <meta property="og:image:alt" content="Abstract teal and navy banner for nossl.sh" />
