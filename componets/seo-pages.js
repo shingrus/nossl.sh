@@ -450,7 +450,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 heading: 'See both addresses side by side',
                 paragraphs: [
-                    'The main nossl.sh page shows your IPv4 immediately and calls v6.nossl.sh in the background to reveal IPv6 when available.',
+                    'The main nossl.sh page shows your primary IP immediately and calls v6.nossl.sh or v4.nossl.sh in the background to reveal the other family when available.',
                     'Everything stays on simple HTTP so captive portals and constrained devices can still display the report.',
                 ],
                 bullets: [
@@ -474,7 +474,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 question: 'Will the page show IPv6 automatically?',
                 answer:
-                    'Yes. If your network hands out IPv6, the page fetches v6.nossl.sh and displays the address alongside IPv4 so you can prove dual-stack routing.',
+                    'Yes. When your network provides both families, the page fetches the other-family probe (v6.nossl.sh or v4.nossl.sh) and displays it alongside your primary IP.',
             },
             {
                 question: 'Is the data cached?',
@@ -497,7 +497,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 heading: 'Confirm IPv6 reachability',
                 paragraphs: [
-                    'Load nossl.sh to see IPv4 immediately, then let the built-in v6 probe surface your IPv6 address when the network provides one.',
+                    'Load nossl.sh to see your primary IP immediately, then let the built-in probe surface your IPv6 address when the network provides one.',
                     'The page stays minimal so it still works behind captive portals that block heavier IPv6 testers.',
                 ],
                 bullets: [
@@ -591,7 +591,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 heading: 'Immediate dual-stack lookup',
                 paragraphs: [
-                    'Open nossl.sh and you will see your IPv4 right away, with an automatic call to v6.nossl.sh to surface IPv6 when the network provides it.',
+                    'Open nossl.sh and you will see your primary IP right away, with an automatic call to v6.nossl.sh or v4.nossl.sh to surface the other family when the network provides it.',
                     'Everything stays lightweight and HTTP-only so captive portals cannot block it.',
                 ],
                 bullets: [
@@ -608,7 +608,7 @@ export const SEO_PAGES = Object.freeze([
                 bullets: [
                     'Header table shows what proxies and VPNs add.',
                     'Geo hint helps confirm which ISP or exit point you are using.',
-                    'CLI-friendly with curl http://nossl.sh for plain text output.',
+                    'CLI-friendly with curl http://v4.nossl.sh or curl http://v6.nossl.sh for plain text output.',
                 ],
             },
         ],
@@ -616,7 +616,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 question: 'Does this work from the terminal?',
                 answer:
-                    'Yes. curl http://nossl.sh prints your IPv4 with a newline, and curl http://v6.nossl.sh prints IPv6 when available.',
+                    'Yes. curl http://v4.nossl.sh prints your IPv4 with a newline, and curl http://v6.nossl.sh prints IPv6 when available.',
             },
             {
                 question: 'Is any data cached?',
@@ -815,7 +815,7 @@ export const SEO_PAGES = Object.freeze([
         path: '/curl-my-ip',
         title: 'curl my IP address with plain-text output',
         description:
-            'Run curl http://nossl.sh to print your public IPv4 with just a newline, or fetch JSON headers for richer diagnostics.',
+            'Run curl http://v4.nossl.sh to print your public IPv4 with just a newline, or fetch JSON headers for richer diagnostics.',
         keywords: 'curl my ip, curl my ip address, curl ipv4, curl whats my ip, curl ip command',
         category: 'ipTools',
         hero: 'curl my IP address',
@@ -825,11 +825,11 @@ export const SEO_PAGES = Object.freeze([
             {
                 heading: 'One-line commands to copy',
                 paragraphs: [
-                    'Use curl against nossl.sh to grab your IPv4 address without extra markup or TLS overhead.',
+                    'Use curl against v4.nossl.sh to grab your IPv4 address without extra markup or TLS overhead.',
                 ],
                 bullets: [
-                    'IPv4 only: curl http://nossl.sh',
-                    'IPv4 with JSON headers: curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                    'IPv4 only: curl http://v4.nossl.sh',
+                    'IPv4 with JSON headers: curl -H "Accept: application/json" http://v4.nossl.sh/api/request-info',
                     'Refresh anytime for a fresh timestamp and IP.',
                 ],
             },
@@ -877,7 +877,7 @@ export const SEO_PAGES = Object.freeze([
                 bullets: [
                     'IPv6 only: curl http://v6.nossl.sh',
                     'IPv6 + headers: curl -H "Accept: application/json" http://nossl.sh/api/request-info',
-                    'Compare to IPv4 by running curl http://nossl.sh.',
+                    'Compare to IPv4 by running curl http://v4.nossl.sh.',
                 ],
             },
             {
@@ -943,7 +943,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 question: 'Can I get plain text instead?',
                 answer:
-                    'Yes. curl http://nossl.sh returns just the IPv4 address, and curl http://v6.nossl.sh returns IPv6 when present.',
+                    'Yes. curl http://v4.nossl.sh returns just the IPv4 address, and curl http://v6.nossl.sh returns IPv6 when present.',
             },
             {
                 question: 'Does the JSON include geo?',
@@ -966,13 +966,13 @@ export const SEO_PAGES = Object.freeze([
             {
                 heading: 'One-line commands to copy',
                 paragraphs: [
-                    'Use curl http://nossl.sh for IPv4 and curl http://v6.nossl.sh for IPv6. Each responds with just the address and a trailing newline.',
+                    'Use curl http://v4.nossl.sh for IPv4 and curl http://v6.nossl.sh for IPv6. Each responds with just the address and a trailing newline.',
                     'Need more detail? Hit /api/request-info with curl to get JSON headers alongside your IP.',
                 ],
                 bullets: [
-                    'curl http://nossl.sh',
+                    'curl http://v4.nossl.sh',
                     'curl http://v6.nossl.sh',
-                    'curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                    'curl -H "Accept: application/json" http://v4.nossl.sh/api/request-info',
                 ],
             },
             {
@@ -991,7 +991,7 @@ export const SEO_PAGES = Object.freeze([
             {
                 question: 'Does the curl output include IPv6?',
                 answer:
-                    'Use the v6 endpoint for IPv6-only output; the main host stays on IPv4 so there is no ambiguity.',
+                    'Use the v6 endpoint for IPv6-only output and the v4 endpoint for IPv4-only output; the main host may resolve to either family.',
             },
             {
                 question: 'Can I force HTTPS instead?',
@@ -1018,9 +1018,9 @@ export const SEO_PAGES = Object.freeze([
                     'Choose the plain-text or JSON endpoints depending on what your tooling needs.',
                 ],
                 bullets: [
-                    'Plain text IPv4: curl http://nossl.sh',
+                    'Plain text IPv4: curl http://v4.nossl.sh',
                     'Plain text IPv6: curl http://v6.nossl.sh',
-                    'JSON with headers: curl -H "Accept: application/json" http://nossl.sh/api/request-info',
+                    'JSON with headers: curl -H "Accept: application/json" http://v4.nossl.sh/api/request-info',
                 ],
             },
             {

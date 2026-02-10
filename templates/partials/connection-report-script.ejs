@@ -4,14 +4,43 @@
     const headersCopyButton = document.querySelector('[data-copy-headers]');
     const headersToggleButton = document.querySelector('[data-toggle-headers]');
     const shareButton = document.querySelector('[data-share-report]');
-    const ipv6Block = document.querySelector('[data-ipv6-row]');
-    const ipv6ValueEl = ipv6Block?.querySelector('[data-ipv6-value]');
-    const ipv6CopyButton = ipv6Block?.querySelector('[data-copy-text]');
+    const secondaryBlocks = Array.from(document.querySelectorAll('[data-ipv6-row]'));
+    const secondaryValueEls = Array.from(document.querySelectorAll('[data-ipv6-value]'));
+    const secondaryCopyButtons = secondaryBlocks.flatMap((block) =>
+      Array.from(block.querySelectorAll('[data-copy-text]'))
+    );
+    const secondaryLabelEls = Array.from(document.querySelectorAll('[data-secondary-ip-label]'));
+    const secondarySrEls = Array.from(document.querySelectorAll('[data-secondary-ip-sr]'));
     const beaconResolverEl = document.querySelector('[data-beacon-resolver]');
     const mainIp = (<%- JSON.stringify(clientIp || '') %>).trim();
     const shareReportId = <%- JSON.stringify(shareReportId || null) %>;
     const beaconHostSuffix = '.r.nossl.sh';
     const isDev = <%- JSON.stringify(Boolean(isDev)) %>;
+
+    const isIpv6 = (value) => {
+      if (!value) {
+        return false;
+      }
+      const trimmed = value.trim().toLowerCase();
+      if (!trimmed) {
+        return false;
+      }
+      if (trimmed.startsWith('::ffff:')) {
+        return false;
+      }
+      return trimmed.includes(':');
+    };
+
+    const isMainIpv6 = isIpv6(mainIp);
+    const secondaryLabel = isMainIpv6 ? 'IPv4 address' : 'IPv6 address';
+    const secondaryCopyLabel = isMainIpv6 ? 'Copy IPv4 address' : 'Copy IPv6 address';
+
+    secondaryLabelEls.forEach((label) => {
+      label.textContent = secondaryLabel;
+    });
+    secondarySrEls.forEach((label) => {
+      label.textContent = secondaryCopyLabel;
+    });
 
     const fallbackCopyText = (text) => {
       const textarea = document.createElement('textarea');
@@ -136,23 +165,29 @@
       });
     }
 
-    const revealIpv6 = (ip) => {
-      if (!ipv6Block || !ipv6ValueEl || !ip) {
+    const revealSecondaryIp = (ip) => {
+      if (!secondaryBlocks.length || !secondaryValueEls.length || !ip) {
         return;
       }
-      ipv6ValueEl.textContent = ip;
-      if (ipv6CopyButton) {
-        ipv6CopyButton.setAttribute('data-copy-text', ip);
-      }
-      ipv6Block.hidden = false;
+      secondaryValueEls.forEach((valueEl) => {
+        valueEl.textContent = ip;
+      });
+      secondaryCopyButtons.forEach((button) => {
+        button.setAttribute('data-copy-text', ip);
+      });
+      secondaryBlocks.forEach((block) => {
+        block.hidden = false;
+      });
     };
 
-    const fetchIpv6 = async () => {
-      if (!ipv6Block) {
+    const fetchSecondaryIp = async () => {
+      if (!secondaryBlocks.length) {
         return;
       }
       try {
-        const apiUrl = new URL('http://v6.nossl.sh/api/request-info');
+        const apiUrl = new URL(
+          isMainIpv6 ? 'http://v4.nossl.sh/api/request-info' : 'http://v6.nossl.sh/api/request-info'
+        );
         if (shareReportId) {
           apiUrl.searchParams.set('reportId', shareReportId);
         }
@@ -168,18 +203,21 @@
         }
 
         const payload = await response.json();
-        const ipv6 = (payload?.clientIp || '').trim();
-        if (!ipv6 || ipv6 === mainIp) {
+        const candidateIp = isMainIpv6
+          ? (payload?.clientIpv4 || payload?.clientIp)
+          : (payload?.clientIpv6 || payload?.clientIp);
+        const secondaryIp = (candidateIp || '').trim();
+        if (!secondaryIp || secondaryIp === mainIp) {
           return;
         }
 
-        revealIpv6(ipv6);
+        revealSecondaryIp(secondaryIp);
       } catch (error) {
-        // Ignore errors; IPv6 info is optional.
+        // Ignore errors; secondary IP info is optional.
       }
     };
 
-    fetchIpv6();
+    fetchSecondaryIp();
 
     const generateBeaconUniq = () => {
       if (window.crypto?.getRandomValues) {

@@ -485,6 +485,18 @@ const extractClientIpv6 = (ip) => {
     return net.isIP(normalized) === 6 ? normalized : null;
 };
 
+const extractClientIpv4 = (ip) => {
+    const normalized = (ip || '').trim();
+    if (!normalized) {
+        return null;
+    }
+    if (normalized.startsWith('::ffff:')) {
+        const mapped = normalized.slice(7);
+        return net.isIP(mapped) === 4 ? mapped : null;
+    }
+    return net.isIP(normalized) === 4 ? normalized : null;
+};
+
 const getScheme = (req) => {
     const forwardedProto = req.headers['x-forwarded-proto'];
     if (forwardedProto) {
@@ -825,6 +837,7 @@ app.get('/api/request-info', async (req, res) => {
     const reportId = typeof reportIdParam === 'string' ? reportIdParam.trim() : null;
     const scheme = getScheme(req);
     const clientIp = getClientIp(req);
+    const clientIpv4 = extractClientIpv4(clientIp);
     const clientIpv6 = extractClientIpv6(clientIp);
     const geo = lookupGeo(clientIp);
     const headers = normalizeHeaders(req.headers).reduce((acc, [key, value]) => {
@@ -832,15 +845,21 @@ app.get('/api/request-info', async (req, res) => {
         return acc;
     }, {});
 
-    if (reportId && clientIpv6 && shareReportStore?.isAvailable?.()) {
+    if (reportId && (clientIpv4 || clientIpv6) && shareReportStore?.isAvailable?.()) {
         try {
             const snapshot = await shareReportStore.readSnapshot(reportId);
             if (snapshot) {
-                const currentIpv6 = snapshot.clientIpv6;
-                if (currentIpv6 !== clientIpv6) {
+                const updates = {};
+                if (clientIpv6 && snapshot.clientIpv6 !== clientIpv6) {
+                    updates.clientIpv6 = clientIpv6;
+                }
+                if (clientIpv4 && snapshot.clientIpv4 !== clientIpv4) {
+                    updates.clientIpv4 = clientIpv4;
+                }
+                if (Object.keys(updates).length > 0) {
                     await shareReportStore.writeSnapshot(reportId, {
                         ...snapshot,
-                        clientIpv6,
+                        ...updates,
                     });
                 }
             }
@@ -853,6 +872,7 @@ app.get('/api/request-info', async (req, res) => {
         scheme,
         status: scheme === 'https' ? 'secure' : 'insecure',
         clientIp,
+        clientIpv4,
         clientIpv6,
         reportId,
         headers,

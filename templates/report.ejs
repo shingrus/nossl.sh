@@ -14,7 +14,7 @@
       const headerCount = headerPairs.length;
       // const schemeLabel = report?.scheme === 'https' ? 'HTTPS' : 'HTTP';
       // const httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1') + ' · ' + schemeLabel;
-      var httpLabel = '';
+      var httpLabel;
       if (report?.scheme === 'https')  {
           httpLabel = (report?.httpVersion ? `HTTPS/${report.httpVersion}` : 'HTTPS/1.1');
       } else
@@ -22,7 +22,25 @@
           httpLabel = (report?.httpVersion ? `HTTP/${report.httpVersion}` : 'HTTP/1.1');
       }
 
-
+      const mainIp = report?.clientIp || '';
+      const isIpv6 = (value) => {
+        if (!value) {
+          return false;
+        }
+        const trimmed = String(value).trim().toLowerCase();
+        if (!trimmed) {
+          return false;
+        }
+        if (trimmed.startsWith('::ffff:')) {
+          return false;
+        }
+        return trimmed.includes(':');
+      };
+      const mainIsIpv6 = isIpv6(mainIp);
+      const secondaryIp = (mainIsIpv6 ? report?.clientIpv4 : report?.clientIpv6) || '';
+      const secondaryLabel = mainIsIpv6 ? 'IPv4 address' : 'IPv6 address';
+      const secondaryCopyLabel = `Copy ${secondaryLabel}`;
+      const hasSecondaryIp = secondaryIp && secondaryIp.trim() && secondaryIp !== mainIp;
       const geo = report?.geo;
       const resolverIp = (report?.resolverIp || report?.resolver_ip || '').trim();
       const orgLink = geo?.asn ? `/as${geo.asn}` : null;
@@ -64,13 +82,13 @@
               <span class="ip-copy-icon" aria-hidden="true">⧉</span>
               <span class="sr-only">Copy IP address</span>
             </button>
-            <% if (report.clientIpv6) { %>
+            <% if (hasSecondaryIp) { %>
               <div class="ip6-block">
-                <p class="label">IPv6 address</p>
-                <button type="button" class="ip-row ip-copy" data-copy-text="<%= report.clientIpv6 %>" data-flash-mode="overlay">
-                  <span class="ip6-value mono"><%= report.clientIpv6 %></span>
+                <p class="label"><%= secondaryLabel %></p>
+                <button type="button" class="ip-row ip-copy" data-copy-text="<%= secondaryIp %>" data-flash-mode="overlay">
+                  <span class="ip6-value mono"><%= secondaryIp %></span>
                   <span class="ip-copy-icon" aria-hidden="true">⧉</span>
-                  <span class="sr-only">Copy IPv6 address</span>
+                  <span class="sr-only"><%= secondaryCopyLabel %></span>
                 </button>
               </div>
             <% } %>
