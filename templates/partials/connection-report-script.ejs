@@ -5,7 +5,7 @@
     const headersToggleButton = document.querySelector('[data-toggle-headers]');
     const shareButton = document.querySelector('[data-share-report]');
     const secondaryBlocks = Array.from(document.querySelectorAll('[data-ipv6-row]'));
-    const secondaryValueEls = Array.from(document.querySelectorAll('[data-ipv6-value]'));
+    const secondaryValueEl = document.querySelector('[data-ipv6-value]');
     const secondaryCopyButtons = secondaryBlocks.flatMap((block) =>
       Array.from(block.querySelectorAll('[data-copy-text]'))
     );
@@ -166,12 +166,10 @@
     }
 
     const revealSecondaryIp = (ip) => {
-      if (!secondaryBlocks.length || !secondaryValueEls.length || !ip) {
+      if (!secondaryBlocks.length || !secondaryValueEl || !ip) {
         return;
       }
-      secondaryValueEls.forEach((valueEl) => {
-        valueEl.textContent = ip;
-      });
+      secondaryValueEl.textContent = ip;
       secondaryCopyButtons.forEach((button) => {
         button.setAttribute('data-copy-text', ip);
       });
