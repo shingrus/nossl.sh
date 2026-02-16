@@ -52,6 +52,13 @@
         }
       ];
       const displayedUpdates = latestUpdates.slice(0, 10);
+      const geoCoveragePercent = Number.isFinite(geoIpCoverage?.coveragePercent) ? geoIpCoverage.coveragePercent : 0;
+      const geoCoverageAllIpCount = Number.isFinite(geoIpCoverage?.allIpCount) ? geoIpCoverage.allIpCount : 0;
+      const geoCoveragePercentLabel = geoCoverageAllIpCount > 0
+        ? `${geoCoveragePercent.toFixed(1)} % (${geoCoverageAllIpCount.toLocaleString('en-US')})`
+        : '0 %';
+      const geoCoverageSemaphoreLevel = geoIpCoverage?.semaphore?.level || 'none';
+      const geoCoverageSemaphoreLabel = geoIpCoverage?.semaphore?.label || 'No data';
       const statItems = [
         {label: 'Total requests', value: totalRequests},
         {label: 'API requests', value: counters.apiCount},
@@ -86,6 +93,17 @@
               <span class="stat-value mono"><%= item.value.toLocaleString('en-US') %></span>
             </div>
           <% }) %>
+          <div class="stat">
+            <span class="stat-label">Geop coverage</span>
+            <div class="stat-value-with-semaphore">
+              <span class="geo-semaphore stat-semaphore geo-semaphore--<%= geoCoverageSemaphoreLevel %>" role="img" aria-label="GeoIP quality status: <%= geoCoverageSemaphoreLabel %>">
+                <span class="geo-semaphore__light geo-semaphore__light--good"></span>
+                <span class="geo-semaphore__light geo-semaphore__light--warn"></span>
+                <span class="geo-semaphore__light geo-semaphore__light--bad"></span>
+              </span>
+              <span class="stat-value mono"><%= geoCoveragePercentLabel %></span>
+            </div>
+          </div>
         </div>
       </section>
 

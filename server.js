@@ -508,6 +508,88 @@ const getScheme = (req) => {
 
 const honeypotService = createHoneypotService(db, {getClientIp});
 const ipRecordService = createIpRecordService(db);
+const selectDistinctIpsForGeoCoverageStmt = db.prepare(`
+    SELECT DISTINCT ip
+    FROM ip_records
+    LIMIT ?
+`);
+const GEO_IP_COVERAGE_CACHE_TTL_MS = 30 * 1000;
+let geoIpCoverageCache = null;
+
+const getGeoCoverageSemaphore = (coveragePercent, allIpCount) => {
+    if (!allIpCount) {
+        return {
+            level: 'none',
+            label: 'No data',
+            description: 'No tracked IPs yet.',
+        };
+    }
+    if (coveragePercent >= 80) {
+        return {
+            level: 'good',
+            label: 'Green',
+            description: 'Coverage looks healthy.',
+        };
+    }
+    if (coveragePercent >= 50) {
+        return {
+            level: 'warn',
+            label: 'Yellow',
+            description: 'Coverage is partial; refresh GeoIP data soon.',
+        };
+    }
+    return {
+        level: 'bad',
+        label: 'Red',
+        description: 'Coverage is low; GeoIP data likely stale or sparse.',
+    };
+};
+
+const getGeoIpCoverageStats = () => {
+    const now = Date.now();
+    if (geoIpCoverageCache && now < geoIpCoverageCache.expiresAt) {
+        return geoIpCoverageCache.value;
+    }
+
+    const sampleLimit = ipRecordService.maxRecords;
+    try {
+        const rows = selectDistinctIpsForGeoCoverageStmt.all(sampleLimit);
+        let knownIpCount = 0;
+
+        rows.forEach(({ip}) => {
+            const cityName = lookupGeo(ip)?.cityName;
+            if (typeof cityName === 'string' && cityName.trim()) {
+                knownIpCount += 1;
+            }
+        });
+
+        const allIpCount = rows.length;
+        const coveragePercent = allIpCount > 0 ? (knownIpCount / allIpCount) * 100 : 0;
+        const value = {
+            knownIpCount,
+            allIpCount,
+            sampleLimit,
+            coveragePercent,
+            semaphore: getGeoCoverageSemaphore(coveragePercent, allIpCount),
+        };
+
+        geoIpCoverageCache = {
+            expiresAt: now + GEO_IP_COVERAGE_CACHE_TTL_MS,
+            value,
+        };
+        return value;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to compute GeoIP coverage stats', error);
+        return geoIpCoverageCache?.value || {
+            knownIpCount: 0,
+            allIpCount: 0,
+            sampleLimit,
+            coveragePercent: 0,
+            semaphore: getGeoCoverageSemaphore(0, 0),
+        };
+    }
+};
 
 const recordEndpointIp = (endpoint, clientIp) => {
     try {
@@ -1095,6 +1177,7 @@ app.get('/disclaimer', (req, res) => {
 app.get('/ss', (req, res) => {
     const baseData = getBaseRequestData(req, res);
     const {generatedAt, generationTimeMs, counters, totalRequests} = baseData;
+    const geoIpCoverage = getGeoIpCoverageStats();
 
     setNoCacheHeaders(res, {includeLegacy: true});
     res.render('service-status', {
@@ -1102,6 +1185,7 @@ app.get('/ss', (req, res) => {
         generationTimeMs,
         counters,
         totalRequests,
+        geoIpCoverage,
     });
 });
 
