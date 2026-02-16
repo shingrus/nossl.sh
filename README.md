@@ -84,3 +84,6 @@ Common environment variables:
 - `ASN_INFO_DB_PATH` (ASN info SQLite)
 - `REDIS_URL` (shared reports and beacons)
 - `SQLDB` (honeypot/counters SQLite)
+- `MAX_HONEYPOT` (max unique honeypot IP rows, default `1024`)
+- `MAX_IP_RECORDS` (max unique IP rows per tracked API endpoint, default `100000`)
+- 

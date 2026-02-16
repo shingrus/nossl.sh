@@ -6,6 +6,7 @@ import net from 'net';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import Database from 'better-sqlite3';
+import {createIpRecordService} from './componets/ip-record.js';
 import {createAsnInfoStore} from './componets/asn-info.js';
 import {createHoneypotService} from './componets/honeypot.js';
 import {registerAsnOrgRoutes} from './componets/asn-org-routes.js';
@@ -506,6 +507,24 @@ const getScheme = (req) => {
 };
 
 const honeypotService = createHoneypotService(db, {getClientIp});
+const ipRecordService = createIpRecordService(db);
+
+const recordEndpointIp = (endpoint, clientIp) => {
+    try {
+        ipRecordService.addIpRecord(endpoint, clientIp);
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to record endpoint IP', error);
+    }
+};
+
+const recordEndpointIpAfterResponse = (res, endpoint, clientIp) => {
+    res.once('finish', () => {
+        setImmediate(() => {
+            recordEndpointIp(endpoint, clientIp);
+        });
+    });
+};
 
 const collectCountersForRequest = (req) => {
     const countersToBump = new Set();
@@ -837,6 +856,7 @@ app.get('/api/request-info', async (req, res) => {
     const reportId = typeof reportIdParam === 'string' ? reportIdParam.trim() : null;
     const scheme = getScheme(req);
     const clientIp = getClientIp(req);
+    recordEndpointIpAfterResponse(res, '/api/request-info', clientIp);
     const clientIpv4 = extractClientIpv4(clientIp);
     const clientIpv6 = extractClientIpv6(clientIp);
     const geo = lookupGeo(clientIp);
@@ -924,6 +944,8 @@ app.get('/api/beacon', async (req, res) => {
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Accept');
     res.vary('Origin');
+    const clientIp = getClientIp(req);
+    recordEndpointIpAfterResponse(res, '/api/beacon', clientIp);
 
     setNoCacheHeaders(res);
 

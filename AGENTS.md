@@ -4,8 +4,9 @@
 This repository hosts `nossl.sh`, an Express + EJS diagnostic page that reports
 client IP, headers, and connection details. It also exposes JSON endpoints,
 honeypot stats, shared report links (Redis), a Redis-backed beacon lookup with
-client-side 404 retries to wait for DNS/Redis propagation, and optional
-GeoIP/ASN enrichment.
+client-side 404 retries to wait for DNS/Redis propagation, SQLite-backed IP
+records for `/api/request-info` and `/api/beacon`, and optional GeoIP/ASN
+enrichment.
 
 ## Quick start
 - Install deps: `npm install`
@@ -32,8 +33,9 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 
 ## Environment variables
 - `PORT` (default `8080`) and `LISTEN_ADDRESS` (default `127.0.0.1`)
-- `SQLDB` path for counters/honeypot SQLite DB (default `counters.db`)
+- `SQLDB` path for counters/honeypot/IP-records SQLite DB (default `counters.db`)
 - `MAX_HONEYPOT` record limit (default `1024`)
+- `MAX_IP_RECORDS` max unique IP rows per tracked endpoint (default `100000`)
 - `GEOIP_DB_PATH` path to GeoIP country DB (default `ip-to-country.mmdb`)
 - `ASNIP_DB_PATH` path to ASN DB (default `ip-to-asn.mmdb`)
 - `ASN_INFO_DB_PATH` path to ASN info SQLite DB (enables ASN detail pages)
@@ -65,6 +67,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - When adjusting routes, update both server handlers and template links.
 - Preserve no-cache headers on privacy-sensitive endpoints.
 - Beacon resolver lookups retry on 404 and reuse the same `uniq`; keep this in sync with the client script.
+- Endpoint IP records are written after responses finish; keep logging non-blocking.
 - Service status updates are hardcoded in `templates/service-status.ejs`; keep 10 or fewer items and prune older entries.
 - Prefer analyzing and reusing existing functions; extend minimally, and only add new functionality if existing helpers are insufficient.
 - Avoid editing local data files (`*.mmdb`, `*.sqlite3`, `counters.db`) unless
