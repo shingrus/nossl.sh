@@ -36,7 +36,6 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `SQLDB` path for counters/honeypot/IP-records SQLite DB (default `counters.db`)
 - `MAX_HONEYPOT` record limit (default `1024`)
 - `MAX_IP_RECORDS` max unique IP rows per tracked endpoint (default `100000`)
-- `MAX_API_ACCESS` legacy alias for `MAX_IP_RECORDS`
 - `GEOIP_DB_PATH` path to GeoIP country DB (default `ip-to-country.mmdb`)
 - `ASNIP_DB_PATH` path to ASN DB (default `ip-to-asn.mmdb`)
 - `ASN_INFO_DB_PATH` path to ASN info SQLite DB (enables ASN detail pages)

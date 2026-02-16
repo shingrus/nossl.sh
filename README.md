@@ -86,4 +86,4 @@ Common environment variables:
 - `SQLDB` (honeypot/counters SQLite)
 - `MAX_HONEYPOT` (max unique honeypot IP rows, default `1024`)
 - `MAX_IP_RECORDS` (max unique IP rows per tracked API endpoint, default `100000`)
-- `MAX_API_ACCESS` (legacy alias for `MAX_IP_RECORDS`)
+- 
