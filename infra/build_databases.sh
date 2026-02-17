@@ -52,7 +52,7 @@ done
 require_cmd git
 require_cmd go
 require_cmd python3
-
+require_cmd ln
 BIN_DIR="${WORK_DIR}/bin"
 BUILD_COMMAND="${BIN_DIR}/build_mmdb"
 DATE_TAG="$(date +%Y%m%d)"
@@ -64,6 +64,8 @@ ASN_REPO="${TEMP_DIR}/asn-ip"
 ASN_MMDB="${WORK_DIR}/ip2asn-nossl-sh-${DATE_TAG}.mmdb"
 COUNTRY_MMDB="${WORK_DIR}/ip2geo-nossl-sh-${DATE_TAG}.mmdb"
 ASN_SQLITE="${WORK_DIR}/asn.sqlite3"
+ASN_LATEST_LINK="${WORK_DIR}/ip2asn-latest.mmdb"
+COUNTRY_LATEST_LINK="${WORK_DIR}/ip2geo-latest.mmdb"
 
 safe_remove_dir() {
     local target="$1"
@@ -82,6 +84,21 @@ cleanup() {
     safe_remove_dir "${TEMP_DIR}"
 }
 trap cleanup EXIT
+
+update_symlink_to_latest() {
+    local target_path="$1"
+    local link_path="$2"
+    local target_name
+
+    if [[ ! -f "${target_path}" ]]; then
+        log "error: cannot link missing file: ${target_path}"
+        exit 4
+    fi
+
+    target_name="$(basename "${target_path}")"
+    ln -sfn "${target_name}" "${link_path}"
+    log "updated symlink: ${link_path} -> ${target_name}"
+}
 
 log "starting mmdb build"
 log "work dir: ${WORK_DIR}"
@@ -112,13 +129,14 @@ ${BUILD_COMMAND} \
 #build ip2asn mmdb
 ${BUILD_COMMAND} \
     --as-dir "${ASN_REPO}/as" \
-    --asn-out "${ASN_MMDB}" \
+    --asn-out "${ASN_MMDB}"
 
-
-
-
+update_symlink_to_latest "${COUNTRY_MMDB}" "${COUNTRY_LATEST_LINK}"
+update_symlink_to_latest "${ASN_MMDB}" "${ASN_LATEST_LINK}"
 
 log "build complete"
 log "output: ${ASN_MMDB}"
 log "output: ${COUNTRY_MMDB}"
 log "output: ${ASN_SQLITE}"
+log "output: ${COUNTRY_LATEST_LINK}"
+log "output: ${ASN_LATEST_LINK}"
