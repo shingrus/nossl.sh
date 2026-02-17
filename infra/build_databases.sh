@@ -19,6 +19,9 @@ Usage: infra/build_databases.sh [--work-dir <path>]
 Options:
   --work-dir <path>   Output directory for generated databases.
                       Temporary data is stored under <work-dir>/.tmp-ipverse.
+  --ips-db <path>
+                      SQLite DB path for rdns_geo.py.
+                      If omitted, rdns geo step is skipped.
   -h, --help          Show this help message.
 EOF
 }
@@ -26,6 +29,7 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORK_DIR="${ROOT_DIR}"
+IPS_DB=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -35,6 +39,14 @@ while [[ $# -gt 0 ]]; do
                 exit 2
             fi
             WORK_DIR="$2"
+            shift 2
+            ;;
+        --ips-db)
+            if [[ $# -lt 2 ]]; then
+                log "error: --ips-db requires a path"
+                exit 2
+            fi
+            IPS_DB="$2"
             shift 2
             ;;
         -h|--help)
@@ -59,6 +71,7 @@ DATE_TAG="$(date +%Y%m%d)"
 TEMP_DIR="${WORK_DIR}/.tmp-ipverse"
 COUNTRY_REPO="${TEMP_DIR}/country-ip-blocks"
 GEOFEED_DIR="${WORK_DIR}"
+GEOFEED_CACHE_DIR="${GEOFEED_DIR}/.cache"
 ASN_REPO="${TEMP_DIR}/asn-ip"
 
 ASN_MMDB="${WORK_DIR}/ip2asn-nossl-sh-${DATE_TAG}.mmdb"
@@ -66,6 +79,9 @@ COUNTRY_MMDB="${WORK_DIR}/ip2geo-nossl-sh-${DATE_TAG}.mmdb"
 ASN_SQLITE="${WORK_DIR}/asn.sqlite3"
 ASN_LATEST_LINK="${WORK_DIR}/ip2asn-latest.mmdb"
 COUNTRY_LATEST_LINK="${WORK_DIR}/ip2geo-latest.mmdb"
+RDNS_GEO_SCRIPT="${BIN_DIR}/rdns_geo.py"
+RDNS_GEOFEED_OUTPUT="${GEOFEED_CACHE_DIR}/rdns_geo.csv"
+RDNS_UNMATCHED_OUTPUT="${WORK_DIR}/unmatched.txt"
 
 safe_remove_dir() {
     local target="$1"
@@ -100,12 +116,52 @@ update_symlink_to_latest() {
     log "updated symlink: ${link_path} -> ${target_name}"
 }
 
+resolve_rdns_geo_mmdb() {
+    if [[ -f "${COUNTRY_LATEST_LINK}" ]]; then
+        printf '%s\n' "${COUNTRY_LATEST_LINK}"
+        return 0
+    fi
+
+    return 1
+}
+
+run_rdns_geo() {
+    local mmdb_path
+
+    if [[ -z "${IPS_DB}" ]]; then
+        log "ips DB is not set; skipping rdns geo"
+        return 0
+    fi
+    if [[ ! -f "${RDNS_GEO_SCRIPT}" ]]; then
+        log "warning: rdns geo script not found: ${RDNS_GEO_SCRIPT}; skipping"
+        return 0
+    fi
+    if [[ ! -f "${IPS_DB}" ]]; then
+        log "error: ips DB not found: ${IPS_DB}"
+        exit 2
+    fi
+    if ! mmdb_path="$(resolve_rdns_geo_mmdb)"; then
+        log "warning: no geo mmdb found for rdns geo in ${WORK_DIR}; skipping"
+        return 0
+    fi
+
+    log "running rdns geo"
+    log "rdns geo mmdb: ${mmdb_path}"
+    python3 "${RDNS_GEO_SCRIPT}" \
+        --db "${IPS_DB}" \
+        --mmdb "${mmdb_path}" \
+        --output "${RDNS_GEOFEED_OUTPUT}" \
+        --unmatched-zones "${RDNS_UNMATCHED_OUTPUT}"
+}
+
 log "starting mmdb build"
 log "work dir: ${WORK_DIR}"
 log "temp dir: ${TEMP_DIR}"
 safe_remove_dir "${TEMP_DIR}"
 mkdir -p "${WORK_DIR}"
 mkdir -p "${TEMP_DIR}"
+
+run_rdns_geo
 
 log "cloning country-ip-blocks"
 git clone --depth 1 https://github.com/ipverse/country-ip-blocks "${COUNTRY_REPO}"
