@@ -70,5 +70,6 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - Endpoint IP records are written after responses finish; keep logging non-blocking.
 - Service status updates are hardcoded in `templates/service-status.ejs`; keep 10 or fewer items and prune older entries.
 - Prefer analyzing and reusing existing functions; extend minimally, and only add new functionality if existing helpers are insufficient.
+- For rDNS geo matcher rules, prefer generalized delimiter-bounded location token patterns (for example `.lon.`, `-lon-`, `_lon_`) with provider/domain scoping when needed; avoid exact-host/service-specific rules unless no safe generalized rule exists.
 - Avoid editing local data files (`*.mmdb`, `*.sqlite3`, `counters.db`) unless
   the task explicitly requires it.
