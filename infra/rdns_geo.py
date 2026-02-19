@@ -314,19 +314,27 @@ DEFAULT_RULES = [
         "city": "Deerfield",
     },
     {
+        "name": "turktelekom_06_ulus_ankara",
+        "pattern": r"(^|[._-])06[._-]ulus([._-]|$)",
+        "domains": ["turktelekom.com.tr"],
+        "country": "TR",
+        "city": "Ankara",
+    },
+    {
+        "name": "turktelekom_esenyurt_istanbul",
+        "pattern": r"(^|[._-])esenyurt([._-]|$)",
+        "domains": ["turktelekom.com.tr"],
+        "country": "TR",
+        "city": "Istanbul",
+    },
+    {
         "name": "tpnet_szcz_szczecin",
         "pattern": r"(^|[._-])szcz\d*([._-]|$)",
         "domains": ["tpnet.pl"],
         "country": "PL",
         "city": "Szczecin",
     },
-    {
-        "name": "turktelekom_ulus_ankara",
-        "pattern": r"(^|[._-])(?:06[._-])?ulus([._-]|$)",
-        "domains": ["turktelekom.com.tr"],
-        "country": "TR",
-        "city": "Ankara",
-    },
+
 ]
 
 
@@ -808,7 +816,7 @@ def write_geofeed(path: Path, hints: dict[str, Hint]) -> None:
         return
 
     needs_separator = path.exists() and path.stat().st_size > 0 and not file_ends_with_newline(path)
-    with path.open("a", encoding="utf-8", newline="") as f:
+    with path.open("w", encoding="utf-8", newline="") as f:
         if needs_separator:
             f.write("\n")
         writer = csv.writer(f)
