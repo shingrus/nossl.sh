@@ -38,6 +38,7 @@ DEFAULT_SCAN_LIMIT = 1000
 MTR_CYCLES = 1
 MTR_TIMEOUT_SECONDS = 30
 DIG_TIMEOUT_SECONDS = 8
+CYMRU_MIN_PREFIXLEN_V4 = 16
 
 
 # Rule design policy:
@@ -318,6 +319,13 @@ DEFAULT_RULES = [
         "domains": ["tpnet.pl"],
         "country": "PL",
         "city": "Szczecin",
+    },
+    {
+        "name": "turktelekom_ulus_ankara",
+        "pattern": r"(^|[._-])(?:06[._-])?ulus([._-]|$)",
+        "domains": ["turktelekom.com.tr"],
+        "country": "TR",
+        "city": "Ankara",
     },
 ]
 
@@ -721,6 +729,21 @@ def parse_cymru_txt(raw: str) -> tuple[Optional[str], Optional[str], Optional[st
     return None, None, None
 
 
+def normalize_cymru_prefix(ip: str, prefix: str) -> Optional[str]:
+    try:
+        addr = ipaddress.ip_address(ip)
+        network = ipaddress.ip_network(prefix, strict=False)
+    except ValueError:
+        return None
+
+    if addr.version != network.version:
+        return None
+
+    if addr.version == 4 and network.prefixlen < CYMRU_MIN_PREFIXLEN_V4:
+        return str(ipaddress.ip_network(f"{addr}/{CYMRU_MIN_PREFIXLEN_V4}", strict=False))
+    return str(network)
+
+
 def team_cymru_origin(ip: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
     qname = cymru_query_name(ip)
     code, out, _err = run_cmd(
@@ -729,7 +752,13 @@ def team_cymru_origin(ip: str) -> tuple[Optional[str], Optional[str], Optional[s
     )
     if code != 0:
         return None, None, None
-    return parse_cymru_txt(out)
+    asn, prefix, country = parse_cymru_txt(out)
+    if not asn or not prefix:
+        return None, None, None
+    normalized_prefix = normalize_cymru_prefix(ip, prefix)
+    if not normalized_prefix:
+        return None, None, None
+    return asn, normalized_prefix, country
 
 
 def better_hint(left: Hint, right: Hint) -> Hint:
@@ -746,11 +775,44 @@ def better_hint(left: Hint, right: Hint) -> Hint:
     return left
 
 
+def existing_geofeed_prefixes(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+
+    prefixes: set[str] = set()
+    with path.open("r", encoding="utf-8", newline="") as f:
+        rows = (line for line in f if line.strip() and not line.lstrip().startswith("#"))
+        reader = csv.reader(rows)
+        for row in reader:
+            if not row:
+                continue
+            prefix = (row[0] or "").strip()
+            if prefix:
+                prefixes.add(prefix)
+    return prefixes
+
+
+def file_ends_with_newline(path: Path) -> bool:
+    if not path.exists() or path.stat().st_size == 0:
+        return True
+    with path.open("rb") as f:
+        f.seek(-1, 2)
+        return f.read(1) == b"\n"
+
+
 def write_geofeed(path: Path, hints: dict[str, Hint]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as f:
+    existing_prefixes = existing_geofeed_prefixes(path)
+    prefixes_to_append = [prefix for prefix in sorted(hints) if prefix not in existing_prefixes]
+    if not prefixes_to_append:
+        return
+
+    needs_separator = path.exists() and path.stat().st_size > 0 and not file_ends_with_newline(path)
+    with path.open("a", encoding="utf-8", newline="") as f:
+        if needs_separator:
+            f.write("\n")
         writer = csv.writer(f)
-        for prefix in sorted(hints):
+        for prefix in prefixes_to_append:
             hint = hints[prefix]
             f.write(
                 "# "
