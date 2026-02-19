@@ -81,6 +81,13 @@ DEFAULT_RULES = [
         "city": "Sunnyvale",
     },
     {
+        "name": "comcast_fairfield_ca",
+        "pattern": r"(^|[^a-z0-9])fairfield([^a-z0-9]|$)",
+        "domains": ["comcast.net"],
+        "country": "US",
+        "city": "Fairfield",
+    },
+    {
         "name": "comcast_whitemarsh_md",
         "pattern": r"(^|[^a-z0-9])whitemarsh([^a-z0-9]|$)",
         "domains": ["comcast.net"],
@@ -100,6 +107,13 @@ DEFAULT_RULES = [
         "domains": ["comcast.net"],
         "country": "US",
         "city": "Pompano Beach",
+    },
+    {
+        "name": "comcast_portmurray_nj_hackettstown",
+        "pattern": r"(^|[^a-z0-9])portmurray([^a-z0-9]|$)",
+        "domains": ["comcast.net"],
+        "country": "US",
+        "city": "Hackettstown",
     },
     {
         "name": "as13285_thw_london",
@@ -137,6 +151,20 @@ DEFAULT_RULES = [
         "city": "London",
     },
     {
+        "name": "belbone_lon_london",
+        "pattern": r"(^|[._-])(?:\d+)?lon(?:\d+)?([._-]|$)",
+        "domains": ["belbone.be"],
+        "country": "GB",
+        "city": "London",
+    },
+    {
+        "name": "franceix_par_paris",
+        "pattern": r"(^|[._-])(?:\d+)?par(?:\d+)?([._-]|$)",
+        "domains": ["franceix.net"],
+        "country": "FR",
+        "city": "Paris",
+    },
+    {
         "name": "as6453_ldn_london",
         "pattern": r"(^|[._-])(?:\d+)?(?:ldn|london)(?:\d+)?([._-]|$)",
         "domains": ["as6453.net"],
@@ -163,6 +191,13 @@ DEFAULT_RULES = [
         "domains": ["level3.net"],
         "country": "US",
         "city": "San Jose",
+    },
+    {
+        "name": "level3_london_london",
+        "pattern": r"(^|[._-])(?:\d+)?london(?:\d+)?([._-]|$)",
+        "domains": ["level3.net"],
+        "country": "GB",
+        "city": "London",
     },
     {
         "name": "as7195_jfk_new_york",
@@ -269,6 +304,13 @@ DEFAULT_RULES = [
         "domains": ["charter.com"],
         "country": "US",
         "city": "Greensboro",
+    },
+    {
+        "name": "charter_drfdny_deerfield",
+        "pattern": r"(^|[._-])drfdny[0-9a-z]*([._-]|$)",
+        "domains": ["charter.com"],
+        "country": "US",
+        "city": "Deerfield",
     },
     {
         "name": "tpnet_szcz_szczecin",
@@ -822,7 +864,7 @@ def main() -> int:
     for candidate in unknown_candidates:
         processed += 1
         eprint(
-            f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip} "
+            f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip} hits = {candidate.hits}"
         )
 
         ranked_hops, total_hops, tail_hops_count = mtr_last_hops(candidate.ip)
