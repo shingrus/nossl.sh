@@ -48,10 +48,27 @@ func main() {
 	countryDir := flag.String("country-dir", "", "country directory with per-country aggregated.json files")
 	countryOutPath := flag.String("country-out", "ip2geo-nossl-sh.mmdb", "country output mmdb path")
 	geofeedDir := flag.String("geofeed-dir", "", "geofeed directory with RFC 8805 .cache files")
+	patchMMDBPath := flag.String("patch-mmdb", "", "existing mmdb path to patch in-place")
+	patchGeofeedPath := flag.String("patch-geofeed", "", "geofeed patch source (file or directory)")
 	testMMDB := flag.String("test-mmdb", "", "mmdb path to test against ips.txt and builtin IPs")
 	testIP := flag.String("ip", "", "single IP to test with -test-mmdb (overrides ips.txt and builtin IPs)")
 	debugMode := flag.Bool("debug", false, "include network (inetnum) in mmdb records")
 	flag.Parse()
+
+	if *patchMMDBPath != "" || *patchGeofeedPath != "" {
+		if *patchMMDBPath == "" || *patchGeofeedPath == "" {
+			fmt.Fprintln(os.Stderr, "error: -patch-mmdb and -patch-geofeed must be set together")
+			os.Exit(2)
+		}
+		patchMMDBWithGeofeed(*patchMMDBPath, *patchGeofeedPath, *debugMode)
+		if *testMMDB != "" {
+			runMMDBTest(*testMMDB, *testIP)
+		} else if *testIP != "" {
+			fmt.Fprintln(os.Stderr, "error: -ip requires -test-mmdb")
+			os.Exit(2)
+		}
+		return
+	}
 
 	asDirSet := false
 	countryDirSet := false
@@ -94,8 +111,6 @@ func main() {
 		os.Exit(2)
 	}
 
-
-
 	geofeedAvailable := false
 	geofeedCacheDir := ""
 	if *geofeedDir != "" {
@@ -120,7 +135,7 @@ func main() {
 		buildASNMMDB(*asDir, *outPath, *debugMode)
 		debug.FreeOSMemory()
 	}
-	if countryAvailable ||  geofeedAvailable {
+	if countryAvailable || geofeedAvailable {
 		countryDirPath := ""
 		if countryAvailable {
 			countryDirPath = *countryDir
@@ -175,7 +190,7 @@ func buildCountryMMDB(countryDir, geofeedDir, outPath string, debugMode bool) {
 	}
 
 	nameIndex := loadCountryNameIndex()
-	if (geofeedDir != "" ) && len(nameIndex) == 0 {
+	if (geofeedDir != "") && len(nameIndex) == 0 {
 		fmt.Fprintln(os.Stderr, "warning: country name index is empty; geofeed country names will be blank")
 	}
 	stats := ingestStats{}
@@ -219,6 +234,97 @@ func buildCountryMMDB(countryDir, geofeedDir, outPath string, debugMode bool) {
 	}
 
 	fmt.Printf("wrote %s (%d entries, %d prefixes)\n", outPath, stats.entries, stats.prefixes)
+}
+
+func patchMMDBWithGeofeed(mmdbPath, geofeedPath string, debugMode bool) {
+	original, err := os.ReadFile(mmdbPath)
+	if err != nil {
+		panic(fmt.Errorf("read mmdb %s: %w", mmdbPath, err))
+	}
+
+	sourceFile, err := os.CreateTemp("", "mmdb-patch-source-*.mmdb")
+	if err != nil {
+		panic(err)
+	}
+	sourcePath := sourceFile.Name()
+	defer os.Remove(sourcePath)
+
+	if _, err := sourceFile.Write(original); err != nil {
+		sourceFile.Close()
+		panic(err)
+	}
+	if err := sourceFile.Close(); err != nil {
+		panic(err)
+	}
+
+	writer, err := mmdbwriter.Load(sourcePath, mmdbwriter.Options{
+		IncludeReservedNetworks: true,
+		DisableIPv4Aliasing:     true,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	nameIndex := loadCountryNameIndex()
+	if len(nameIndex) == 0 {
+		fmt.Fprintln(os.Stderr, "warning: country name index is empty; geofeed country names will be blank")
+	}
+
+	geofeedInfo, err := os.Stat(geofeedPath)
+	if err != nil {
+		panic(fmt.Errorf("read geofeed path %s: %w", geofeedPath, err))
+	}
+
+	patchStats := ingestStats{}
+	if geofeedInfo.IsDir() {
+		cacheDir, err := resolveGeofeedCacheDir(geofeedPath)
+		if err != nil {
+			panic(err)
+		}
+		patchStats, err = ingestGeofeedDir(writer, cacheDir, nameIndex, debugMode)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		patchStats, err = ingestGeofeedFile(writer, geofeedPath, nameIndex, debugMode)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if patchStats.skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipped %d geofeed entries\n", patchStats.skipped)
+	}
+	if patchStats.entries == 0 {
+		fmt.Fprintln(os.Stderr, "error: no geofeed entries found")
+		os.Exit(1)
+	}
+
+	tempOut, err := os.CreateTemp(filepath.Dir(mmdbPath), "."+filepath.Base(mmdbPath)+".patch-*")
+	if err != nil {
+		panic(err)
+	}
+	tempOutPath := tempOut.Name()
+	defer os.Remove(tempOutPath)
+
+	if info, err := os.Stat(mmdbPath); err == nil {
+		if err := tempOut.Chmod(info.Mode()); err != nil {
+			panic(err)
+		}
+	}
+
+	if _, err := writer.WriteTo(tempOut); err != nil {
+		tempOut.Close()
+		panic(err)
+	}
+	if err := tempOut.Close(); err != nil {
+		panic(err)
+	}
+	if err := os.Rename(tempOutPath, mmdbPath); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("patched %s (%d geofeed entries, %d prefixes)\n", mmdbPath, patchStats.entries, patchStats.prefixes)
 }
 
 func newMMDBWriter(dbType, description string) (*mmdbwriter.Tree, error) {
@@ -644,10 +750,10 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 		}
 
 		ipRecords = append(ipRecords, geofeedIPRecord{
-			addr:   addr,
-			code:   code,
-			city:   city,
-			line:   lineNum,
+			addr: addr,
+			code: code,
+			city: city,
+			line: lineNum,
 		})
 		stats.entries++
 	}
@@ -733,10 +839,10 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 }
 
 type geofeedIPRecord struct {
-	addr   netip.Addr
-	code   string
-	city   string
-	line   int
+	addr netip.Addr
+	code string
+	city string
+	line int
 }
 
 type geofeedCIDRRecord struct {
