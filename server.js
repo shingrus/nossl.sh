@@ -138,10 +138,17 @@ const getRenderMeta = (res) => {
 const loadGeoReader = async (geoDb) => {
 
     try {
-        return await maxmind.open(geoDb);
+        return await maxmind.open(geoDb, {
+            watchForUpdates: true,
+            watchForUpdatesNonPersistent: true,
+            watchForUpdatesHook: () => {
+                // eslint-disable-next-line no-console
+                console.log(`Reloaded MMDB: ${geoDb}`);
+            },
+        });
     } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('Failed to load GeoIP database', error);
+        console.error(`Failed to load MMDB database`, error);
         return null;
     }
 };
