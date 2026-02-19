@@ -71,7 +71,6 @@ DATE_TAG="$(date +%Y%m%d)"
 TEMP_DIR="${WORK_DIR}/.tmp-ipverse"
 COUNTRY_REPO="${TEMP_DIR}/country-ip-blocks"
 GEOFEED_DIR="${WORK_DIR}"
-GEOFEED_CACHE_DIR="${GEOFEED_DIR}/.cache"
 ASN_REPO="${TEMP_DIR}/asn-ip"
 
 ASN_MMDB="${WORK_DIR}/ip2asn-nossl-sh-${DATE_TAG}.mmdb"
@@ -80,7 +79,7 @@ ASN_SQLITE="${WORK_DIR}/asn.sqlite3"
 ASN_LATEST_LINK="${WORK_DIR}/ip2asn-latest.mmdb"
 COUNTRY_LATEST_LINK="${WORK_DIR}/ip2geo-latest.mmdb"
 RDNS_GEO_SCRIPT="${BIN_DIR}/rdns_geo.py"
-RDNS_GEOFEED_OUTPUT="${GEOFEED_CACHE_DIR}/rdns_geo.csv"
+RDNS_GEOFEED_OUTPUT="${WORK_DIR}/rdns_geo.csv"
 RDNS_UNMATCHED_OUTPUT="${WORK_DIR}/unmatched.txt"
 
 safe_remove_dir() {
@@ -116,22 +115,16 @@ update_symlink_to_latest() {
     log "updated symlink: ${link_path} -> ${target_name}"
 }
 
-resolve_rdns_geo_mmdb() {
-    if [[ -f "${COUNTRY_LATEST_LINK}" ]]; then
-        printf '%s\n' "${COUNTRY_LATEST_LINK}"
-        return 0
-    fi
-
-    return 1
-}
-
 run_rdns_geo() {
-    local mmdb_path
+    local mmdb_path="$1"
 
     if [[ -z "${IPS_DB}" ]]; then
         log "ips DB is not set; skipping rdns geo"
         return 0
     fi
+
+    rm -f "${RDNS_GEOFEED_OUTPUT}" "${RDNS_UNMATCHED_OUTPUT}"
+
     if [[ ! -f "${RDNS_GEO_SCRIPT}" ]]; then
         log "warning: rdns geo script not found: ${RDNS_GEO_SCRIPT}; skipping"
         return 0
@@ -140,8 +133,8 @@ run_rdns_geo() {
         log "error: ips DB not found: ${IPS_DB}"
         exit 2
     fi
-    if ! mmdb_path="$(resolve_rdns_geo_mmdb)"; then
-        log "warning: no geo mmdb found for rdns geo in ${WORK_DIR}; skipping"
+    if [[ ! -f "${mmdb_path}" ]]; then
+        log "warning: geo mmdb not found for rdns geo: ${mmdb_path}; skipping"
         return 0
     fi
 
@@ -154,14 +147,27 @@ run_rdns_geo() {
         --unmatched-zones "${RDNS_UNMATCHED_OUTPUT}"
 }
 
+patch_country_mmdb_with_rdns() {
+    if [[ -z "${IPS_DB}" ]]; then
+        return 0
+    fi
+    if [[ ! -f "${RDNS_GEOFEED_OUTPUT}" || ! -s "${RDNS_GEOFEED_OUTPUT}" ]]; then
+        log "rdns geofeed output is empty; skipping patch"
+        return 0
+    fi
+
+    log "patching country mmdb with rdns geofeed"
+    ${BUILD_COMMAND} \
+        --patch-mmdb "${COUNTRY_MMDB}" \
+        --patch-geofeed "${RDNS_GEOFEED_OUTPUT}"
+}
+
 log "starting mmdb build"
 log "work dir: ${WORK_DIR}"
 log "temp dir: ${TEMP_DIR}"
 safe_remove_dir "${TEMP_DIR}"
 mkdir -p "${WORK_DIR}"
 mkdir -p "${TEMP_DIR}"
-
-run_rdns_geo
 
 log "cloning country-ip-blocks"
 git clone --depth 1 https://github.com/ipverse/country-ip-blocks "${COUNTRY_REPO}"
@@ -186,6 +192,9 @@ ${BUILD_COMMAND} \
 ${BUILD_COMMAND} \
     --as-dir "${ASN_REPO}/as" \
     --asn-out "${ASN_MMDB}"
+
+run_rdns_geo "${COUNTRY_MMDB}"
+patch_country_mmdb_with_rdns
 
 update_symlink_to_latest "${COUNTRY_MMDB}" "${COUNTRY_LATEST_LINK}"
 update_symlink_to_latest "${ASN_MMDB}" "${ASN_LATEST_LINK}"
