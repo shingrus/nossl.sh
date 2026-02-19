@@ -81,6 +81,7 @@ COUNTRY_LATEST_LINK="${WORK_DIR}/ip2geo-latest.mmdb"
 RDNS_GEO_SCRIPT="${BIN_DIR}/rdns_geo.py"
 RDNS_GEOFEED_OUTPUT="${WORK_DIR}/rdns_geo.csv"
 RDNS_UNMATCHED_OUTPUT="${WORK_DIR}/unmatched.txt"
+RDNS_RULES_URL="https://raw.githubusercontent.com/shingrus/nossl.sh/refs/heads/main/infra/rdns_geo_rules.json"
 
 safe_remove_dir() {
     local target="$1"
@@ -140,9 +141,11 @@ run_rdns_geo() {
 
     log "running rdns geo"
     log "rdns geo mmdb: ${mmdb_path}"
+    log "rdns geo rules: ${RDNS_RULES_URL}"
     python3 "${RDNS_GEO_SCRIPT}" \
         --db "${IPS_DB}" \
         --mmdb "${mmdb_path}" \
+        --rules-url "${RDNS_RULES_URL}" \
         --output "${RDNS_GEOFEED_OUTPUT}" \
         --unmatched-zones "${RDNS_UNMATCHED_OUTPUT}"
 }
