@@ -74,6 +74,34 @@ DEFAULT_RULES = [
         "city": "Hartford",
     },
     {
+        "name": "comcast_sunnyvale_ca",
+        "pattern": r"(^|[^a-z0-9])sunnyvale([^a-z0-9]|$)",
+        "domains": ["comcast.net"],
+        "country": "US",
+        "city": "Sunnyvale",
+    },
+    {
+        "name": "comcast_whitemarsh_md",
+        "pattern": r"(^|[^a-z0-9])whitemarsh([^a-z0-9]|$)",
+        "domains": ["comcast.net"],
+        "country": "US",
+        "city": "White Marsh",
+    },
+    {
+        "name": "comcast_jacksonville_fl",
+        "pattern": r"(^|[^a-z0-9])jacksonville([^a-z0-9]|$)",
+        "domains": ["comcast.net"],
+        "country": "US",
+        "city": "Jacksonville",
+    },
+    {
+        "name": "comcast_pompanobeach_fl",
+        "pattern": r"(^|[^a-z0-9])pompanobeach([^a-z0-9]|$)",
+        "domains": ["comcast.net"],
+        "country": "US",
+        "city": "Pompano Beach",
+    },
+    {
         "name": "as13285_thw_london",
         "pattern": r"(^|[^a-z0-9])thw([^a-z0-9]|$)",
         "domains": ["as13285.net"],
@@ -109,6 +137,13 @@ DEFAULT_RULES = [
         "city": "London",
     },
     {
+        "name": "as6453_ldn_london",
+        "pattern": r"(^|[._-])(?:\d+)?(?:ldn|london)(?:\d+)?([._-]|$)",
+        "domains": ["as6453.net"],
+        "country": "GB",
+        "city": "London",
+    },
+    {
         "name": "zayo_lga_new_york",
         "pattern": r"(^|[._-])(?:\d+)?lga(?:\d+)?([._-]|$)",
         "domains": ["zayo.com"],
@@ -121,6 +156,13 @@ DEFAULT_RULES = [
         "domains": ["level3.net"],
         "country": "BG",
         "city": "Sofia",
+    },
+    {
+        "name": "level3_sanjose_san_jose",
+        "pattern": r"(^|[._-])(?:\d+)?sanjose(?:\d+)?([._-]|$)",
+        "domains": ["level3.net"],
+        "country": "US",
+        "city": "San Jose",
     },
     {
         "name": "as7195_jfk_new_york",
@@ -206,6 +248,27 @@ DEFAULT_RULES = [
         "domains": ["verizon.net", "verizon-gni.net"],
         "country": "US",
         "city": "New York",
+    },
+    {
+        "name": "charter_nycmny_new_york",
+        "pattern": r"(^|[._-])nycmny[0-9a-z]*([._-]|$)",
+        "domains": ["charter.com"],
+        "country": "US",
+        "city": "New York",
+    },
+    {
+        "name": "charter_burlnc_burlington",
+        "pattern": r"(^|[._-])burlnc[0-9a-z]*([._-]|$)",
+        "domains": ["charter.com"],
+        "country": "US",
+        "city": "Burlington",
+    },
+    {
+        "name": "charter_gnbonc_greensboro",
+        "pattern": r"(^|[._-])gnbonc[0-9a-z]*([._-]|$)",
+        "domains": ["charter.com"],
+        "country": "US",
+        "city": "Greensboro",
     },
     {
         "name": "tpnet_szcz_szczecin",
@@ -661,7 +724,10 @@ def write_unmatched_entries(path: Path, entries: set[tuple[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         for ip, hostname in sorted(entries):
-            f.write(f"{ip} {hostname}\n")
+            normalized_hostname = normalize_ptr_hostname(hostname)
+            if not normalized_hostname or normalized_hostname == "-":
+                continue
+            f.write(f"{ip} {normalized_hostname}\n")
 
 
 def ensure_tool(name: str) -> None:
@@ -778,14 +844,16 @@ def main() -> int:
         for evidence in ranked_hops:
             ptr = ptr_lookup(evidence.hop_ip)
             evidence.ptr = ptr
-            hostname = normalize_ptr_hostname(ptr) or "-"
+            normalized_hostname = normalize_ptr_hostname(ptr)
+            hostname = normalized_hostname or "-"
             rule = match_ptr(ptr, rules)
             if rule:
                 matched_rule = rule
                 matched_evidence = evidence
                 break
             local_checked_unmatched.add((candidate.ip, evidence.hop_ip, hostname))
-            unmatched_entries.add((candidate.ip, hostname))
+            if normalized_hostname:
+                unmatched_entries.add((candidate.ip, normalized_hostname))
 
         if not matched_rule or not matched_evidence:
             unmatched += 1
@@ -793,7 +861,6 @@ def main() -> int:
             if not local_checked_unmatched:
                 triple = (candidate.ip, "-", "-")
                 local_checked_unmatched.add(triple)
-                unmatched_entries.add((candidate.ip, "-"))
             for dest_ip, hop_ip, hostname in sorted(local_checked_unmatched):
                 print(f"UNMATCHED dst_ip={dest_ip} hop_ip={hop_ip} hostname={hostname}")
             continue
