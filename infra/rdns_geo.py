@@ -27,6 +27,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
+from urllib.error import URLError
+from urllib.parse import urlparse
+from urllib.request import url2pathname, urlopen
 
 try:
     import maxminddb
@@ -45,395 +48,43 @@ CYMRU_MIN_PREFIXLEN_V4 = 16
 # - Prefer delimiter-bounded location tokens (., -, _) over raw substrings.
 # - Prefer provider/domain-scoped rules for ambiguous tokens.
 # - Avoid exact hostname/service rules unless there is no safer alternative.
-DEFAULT_RULES = [
-    {
-        "name": "comcast_newark_nj",
-        "pattern": r"(^|[^a-z0-9])newark([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Newark",
-    },
-    {
-        "name": "comcast_woburn_ma",
-        "pattern": r"(^|[^a-z0-9])woburn([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Woburn",
-    },
-    {
-        "name": "comcast_boston_ma",
-        "pattern": r"(^|[^a-z0-9])boston([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Boston",
-    },
-    {
-        "name": "comcast_hartford_ct",
-        "pattern": r"(^|[^a-z0-9])hartford([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Hartford",
-    },
-    {
-        "name": "comcast_sunnyvale_ca",
-        "pattern": r"(^|[^a-z0-9])sunnyvale([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Sunnyvale",
-    },
-    {
-        "name": "comcast_fairfield_ca",
-        "pattern": r"(^|[^a-z0-9])fairfield([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Fairfield",
-    },
-    {
-        "name": "comcast_whitemarsh_md",
-        "pattern": r"(^|[^a-z0-9])whitemarsh([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "White Marsh",
-    },
-    {
-        "name": "comcast_jacksonville_fl",
-        "pattern": r"(^|[^a-z0-9])jacksonville([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Jacksonville",
-    },
-    {
-        "name": "comcast_pompanobeach_fl",
-        "pattern": r"(^|[^a-z0-9])pompanobeach([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Pompano Beach",
-    },
-    {
-        "name": "comcast_portmurray_nj_hackettstown",
-        "pattern": r"(^|[^a-z0-9])portmurray([^a-z0-9]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Hackettstown",
-    },
-    {
-        "name": "comcast_nh_new_hampshire",
-        "pattern": r"(^|[._-])nh([._-]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "New Hampshire",
-    },
-    {
-        "name": "comcast_hsd_md_maryland",
-        "pattern": r"(^|[._-])hsd\d+[._-]md([._-]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Maryland",
-    },
-    {
-        "name": "comcast_hsd_ca_california",
-        "pattern": r"(^|[._-])hsd\d+[._-]ca([._-]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "California",
-    },
-    {
-        "name": "comcast_hsd_fl_florida",
-        "pattern": r"(^|[._-])hsd\d+[._-]fl([._-]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "Florida",
-    },
-    {
-        "name": "comcast_hsd_nj_new_jersey",
-        "pattern": r"(^|[._-])hsd\d+[._-]nj([._-]|$)",
-        "domains": ["comcast.net"],
-        "country": "US",
-        "city": "New Jersey",
-    },
-    {
-        "name": "frontier_tamp_fl_tampa",
-        "pattern": r"(^|[._-])tamp([._-])fl([._-]|$)",
-        "domains": ["frontiernet.net"],
-        "country": "US",
-        "city": "Tampa",
-    },
-    {
-        "name": "as13285_thw_london",
-        "pattern": r"(^|[^a-z0-9])thw([^a-z0-9]|$)",
-        "domains": ["as13285.net"],
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "as13285_loh_london",
-        "pattern": r"(^|[._-])(?:\d+)?loh(?:\d+)?([._-]|$)",
-        "domains": ["as13285.net"],
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "colt_lon_london",
-        "pattern": r"(^|[._-])(?:\d+)?lon(?:\d+)?([._-]|$)",
-        "domains": ["colt.net"],
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "colt_sof_sofia",
-        "pattern": r"(^|[._-])(?:\d+)?sof(?:\d+)?([._-]|$)",
-        "domains": ["colt.net"],
-        "country": "BG",
-        "city": "Sofia",
-    },
-    {
-        "name": "lumen_lon_london",
-        "pattern": r"(^|[._-])(?:\d+)?lon(?:\d+)?([._-]|$)",
-        "domains": ["lumen.tech"],
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "belbone_lon_london",
-        "pattern": r"(^|[._-])(?:\d+)?lon(?:\d+)?([._-]|$)",
-        "domains": ["belbone.be"],
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "franceix_par_paris",
-        "pattern": r"(^|[._-])(?:\d+)?par(?:\d+)?([._-]|$)",
-        "domains": ["franceix.net"],
-        "country": "FR",
-        "city": "Paris",
-    },
-    {
-        "name": "cogent_par_paris",
-        "pattern": r"(^|[._-])par\d*([._-]|$)",
-        "domains": ["cogentco.com"],
-        "country": "FR",
-        "city": "Paris",
-    },
-    {
-        "name": "cogent_atl_atlanta",
-        "pattern": r"(^|[._-])atl\d*([._-]|$)",
-        "domains": ["cogentco.com"],
-        "country": "US",
-        "city": "Atlanta",
-    },
-    {
-        "name": "as6453_ldn_london",
-        "pattern": r"(^|[._-])(?:\d+)?(?:ldn|london)(?:\d+)?([._-]|$)",
-        "domains": ["as6453.net"],
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "ntt_sng_singapore",
-        "pattern": r"(^|[._-])sng[0-9a-z]*([._-]|$)",
-        "domains": ["ntt.net"],
-        "country": "SG",
-        "city": "Singapore",
-    },
-    {
-        "name": "zayo_lga_new_york",
-        "pattern": r"(^|[._-])(?:\d+)?lga(?:\d+)?([._-]|$)",
-        "domains": ["zayo.com"],
-        "country": "US",
-        "city": "New York",
-    },
-    {
-        "name": "level3_sofia_sofia",
-        "pattern": r"(^|[._-])(?:\d+)?sofia(?:\d+)?([._-]|$)",
-        "domains": ["level3.net"],
-        "country": "BG",
-        "city": "Sofia",
-    },
-    {
-        "name": "level3_sanjose_san_jose",
-        "pattern": r"(^|[._-])(?:\d+)?sanjose(?:\d+)?([._-]|$)",
-        "domains": ["level3.net"],
-        "country": "US",
-        "city": "San Jose",
-    },
-    {
-        "name": "level3_london_london",
-        "pattern": r"(^|[._-])(?:\d+)?london(?:\d+)?([._-]|$)",
-        "domains": ["level3.net"],
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "twelve99_ash_ashburn",
-        "pattern": r"(^|[._-])ash([._-]|$)",
-        "domains": ["twelve99.net", "twelve99-cust.net"],
-        "country": "US",
-        "city": "Ashburn",
-    },
-    {
-        "name": "as7195_jfk_new_york",
-        "pattern": r"(^|[._-])(?:\d+)?jfk(?:\d+)?([._-]|$)",
-        "domains": ["as7195.net"],
-        "country": "US",
-        "city": "New York",
-    },
-    {
-        "name": "as7195_gru_sao_paulo",
-        "pattern": r"(^|[._-])(?:\d+)?gru(?:\d+)?([._-]|$)",
-        "domains": ["as7195.net"],
-        "country": "BR",
-        "city": "Sao Paulo",
-    },
-    {
-        "name": "new_york_nyc_token",
-        "pattern": r"(^|[^a-z0-9])(nyc\d*|\d+nyc)([^a-z0-9]|$)",
-        "country": "US",
-        "city": "New York",
-    },
-    {
-        "name": "london_lhr_token",
-        "pattern": r"(^|[^a-z0-9])(lhr\d*|\d+lhr)([^a-z0-9]|$)",
-        "country": "GB",
-        "city": "London",
-    },
-    {
-        "name": "washington_dc_token",
-        "pattern": r"(^|[^a-z0-9])(washdc|iad\d*|\d+iad)([^a-z0-9]|$)",
-        "country": "US",
-        "city": "Washington",
-    },
-    {
-        "name": "newark_ewr_token",
-        "pattern": r"(^|[^a-z0-9])(ewr\d*|\d+ewr)([^a-z0-9]|$)",
-        "country": "US",
-        "city": "Newark",
-    },
-    {
-        "name": "des_moines_token",
-        "pattern": r"(^|[^a-z0-9])(desm\d*|\d+desm)([^a-z0-9]|$)",
-        "country": "US",
-        "city": "Des Moines",
-    },
-    {
-        "name": "toronto_yyz_token",
-        "pattern": r"(^|[^a-z0-9])(yyz\d*|\d+yyz)([^a-z0-9]|$)",
-        "country": "CA",
-        "city": "Toronto",
-    },
-    {
-        "name": "rogers_toronto_ym",
-        "pattern": r"(^|[^a-z0-9])ym([^a-z0-9]|$)",
-        "domains": ["rogers.com"],
-        "country": "CA",
-        "city": "Toronto",
-    },
-    {
-        "name": "netins_des_moines_dvnp",
-        "pattern": r"(^|[^a-z0-9])(dvnp|desm)([^a-z0-9]|$)",
-        "domains": ["netins.net"],
-        "country": "US",
-        "city": "Des Moines",
-    },
-    {
-        "name": "windstream_grnl_ia_grinnell",
-        "pattern": r"(^|[._-])grnl\d*[._-]ia([._-]|$)",
-        "domains": ["windstream.net"],
-        "country": "US",
-        "city": "Grinnell",
-    },
-    {
-        "name": "networklayer_wdc_washington",
-        "pattern": r"(^|[._-])wdc\d*([._-]|$)",
-        "domains": ["networklayer.com"],
-        "country": "US",
-        "city": "Washington",
-    },
-    {
-        "name": "verizon_nycmny_new_york",
-        "pattern": r"(^|[._-])nycmny\d*([._-]|$)",
-        "domains": ["verizon.net", "verizon-gni.net"],
-        "country": "US",
-        "city": "New York",
-    },
-    {
-        "name": "charter_nycmny_new_york",
-        "pattern": r"(^|[._-])nycmny[0-9a-z]*([._-]|$)",
-        "domains": ["charter.com"],
-        "country": "US",
-        "city": "New York",
-    },
-    {
-        "name": "charter_burlnc_burlington",
-        "pattern": r"(^|[._-])burlnc[0-9a-z]*([._-]|$)",
-        "domains": ["charter.com"],
-        "country": "US",
-        "city": "Burlington",
-    },
-    {
-        "name": "charter_gnbonc_greensboro",
-        "pattern": r"(^|[._-])gnbonc[0-9a-z]*([._-]|$)",
-        "domains": ["charter.com"],
-        "country": "US",
-        "city": "Greensboro",
-    },
-    {
-        "name": "charter_drfdny_deerfield",
-        "pattern": r"(^|[._-])drfdny[0-9a-z]*([._-]|$)",
-        "domains": ["charter.com"],
-        "country": "US",
-        "city": "Deerfield",
-    },
-    {
-        "name": "charter_indp_indianapolis",
-        "pattern": r"(^|[._-])indp[0-9a-z]*([._-]|$)",
-        "domains": ["charter.com"],
-        "country": "US",
-        "city": "Indianapolis",
-    },
-    {
-        "name": "charter_iplbin_indianapolis",
-        "pattern": r"(^|[._-])(?:[a-z]+\d+)?iplbin\d*([._-]|$)",
-        "domains": ["charter.com"],
-        "country": "US",
-        "city": "Indianapolis",
-    },
-    {
-        "name": "charter_wnwonc_winston_salem",
-        "pattern": r"(^|[._-])(?:hcr\d+)?wnwonc[0-9a-z]*([._-]|$)",
-        "domains": ["charter.com"],
-        "country": "US",
-        "city": "Winston-Salem",
-    },
-    {
-        "name": "att_dtrmi_detroit",
-        "pattern": r"(^|[._-])dtrmi[0-9a-z]*([._-]|$)",
-        "domains": ["att.net"],
-        "country": "US",
-        "city": "Detroit",
-    },
-    {
-        "name": "turktelekom_06_ulus_ankara",
-        "pattern": r"(^|[._-])06[._-]ulus([._-]|$)",
-        "domains": ["turktelekom.com.tr"],
-        "country": "TR",
-        "city": "Ankara",
-    },
-    {
-        "name": "turktelekom_esenyurt_istanbul",
-        "pattern": r"(^|[._-])esenyurt([._-]|$)",
-        "domains": ["turktelekom.com.tr"],
-        "country": "TR",
-        "city": "Istanbul",
-    },
-    {
-        "name": "tpnet_szcz_szczecin",
-        "pattern": r"(^|[._-])szcz\d*([._-]|$)",
-        "domains": ["tpnet.pl"],
-        "country": "PL",
-        "city": "Szczecin",
-    },
+RULES_URL_TIMEOUT_SECONDS = 10
+DEFAULT_RULES_URL = Path(__file__).with_name("rdns_geo_rules.json").resolve().as_uri()
 
-]
+
+def load_rule_entries_from_url(rules_url: str) -> list[dict[str, Any]]:
+    source_url = (rules_url or "").strip() or DEFAULT_RULES_URL
+    parsed = urlparse(source_url)
+
+    if parsed.scheme in ("", "file"):
+        if parsed.scheme == "file" and parsed.netloc not in ("", "localhost"):
+            raise ValueError(f"Unsupported file URL host in rules URL: {source_url}")
+        raw_path = url2pathname(parsed.path) if parsed.scheme == "file" else source_url
+        rules_path = Path(raw_path).expanduser()
+        if not rules_path.exists():
+            raise ValueError(f"Rules file not found: {rules_path}")
+        content = rules_path.read_text(encoding="utf-8")
+    elif parsed.scheme in ("http", "https"):
+        try:
+            with urlopen(source_url, timeout=RULES_URL_TIMEOUT_SECONDS) as response:
+                content = response.read().decode("utf-8")
+        except URLError as exc:
+            raise ValueError(f"Failed to load rules URL {source_url}: {exc}") from exc
+    else:
+        raise ValueError(
+            f"Unsupported rules URL scheme '{parsed.scheme}' in {source_url}. "
+            "Use file://, http://, or https://"
+        )
+
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON from rules URL {source_url}: {exc}") from exc
+
+    if not isinstance(payload, list):
+        raise ValueError(f"Rules JSON must be an array: {source_url}")
+
+    return payload
 
 
 @dataclass(frozen=True)
@@ -471,6 +122,7 @@ class Hint:
     total_hops: int
     cymru_asn: str
     cymru_country: str
+    match_source: str
     matched_rule: str
     evidence: HopEvidence
 
@@ -489,6 +141,11 @@ def normalize_ip(raw: str) -> Optional[str]:
         return None
 
 
+def normalize_country_code(raw: Optional[str]) -> str:
+    value = (raw or "").strip().upper()
+    return value if len(value) == 2 else ""
+
+
 def is_public_ip(ip: str) -> bool:
     try:
         return ipaddress.ip_address(ip).is_global
@@ -496,8 +153,8 @@ def is_public_ip(ip: str) -> bool:
         return False
 
 
-def load_rules() -> list[Rule]:
-    source: list[dict[str, Any]] = DEFAULT_RULES
+def load_rules(rules_url: str = DEFAULT_RULES_URL) -> list[Rule]:
+    source = load_rule_entries_from_url(rules_url)
     rules: list[Rule] = []
     for idx, entry in enumerate(source):
         if not isinstance(entry, dict):
@@ -925,7 +582,9 @@ def write_geofeed(path: Path, hints: dict[str, Hint]) -> None:
                 f"ip={hint.destination_ip} "
                 f"hostname={hint.evidence.ptr or '-'} "
                 f"distance={hint.evidence.distance} "
-                f"total_hops={hint.total_hops}\n"
+                f"total_hops={hint.total_hops} "
+                f"source={hint.match_source} "
+                f"match={hint.matched_rule}\n"
             )
             writer.writerow([hint.prefix, hint.country, "", hint.city])
 
@@ -966,6 +625,15 @@ def main() -> int:
         default=None,
         help="Process only this exact IP and skip SQLite candidate scan",
     )
+    parser.add_argument(
+        "--rules-url",
+        type=str,
+        default=DEFAULT_RULES_URL,
+        help=(
+            "Rules JSON URL (file://, http://, https://). "
+            "Defaults to the local rdns_geo_rules.json file URL"
+        ),
+    )
     args = parser.parse_args()
 
     if maxminddb is None:
@@ -985,11 +653,12 @@ def main() -> int:
     try:
         ensure_tool("mtr")
         ensure_tool("dig")
-        rules = load_rules()
+        rules = load_rules(args.rules_url)
     except Exception as exc:
         eprint(str(exc))
         return 2
 
+    eprint(f"rules_url={args.rules_url}")
     eprint(f"loaded_rules={len(rules)}")
 
     hints_by_prefix: dict[str, Hint] = {}
@@ -1024,108 +693,154 @@ def main() -> int:
     processed = 0
     unmatched = 0
     matched = 0
+    matched_via_mmdb = 0
+    matched_via_rules = 0
     cymru_missing = 0
     country_conflicts = 0
+    country_missing = 0
     skipped_no_hops = 0
     unmatched_entries: set[tuple[str, str]] = set()
 
-    for candidate in unknown_candidates:
-        processed += 1
-        eprint(
-            f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip} hits = {candidate.hits}"
-        )
-
-        ranked_hops, total_hops, tail_hops_count = mtr_last_hops(candidate.ip)
-        if not ranked_hops:
-            skipped_no_hops += 1
-            eprint("  result=no_hops")
-            continue
-        eprint(
-            "  "
-            f"hops_total={total_hops} "
-            f"hops_tail25_count={tail_hops_count} "
-            f"hops_tail25_ip_count={len(ranked_hops)} "
-            f"hops_tail25={','.join(entry.hop_ip for entry in ranked_hops)}"
-        )
-
-        matched_rule: Optional[Rule] = None
-        matched_evidence: Optional[HopEvidence] = None
-        local_checked_unmatched: set[tuple[str, str, str]] = set()
-        for evidence in ranked_hops:
-            ptr = ptr_lookup(evidence.hop_ip)
-            evidence.ptr = ptr
-            normalized_hostname = normalize_ptr_hostname(ptr)
-            hostname = normalized_hostname or "-"
-            rule = match_ptr(ptr, rules)
-            if rule:
-                matched_rule = rule
-                matched_evidence = evidence
-                break
-            local_checked_unmatched.add((candidate.ip, evidence.hop_ip, hostname))
-            if normalized_hostname:
-                unmatched_entries.add((candidate.ip, normalized_hostname))
-
-        if not matched_rule or not matched_evidence:
-            unmatched += 1
-            eprint("  result=unmatched_ptr_rules")
-            if not local_checked_unmatched:
-                triple = (candidate.ip, "-", "-")
-                local_checked_unmatched.add(triple)
-            for dest_ip, hop_ip, hostname in sorted(local_checked_unmatched):
-                print(f"UNMATCHED dst_ip={dest_ip} hop_ip={hop_ip} hostname={hostname}")
-            continue
-        if local_checked_unmatched:
-            eprint(f"  non_matching_checked_before_match={len(local_checked_unmatched)}")
-        eprint(
-            "  ptr_match="
-            f"{matched_rule.name} country={matched_rule.country} city={matched_rule.city} "
-            f"evidence_hop={matched_evidence.hop_ip} evidence_ptr={matched_evidence.ptr or '-'}"
-        )
-
-        asn, prefix, cymru_country = team_cymru_origin(candidate.ip)
-        if not asn or not prefix:
-            cymru_missing += 1
-            eprint("  result=cymru_miss")
-            continue
-        cymru_country_code = (cymru_country or "").strip().upper()
-        inferred_country_code = matched_rule.country.strip().upper()
-        if (
-            cymru_country_code
-            and len(cymru_country_code) == 2
-            and inferred_country_code != cymru_country_code
-        ):
-            country_conflicts += 1
+    with maxminddb.open_database(str(args.mmdb)) as hop_geo_reader:
+        for candidate in unknown_candidates:
+            processed += 1
             eprint(
-                "  result=country_conflict "
-                f"inferred_country={inferred_country_code} "
-                f"cymru_country={cymru_country_code} "
-                f"ip={candidate.ip} "
-                f"prefix={prefix} "
-                f"asn={asn} "
-                f"ptr={matched_evidence.ptr or '-'}"
+                f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip} hits = {candidate.hits}"
             )
-            continue
 
-        hint = Hint(
-            prefix=prefix,
-            country=matched_rule.country,
-            city=matched_rule.city,
-            destination_ip=candidate.ip,
-            destination_hits=candidate.hits,
-            destination_last_seen=candidate.last_seen,
-            total_hops=total_hops,
-            cymru_asn=asn,
-            cymru_country=cymru_country or "",
-            matched_rule=matched_rule.name,
-            evidence=matched_evidence,
-        )
-        current = hints_by_prefix.get(prefix)
-        hints_by_prefix[prefix] = hint if current is None else better_hint(current, hint)
-        matched += 1
-        eprint(
-            f"  result=matched prefix={prefix} asn={asn} "
-            f"cymru_country={cymru_country or '-'}"
-        )
+            ranked_hops, total_hops, tail_hops_count = mtr_last_hops(candidate.ip)
+            if not ranked_hops:
+                skipped_no_hops += 1
+                eprint("  result=no_hops")
+                continue
+            eprint(
+                "  "
+                f"hops_total={total_hops} "
+                f"hops_tail25_count={tail_hops_count} "
+                f"hops_tail25_ip_count={len(ranked_hops)} "
+                f"hops_tail25={','.join(entry.hop_ip for entry in ranked_hops)}"
+            )
+
+            matched_evidence: Optional[HopEvidence] = None
+            matched_source = ""
+            matched_ref = ""
+            matched_country_code = ""
+            matched_city = ""
+            local_checked_unmatched: set[tuple[str, str, str]] = set()
+            for evidence in ranked_hops:
+                _hop_unknown, hop_country, hop_city, _hop_geo_status = geo_city_status(
+                    hop_geo_reader, evidence.hop_ip
+                )
+                if hop_city:
+                    evidence.ptr = ptr_lookup(evidence.hop_ip)
+                    matched_evidence = evidence
+                    matched_source = "mmdb"
+                    matched_ref = "mmdb_hop_city"
+                    matched_country_code = normalize_country_code(hop_country)
+                    matched_city = hop_city
+                    break
+
+                ptr = ptr_lookup(evidence.hop_ip)
+                evidence.ptr = ptr
+                normalized_hostname = normalize_ptr_hostname(ptr)
+                hostname = normalized_hostname or "-"
+                rule = match_ptr(ptr, rules)
+                if rule:
+                    matched_evidence = evidence
+                    matched_source = "rules"
+                    matched_ref = rule.name
+                    matched_country_code = normalize_country_code(rule.country)
+                    matched_city = rule.city
+                    break
+                local_checked_unmatched.add((candidate.ip, evidence.hop_ip, hostname))
+                if normalized_hostname:
+                    unmatched_entries.add((candidate.ip, normalized_hostname))
+
+            if not matched_source or not matched_evidence:
+                unmatched += 1
+                eprint("  result=unmatched_mmdb_and_ptr_rules")
+                if not local_checked_unmatched:
+                    triple = (candidate.ip, "-", "-")
+                    local_checked_unmatched.add(triple)
+                for dest_ip, hop_ip, hostname in sorted(local_checked_unmatched):
+                    print(f"UNMATCHED dst_ip={dest_ip} hop_ip={hop_ip} hostname={hostname}")
+                continue
+            if local_checked_unmatched:
+                eprint(f"  non_matching_checked_before_match={len(local_checked_unmatched)}")
+            eprint(
+                "  hop_match="
+                f"source={matched_source} match={matched_ref} "
+                f"country={matched_country_code or '-'} city={matched_city} "
+                f"evidence_hop={matched_evidence.hop_ip} evidence_ptr={matched_evidence.ptr or '-'}"
+            )
+
+            asn, prefix, cymru_country = team_cymru_origin(candidate.ip)
+            if not asn or not prefix:
+                cymru_missing += 1
+                eprint("  result=cymru_miss")
+                continue
+            cymru_country_code = normalize_country_code(cymru_country)
+            inferred_country_code = matched_country_code
+            if (
+                cymru_country_code
+                and inferred_country_code
+                and inferred_country_code != cymru_country_code
+            ):
+                country_conflicts += 1
+                eprint(
+                    "  result=country_conflict "
+                    f"inferred_country={inferred_country_code} "
+                    f"cymru_country={cymru_country_code} "
+                    f"ip={candidate.ip} "
+                    f"prefix={prefix} "
+                    f"asn={asn} "
+                    f"ptr={matched_evidence.ptr or '-'} "
+                    f"source={matched_source} match={matched_ref}"
+                )
+                continue
+
+            final_country_code = inferred_country_code or cymru_country_code
+            if not final_country_code:
+                country_missing += 1
+                eprint(
+                    "  result=missing_country "
+                    f"ip={candidate.ip} ptr={matched_evidence.ptr or '-'} "
+                    f"source={matched_source} match={matched_ref}"
+                )
+                continue
+            if not inferred_country_code and cymru_country_code:
+                eprint(
+                    "  country_fallback=using_cymru "
+                    f"cymru_country={cymru_country_code} "
+                    f"source={matched_source} match={matched_ref}"
+                )
+
+            hint = Hint(
+                prefix=prefix,
+                country=final_country_code,
+                city=matched_city,
+                destination_ip=candidate.ip,
+                destination_hits=candidate.hits,
+                destination_last_seen=candidate.last_seen,
+                total_hops=total_hops,
+                cymru_asn=asn,
+                cymru_country=cymru_country or "",
+                match_source=matched_source,
+                matched_rule=matched_ref,
+                evidence=matched_evidence,
+            )
+            current = hints_by_prefix.get(prefix)
+            hints_by_prefix[prefix] = hint if current is None else better_hint(current, hint)
+            matched += 1
+            if matched_source == "mmdb":
+                matched_via_mmdb += 1
+            else:
+                matched_via_rules += 1
+            eprint(
+                f"  result=matched prefix={prefix} asn={asn} "
+                f"cymru_country={cymru_country or '-'} "
+                f"source={matched_source} match={matched_ref}"
+            )
 
     write_geofeed(args.output, hints_by_prefix)
     if args.unmatched_zones:
@@ -1135,9 +850,12 @@ def main() -> int:
         "DONE:",
         f"processed={processed}",
         f"matched={matched}",
+        f"matched_mmdb={matched_via_mmdb}",
+        f"matched_rules={matched_via_rules}",
         f"unmatched={unmatched}",
         f"cymru_missing={cymru_missing}",
         f"country_conflicts={country_conflicts}",
+        f"country_missing={country_missing}",
         f"no_hops={skipped_no_hops}",
         f"prefixes={len(hints_by_prefix)}",
         f"unmatched_ptr_entries={len(unmatched_entries)}",
