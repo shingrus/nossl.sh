@@ -1,0 +1,517 @@
+[
+  {
+    "name": "comcast_newark_nj",
+    "pattern": "(^|[^a-z0-9])newark([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Newark"
+  },
+  {
+    "name": "comcast_woburn_ma",
+    "pattern": "(^|[^a-z0-9])woburn([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Woburn"
+  },
+  {
+    "name": "comcast_boston_ma",
+    "pattern": "(^|[^a-z0-9])boston([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Boston"
+  },
+  {
+    "name": "comcast_hartford_ct",
+    "pattern": "(^|[^a-z0-9])hartford([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Hartford"
+  },
+  {
+    "name": "comcast_sunnyvale_ca",
+    "pattern": "(^|[^a-z0-9])sunnyvale([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Sunnyvale"
+  },
+  {
+    "name": "comcast_fairfield_ca",
+    "pattern": "(^|[^a-z0-9])fairfield([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Fairfield"
+  },
+  {
+    "name": "comcast_whitemarsh_md",
+    "pattern": "(^|[^a-z0-9])whitemarsh([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "White Marsh"
+  },
+  {
+    "name": "comcast_jacksonville_fl",
+    "pattern": "(^|[^a-z0-9])jacksonville([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Jacksonville"
+  },
+  {
+    "name": "comcast_pompanobeach_fl",
+    "pattern": "(^|[^a-z0-9])pompanobeach([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Pompano Beach"
+  },
+  {
+    "name": "comcast_portmurray_nj_hackettstown",
+    "pattern": "(^|[^a-z0-9])portmurray([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Hackettstown"
+  },
+  {
+    "name": "comcast_nh_new_hampshire",
+    "pattern": "(^|[._-])nh([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "New Hampshire"
+  },
+  {
+    "name": "comcast_hsd_md_maryland",
+    "pattern": "(^|[._-])hsd\\d+[._-]md([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Maryland"
+  },
+  {
+    "name": "comcast_hsd_ca_california",
+    "pattern": "(^|[._-])hsd\\d+[._-]ca([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "California"
+  },
+  {
+    "name": "comcast_hsd_fl_florida",
+    "pattern": "(^|[._-])hsd\\d+[._-]fl([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Florida"
+  },
+  {
+    "name": "comcast_hsd_nj_new_jersey",
+    "pattern": "(^|[._-])hsd\\d+[._-]nj([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "New Jersey"
+  },
+  {
+    "name": "frontier_tamp_fl_tampa",
+    "pattern": "(^|[._-])tamp([._-])fl([._-]|$)",
+    "domains": [
+      "frontiernet.net"
+    ],
+    "country": "US",
+    "city": "Tampa"
+  },
+  {
+    "name": "as13285_thw_london",
+    "pattern": "(^|[^a-z0-9])thw([^a-z0-9]|$)",
+    "domains": [
+      "as13285.net"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "as13285_loh_london",
+    "pattern": "(^|[._-])(?:\\d+)?loh(?:\\d+)?([._-]|$)",
+    "domains": [
+      "as13285.net"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "colt_lon_london",
+    "pattern": "(^|[._-])(?:\\d+)?lon(?:\\d+)?([._-]|$)",
+    "domains": [
+      "colt.net"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "colt_sof_sofia",
+    "pattern": "(^|[._-])(?:\\d+)?sof(?:\\d+)?([._-]|$)",
+    "domains": [
+      "colt.net"
+    ],
+    "country": "BG",
+    "city": "Sofia"
+  },
+  {
+    "name": "lumen_lon_london",
+    "pattern": "(^|[._-])(?:\\d+)?lon(?:\\d+)?([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "belbone_lon_london",
+    "pattern": "(^|[._-])(?:\\d+)?lon(?:\\d+)?([._-]|$)",
+    "domains": [
+      "belbone.be"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "franceix_par_paris",
+    "pattern": "(^|[._-])(?:\\d+)?par(?:\\d+)?([._-]|$)",
+    "domains": [
+      "franceix.net"
+    ],
+    "country": "FR",
+    "city": "Paris"
+  },
+  {
+    "name": "cogent_par_paris",
+    "pattern": "(^|[._-])par\\d*([._-]|$)",
+    "domains": [
+      "cogentco.com"
+    ],
+    "country": "FR",
+    "city": "Paris"
+  },
+  {
+    "name": "cogent_atl_atlanta",
+    "pattern": "(^|[._-])atl\\d*([._-]|$)",
+    "domains": [
+      "cogentco.com"
+    ],
+    "country": "US",
+    "city": "Atlanta"
+  },
+  {
+    "name": "as6453_ldn_london",
+    "pattern": "(^|[._-])(?:\\d+)?(?:ldn|london)(?:\\d+)?([._-]|$)",
+    "domains": [
+      "as6453.net"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "ntt_sng_singapore",
+    "pattern": "(^|[._-])sng[0-9a-z]*([._-]|$)",
+    "domains": [
+      "ntt.net"
+    ],
+    "country": "SG",
+    "city": "Singapore"
+  },
+  {
+    "name": "ntt_londen_london",
+    "pattern": "(^|[._-])londen\\d*([._-]|$)",
+    "domains": [
+      "ntt.net"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "ntt_asbnva_ashburn",
+    "pattern": "(^|[._-])asbnva\\d*([._-]|$)",
+    "domains": [
+      "ntt.net"
+    ],
+    "country": "US",
+    "city": "Ashburn"
+  },
+  {
+    "name": "zayo_lga_new_york",
+    "pattern": "(^|[._-])(?:\\d+)?lga(?:\\d+)?([._-]|$)",
+    "domains": [
+      "zayo.com"
+    ],
+    "country": "US",
+    "city": "New York"
+  },
+  {
+    "name": "level3_sofia_sofia",
+    "pattern": "(^|[._-])(?:\\d+)?sofia(?:\\d+)?([._-]|$)",
+    "domains": [
+      "level3.net"
+    ],
+    "country": "BG",
+    "city": "Sofia"
+  },
+  {
+    "name": "level3_sanjose_san_jose",
+    "pattern": "(^|[._-])(?:\\d+)?sanjose(?:\\d+)?([._-]|$)",
+    "domains": [
+      "level3.net"
+    ],
+    "country": "US",
+    "city": "San Jose"
+  },
+  {
+    "name": "level3_london_london",
+    "pattern": "(^|[._-])(?:\\d+)?london(?:\\d+)?([._-]|$)",
+    "domains": [
+      "level3.net"
+    ],
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "twelve99_ash_ashburn",
+    "pattern": "(^|[._-])ash([._-]|$)",
+    "domains": [
+      "twelve99.net",
+      "twelve99-cust.net"
+    ],
+    "country": "US",
+    "city": "Ashburn"
+  },
+  {
+    "name": "as7195_jfk_new_york",
+    "pattern": "(^|[._-])(?:\\d+)?jfk(?:\\d+)?([._-]|$)",
+    "domains": [
+      "as7195.net"
+    ],
+    "country": "US",
+    "city": "New York"
+  },
+  {
+    "name": "as7195_gru_sao_paulo",
+    "pattern": "(^|[._-])(?:\\d+)?gru(?:\\d+)?([._-]|$)",
+    "domains": [
+      "as7195.net"
+    ],
+    "country": "BR",
+    "city": "Sao Paulo"
+  },
+  {
+    "name": "new_york_nyc_token",
+    "pattern": "(^|[^a-z0-9])(nyc\\d*|\\d+nyc)([^a-z0-9]|$)",
+    "country": "US",
+    "city": "New York"
+  },
+  {
+    "name": "london_lhr_token",
+    "pattern": "(^|[^a-z0-9])(lhr\\d*|\\d+lhr)([^a-z0-9]|$)",
+    "country": "GB",
+    "city": "London"
+  },
+  {
+    "name": "washington_dc_token",
+    "pattern": "(^|[^a-z0-9])(washdc|iad\\d*|\\d+iad)([^a-z0-9]|$)",
+    "country": "US",
+    "city": "Washington"
+  },
+  {
+    "name": "newark_ewr_token",
+    "pattern": "(^|[^a-z0-9])(ewr\\d*|\\d+ewr)([^a-z0-9]|$)",
+    "country": "US",
+    "city": "Newark"
+  },
+  {
+    "name": "des_moines_token",
+    "pattern": "(^|[^a-z0-9])(desm\\d*|\\d+desm)([^a-z0-9]|$)",
+    "country": "US",
+    "city": "Des Moines"
+  },
+  {
+    "name": "toronto_yyz_token",
+    "pattern": "(^|[^a-z0-9])(yyz\\d*|\\d+yyz)([^a-z0-9]|$)",
+    "country": "CA",
+    "city": "Toronto"
+  },
+  {
+    "name": "rogers_toronto_ym",
+    "pattern": "(^|[^a-z0-9])ym([^a-z0-9]|$)",
+    "domains": [
+      "rogers.com"
+    ],
+    "country": "CA",
+    "city": "Toronto"
+  },
+  {
+    "name": "netins_des_moines_dvnp",
+    "pattern": "(^|[^a-z0-9])(dvnp|desm)([^a-z0-9]|$)",
+    "domains": [
+      "netins.net"
+    ],
+    "country": "US",
+    "city": "Des Moines"
+  },
+  {
+    "name": "windstream_grnl_ia_grinnell",
+    "pattern": "(^|[._-])grnl\\d*[._-]ia([._-]|$)",
+    "domains": [
+      "windstream.net"
+    ],
+    "country": "US",
+    "city": "Grinnell"
+  },
+  {
+    "name": "networklayer_wdc_washington",
+    "pattern": "(^|[._-])wdc\\d*([._-]|$)",
+    "domains": [
+      "networklayer.com"
+    ],
+    "country": "US",
+    "city": "Washington"
+  },
+  {
+    "name": "verizon_nycmny_new_york",
+    "pattern": "(^|[._-])nycmny\\d*([._-]|$)",
+    "domains": [
+      "verizon.net",
+      "verizon-gni.net"
+    ],
+    "country": "US",
+    "city": "New York"
+  },
+  {
+    "name": "charter_nycmny_new_york",
+    "pattern": "(^|[._-])nycmny[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "New York"
+  },
+  {
+    "name": "charter_burlnc_burlington",
+    "pattern": "(^|[._-])burlnc[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Burlington"
+  },
+  {
+    "name": "charter_gnbonc_greensboro",
+    "pattern": "(^|[._-])gnbonc[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Greensboro"
+  },
+  {
+    "name": "charter_drfdny_deerfield",
+    "pattern": "(^|[._-])drfdny[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Deerfield"
+  },
+  {
+    "name": "charter_indp_indianapolis",
+    "pattern": "(^|[._-])indp[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Indianapolis"
+  },
+  {
+    "name": "charter_iplbin_indianapolis",
+    "pattern": "(^|[._-])(?:[a-z]+\\d+)?iplbin\\d*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Indianapolis"
+  },
+  {
+    "name": "charter_wnwonc_winston_salem",
+    "pattern": "(^|[._-])(?:hcr\\d+)?wnwonc[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Winston-Salem"
+  },
+  {
+    "name": "att_dtrmi_detroit",
+    "pattern": "(^|[._-])dtrmi[0-9a-z]*([._-]|$)",
+    "domains": [
+      "att.net"
+    ],
+    "country": "US",
+    "city": "Detroit"
+  },
+  {
+    "name": "turktelekom_06_ulus_ankara",
+    "pattern": "(^|[._-])06[._-]ulus([._-]|$)",
+    "domains": [
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Ankara"
+  },
+  {
+    "name": "turktelekom_esenyurt_istanbul",
+    "pattern": "(^|[._-])esenyurt([._-]|$)",
+    "domains": [
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Istanbul"
+  },
+  {
+    "name": "turktelekom_izmir_izmir",
+    "pattern": "(^|[._-])izmir([._-]|$)",
+    "domains": [
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Izmir"
+  },
+  {
+    "name": "tpnet_szcz_szczecin",
+    "pattern": "(^|[._-])szcz\\d*([._-]|$)",
+    "domains": [
+      "tpnet.pl"
+    ],
+    "country": "PL",
+    "city": "Szczecin"
+  }
+]
