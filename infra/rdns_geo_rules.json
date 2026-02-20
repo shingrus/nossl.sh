@@ -90,6 +90,24 @@
     "city": "Hackettstown"
   },
   {
+    "name": "comcast_elmhurst_il",
+    "pattern": "(^|[._-])elmhurst([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Elmhurst"
+  },
+  {
+    "name": "comcast_littleton_co",
+    "pattern": "(^|[._-])littleton([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Littleton"
+  },
+  {
     "name": "comcast_nh_new_hampshire",
     "pattern": "(^|[._-])nh([._-]|$)",
     "domains": [
@@ -470,6 +488,15 @@
     "city": "Winston-Salem"
   },
   {
+    "name": "charter_cmldme_des_moines",
+    "pattern": "(^|[._-])cmldme[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Des Moines"
+  },
+  {
     "name": "att_dtrmi_detroit",
     "pattern": "(^|[._-])dtrmi[0-9a-z]*([._-]|$)",
     "domains": [
@@ -477,6 +504,15 @@
     ],
     "country": "US",
     "city": "Detroit"
+  },
+  {
+    "name": "metronet_tlhsflaa_tallahassee",
+    "pattern": "(^|[._-])tlhsflaa[0-9a-z]*([._-]|$)",
+    "domains": [
+      "metronetinc.net"
+    ],
+    "country": "US",
+    "city": "Tallahassee"
   },
   {
     "name": "turktelekom_06_ulus_ankara",
