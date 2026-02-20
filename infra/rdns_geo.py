@@ -48,6 +48,7 @@ CYMRU_MIN_PREFIXLEN_V4 = 16
 # - Prefer delimiter-bounded location tokens (., -, _) over raw substrings.
 # - Prefer provider/domain-scoped rules for ambiguous tokens.
 # - Avoid exact hostname/service rules unless there is no safer alternative.
+# - Do not map state-only tokens (for example: ct, md, ca, fl, nj, nh) to city values.
 RULES_URL_TIMEOUT_SECONDS = 10
 DEFAULT_RULES_URL = Path(__file__).with_name("rdns_geo_rules.json").resolve().as_uri()
 

@@ -108,51 +108,6 @@
     "city": "Littleton"
   },
   {
-    "name": "comcast_nh_new_hampshire",
-    "pattern": "(^|[._-])nh([._-]|$)",
-    "domains": [
-      "comcast.net"
-    ],
-    "country": "US",
-    "city": "New Hampshire"
-  },
-  {
-    "name": "comcast_hsd_md_maryland",
-    "pattern": "(^|[._-])hsd\\d+[._-]md([._-]|$)",
-    "domains": [
-      "comcast.net"
-    ],
-    "country": "US",
-    "city": "Maryland"
-  },
-  {
-    "name": "comcast_hsd_ca_california",
-    "pattern": "(^|[._-])hsd\\d+[._-]ca([._-]|$)",
-    "domains": [
-      "comcast.net"
-    ],
-    "country": "US",
-    "city": "California"
-  },
-  {
-    "name": "comcast_hsd_fl_florida",
-    "pattern": "(^|[._-])hsd\\d+[._-]fl([._-]|$)",
-    "domains": [
-      "comcast.net"
-    ],
-    "country": "US",
-    "city": "Florida"
-  },
-  {
-    "name": "comcast_hsd_nj_new_jersey",
-    "pattern": "(^|[._-])hsd\\d+[._-]nj([._-]|$)",
-    "domains": [
-      "comcast.net"
-    ],
-    "country": "US",
-    "city": "New Jersey"
-  },
-  {
     "name": "frontier_tamp_fl_tampa",
     "pattern": "(^|[._-])tamp([._-])fl([._-]|$)",
     "domains": [
@@ -256,6 +211,15 @@
     "pattern": "(^|[._-])sng[0-9a-z]*([._-]|$)",
     "domains": [
       "ntt.net"
+    ],
+    "country": "SG",
+    "city": "Singapore"
+  },
+  {
+    "name": "akamai_sin_singapore",
+    "pattern": "(^|[._-])sin\\d*([._-]|$)",
+    "domains": [
+      "akamai.com"
     ],
     "country": "SG",
     "city": "Singapore"
@@ -513,6 +477,15 @@
     ],
     "country": "US",
     "city": "Tallahassee"
+  },
+  {
+    "name": "telefonica_ham_de_hamburg",
+    "pattern": "(^|[._-])ham([._-])de([._-]|$)",
+    "domains": [
+      "telefonica.de"
+    ],
+    "country": "DE",
+    "city": "Hamburg"
   },
   {
     "name": "turktelekom_06_ulus_ankara",
