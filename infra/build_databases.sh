@@ -79,6 +79,7 @@ ASN_SQLITE="${WORK_DIR}/asn.sqlite3"
 ASN_LATEST_LINK="${WORK_DIR}/ip2asn-latest.mmdb"
 COUNTRY_LATEST_LINK="${WORK_DIR}/ip2geo-latest.mmdb"
 RDNS_GEO_SCRIPT="${BIN_DIR}/rdns_geo.py"
+POPULATE_ASN_DOMAINS_SCRIPT="${BIN_DIR}/populate_asn_domains.py"
 RDNS_GEOFEED_OUTPUT="${WORK_DIR}/rdns_geo.csv"
 RDNS_UNMATCHED_OUTPUT="${WORK_DIR}/unmatched.txt"
 RDNS_RULES_URL="https://raw.githubusercontent.com/shingrus/nossl.sh/refs/heads/main/infra/rdns_geo_rules.json"
@@ -182,6 +183,10 @@ log "aggregating ASN SQLite"
 python3 "${BIN_DIR}/aggregate_asns.py" \
     --as-dir "${ASN_REPO}/as" \
     --output "${ASN_SQLITE}"
+
+log "populating ASN domains"
+python3 "${POPULATE_ASN_DOMAINS_SCRIPT}" \
+    --database "${ASN_SQLITE}"
 
 log "building MMDBs"
 rm -f "${ASN_MMDB}" "${COUNTRY_MMDB}"
