@@ -36,6 +36,24 @@
     "city": "Hartford"
   },
   {
+    "name": "comcast_norristown_pa",
+    "pattern": "(^|[^a-z0-9])norristown([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Norristown"
+  },
+  {
+    "name": "comcast_bensalem_pa",
+    "pattern": "(^|[^a-z0-9])bensalem([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Bensalem"
+  },
+  {
     "name": "comcast_sunnyvale_ca",
     "pattern": "(^|[^a-z0-9])sunnyvale([^a-z0-9]|$)",
     "domains": [
@@ -70,6 +88,24 @@
     ],
     "country": "US",
     "city": "Jacksonville"
+  },
+  {
+    "name": "comcast_hornlake_tn",
+    "pattern": "(^|[^a-z0-9])hornlake([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Horn Lake"
+  },
+  {
+    "name": "comcast_shrvprt_la_shreveport",
+    "pattern": "(^|[^a-z0-9])(?:main)?shrvprt([^a-z0-9]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Shreveport"
   },
   {
     "name": "comcast_pompanobeach_fl",
@@ -169,6 +205,15 @@
     ],
     "country": "GB",
     "city": "London"
+  },
+  {
+    "name": "lumen_dallas_dallas",
+    "pattern": "(^|[._-])dallas\\d*([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "US",
+    "city": "Dallas"
   },
   {
     "name": "belbone_lon_london",
@@ -286,6 +331,15 @@
     ],
     "country": "GB",
     "city": "London"
+  },
+  {
+    "name": "level3_dallas_dallas",
+    "pattern": "(^|[._-])(?:\\d+)?dallas(?:\\d+)?([._-]|$)",
+    "domains": [
+      "level3.net"
+    ],
+    "country": "US",
+    "city": "Dallas"
   },
   {
     "name": "twelve99_ash_ashburn",
@@ -423,6 +477,24 @@
     ],
     "country": "US",
     "city": "Greensboro"
+  },
+  {
+    "name": "charter_drhmnc_durham",
+    "pattern": "(^|[._-])(?:[a-z]+\\d+)?drhmnc[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Durham"
+  },
+  {
+    "name": "charter_chrxy_nc_charlotte",
+    "pattern": "(^|[._-])chr[xy]nc[0-9a-z]*([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Charlotte"
   },
   {
     "name": "charter_drfdny_deerfield",
