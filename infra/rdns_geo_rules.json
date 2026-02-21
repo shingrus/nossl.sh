@@ -108,6 +108,15 @@
     "city": "Littleton"
   },
   {
+    "name": "comcast_sacramento_ca",
+    "pattern": "(^|[._-])sacramento([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Sacramento"
+  },
+  {
     "name": "frontier_tamp_fl_tampa",
     "pattern": "(^|[._-])tamp([._-])fl([._-]|$)",
     "domains": [
