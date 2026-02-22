@@ -1,3 +1,11 @@
+//## rDNS geo rules
+//- Keep `rdns_geo_rules.json` as strict JSON (no comments, no trailing commas).
+//- Prefer delimiter-bounded location tokens (`.`, `-`, `_`) over raw substrings.
+//- Prefer provider/domain-scoped rules for ambiguous tokens.
+//- Avoid exact hostname/service rules unless there is no safer alternative.
+//- Do not map state-only tokens (for example: `ct`, `md`, `ca`, `fl`, `nj`, `nh`) to city values.
+//- When adding rules, validate JSON parsing after edits.
+
 [
   {
     "name": "comcast_newark_nj",
@@ -153,6 +161,15 @@
     "city": "Sacramento"
   },
   {
+    "name": "comcast_dalycity_ca",
+    "pattern": "(^|[._-])dalycity([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Daly City"
+  },
+  {
     "name": "frontier_tamp_fl_tampa",
     "pattern": "(^|[._-])tamp([._-])fl([._-]|$)",
     "domains": [
@@ -301,6 +318,15 @@
     "pattern": "(^|[._-])(?:\\d+)?lga(?:\\d+)?([._-]|$)",
     "domains": [
       "zayo.com"
+    ],
+    "country": "US",
+    "city": "New York"
+  },
+  {
+    "name": "tfbnw_lga_new_york",
+    "pattern": "(^|[._-])(?:\\d+)?lga(?:\\d+)?([._-]|$)",
+    "domains": [
+      "tfbnw.net"
     ],
     "country": "US",
     "city": "New York"
