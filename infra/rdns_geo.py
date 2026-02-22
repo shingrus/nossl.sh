@@ -10,6 +10,15 @@ Pipeline:
 5) Match PTR names against a regex rule dictionary to infer country/city.
 6) Confirm destination ASN/prefix via Team Cymru DNS.
 7) Write derived geofeed rows.
+
+## rDNS geo rules
+- Keep `rdns_geo_rules.json` as strict JSON (no comments, no trailing commas).
+- Prefer delimiter-bounded location tokens (`.`, `-`, `_`) over raw substrings.
+- Prefer provider/domain-scoped rules for ambiguous tokens.
+- Avoid exact hostname/service rules unless there is no safer alternative.
+- Do not map state-only tokens (for example: `ct`, `md`, `ca`, `fl`, `nj`, `nh`) to city values.
+- When adding rules, validate JSON parsing after edits.
+
 """
 
 from __future__ import annotations
