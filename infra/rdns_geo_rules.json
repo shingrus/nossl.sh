@@ -163,6 +163,15 @@
     "city": "Daly City"
   },
   {
+    "name": "frontier_wtrb_ct_waterbury",
+    "pattern": "(^|[._-])wtrb([._-])ct([._-]|$)",
+    "domains": [
+      "frontiernet.net"
+    ],
+    "country": "US",
+    "city": "Waterbury"
+  },
+  {
     "name": "frontier_tamp_fl_tampa",
     "pattern": "(^|[._-])tamp([._-])fl([._-]|$)",
     "domains": [
