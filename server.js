@@ -409,9 +409,47 @@ const getBeaconUniqFromHostname = (hostname) => {
     return parts[0];
 };
 
+const trimString = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const getResolverAsnDetails = (ip) => {
+    const resolverIp = trimString(ip);
+    if (!resolverIp || !asnReader || isPrivateIp(resolverIp)) {
+        return {
+            resolver_org: '',
+            resolver_name: '',
+        };
+    }
+
+    try {
+        const asnRecord = asnReader.get(resolverIp);
+        return {
+            resolver_org: trimString(asnRecord?.org || asnRecord?.organization),
+            resolver_name: trimString(asnRecord?.name),
+        };
+    } catch (error) {
+        return {
+            resolver_org: '',
+            resolver_name: '',
+        };
+    }
+};
+
+const enrichBeaconPayloadWithResolverDetails = (payload) => {
+    if (!payload || typeof payload !== 'object') {
+        return payload;
+    }
+
+    const resolverIp = trimString(payload.resolver_ip || payload.resolver_ip_a || payload.resolver_ip_aaaa);
+    return {
+        ...payload,
+        resolver_ip: resolverIp,
+        ...getResolverAsnDetails(resolverIp),
+    };
+};
+
 const updateReportResolverIp = (reportId, resolverIp) => {
-    const trimmedReportId = typeof reportId === 'string' ? reportId.trim() : '';
-    const trimmedResolverIp = typeof resolverIp === 'string' ? resolverIp.trim() : '';
+    const trimmedReportId = trimString(reportId);
+    const trimmedResolverIp = trimString(resolverIp);
     if (!trimmedReportId || !trimmedResolverIp || !shareReportStore?.isAvailable?.()) {
         return;
     }
@@ -1043,7 +1081,7 @@ app.get('/api/beacon', async (req, res) => {
     const reportId = typeof reportIdParam === 'string' ? reportIdParam.trim() : null;
 
     if (process.env.TEST_IP) {
-        const payload = {resolver_ip: process.env.TEST_IP};
+        const payload = enrichBeaconPayloadWithResolverDetails({resolver_ip: process.env.TEST_IP});
         res.json(payload);
         updateReportResolverIp(reportId, payload.resolver_ip);
         return;
@@ -1058,7 +1096,7 @@ app.get('/api/beacon', async (req, res) => {
 
     const key = `beacon:${uniq}`;
     const hashPayload = await shareReportStore.readHashByKey?.(key);
-    const payload = hashPayload
+    const rawPayload = hashPayload
         ? (() => {
             const toNumber = (value) => {
                 const parsed = Number.parseInt(value, 10);
@@ -1098,7 +1136,7 @@ app.get('/api/beacon', async (req, res) => {
             return normalized;
         })()
         : await shareReportStore.readJsonByKey?.(key);
-    if (!payload) {
+    if (!rawPayload) {
         if (!shareReportStore.isAvailable?.()) {
             res.status(503).json({error: 'no light'});
             return;
@@ -1107,6 +1145,7 @@ app.get('/api/beacon', async (req, res) => {
         return;
     }
 
+    const payload = enrichBeaconPayloadWithResolverDetails(rawPayload);
     res.json(payload);
     updateReportResolverIp(reportId, payload.resolver_ip);
 });

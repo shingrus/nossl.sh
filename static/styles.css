@@ -342,6 +342,12 @@ a:focus-visible {
     word-break: break-all;
 }
 
+.resolver-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
 .ip-address-value {
   letter-spacing: 0.02em;
   word-break: break-all;
