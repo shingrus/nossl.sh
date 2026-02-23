@@ -91,6 +91,24 @@
     "city": "Jacksonville"
   },
   {
+    "name": "comcast_tallah_fl_tallahassee",
+    "pattern": "(^|[._-])fl([._-])tallah([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Tallahassee"
+  },
+  {
+    "name": "comcast_dothan_al_dothan",
+    "pattern": "(^|[._-])dothan([._-])al([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Dothan"
+  },
+  {
     "name": "comcast_hornlake_tn",
     "pattern": "(^|[^a-z0-9])hornlake([^a-z0-9]|$)",
     "domains": [
@@ -235,6 +253,24 @@
     "city": "Dallas"
   },
   {
+    "name": "lumen_jfk_new_york",
+    "pattern": "(^|[._-])jfk\\d*([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "US",
+    "city": "New York"
+  },
+  {
+    "name": "lumen_saltlakecity_salt_lake_city",
+    "pattern": "(^|[._-])saltlakecity\\d*([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "US",
+    "city": "Salt Lake City"
+  },
+  {
     "name": "belbone_lon_london",
     "pattern": "(^|[._-])(?:\\d+)?lon(?:\\d+)?([._-]|$)",
     "domains": [
@@ -368,6 +404,15 @@
     ],
     "country": "US",
     "city": "Dallas"
+  },
+  {
+    "name": "level3_saltlakecity_salt_lake_city",
+    "pattern": "(^|[._-])saltlakecity\\d*([._-]|$)",
+    "domains": [
+      "level3.net"
+    ],
+    "country": "US",
+    "city": "Salt Lake City"
   },
   {
     "name": "twelve99_ash_ashburn",
@@ -631,5 +676,50 @@
     ],
     "country": "PL",
     "city": "Szczecin"
+  },
+  {
+    "name": "tds_lvrgtn_la_vergne",
+    "pattern": "(^|[._-])lvrgtn([._-]|$)",
+    "domains": [
+      "tds.net"
+    ],
+    "country": "US",
+    "city": "La Vergne"
+  },
+  {
+    "name": "embratel_spo_sao_paulo",
+    "pattern": "(^|[._-])spo([._-]|$)",
+    "domains": [
+      "embratel.net.br"
+    ],
+    "country": "BR",
+    "city": "Sao Paulo"
+  },
+  {
+    "name": "embratel_spomb_sao_paulo",
+    "pattern": "(^|[._-])spomb([._-]|$)",
+    "domains": [
+      "embratel.net.br"
+    ],
+    "country": "BR",
+    "city": "Sao Paulo"
+  },
+  {
+    "name": "aorta_ie_dub_dublin",
+    "pattern": "(^|[._-])ie([._-])dub[0-9a-z]*([._-]|$)",
+    "domains": [
+      "aorta.net"
+    ],
+    "country": "IE",
+    "city": "Dublin"
+  },
+  {
+    "name": "aorta_ie_dinc_dublin",
+    "pattern": "(^|[._-])ie([._-])dinc[0-9a-z]*([._-]|$)",
+    "domains": [
+      "aorta.net"
+    ],
+    "country": "IE",
+    "city": "Dublin"
   }
 ]
