@@ -181,6 +181,60 @@
     "city": "Daly City"
   },
   {
+    "name": "comcast_lyndon_mi",
+    "pattern": "(^|[._-])lyndon([._-])mi([._-])michigan([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Lyndon"
+  },
+  {
+    "name": "comcast_frederick_md_bad",
+    "pattern": "(^|[._-])frederick([._-])md([._-])bad([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Frederick"
+  },
+  {
+    "name": "comcast_winchester_tn_malt",
+    "pattern": "(^|[._-])winchester([._-])tn([._-])malt([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Winchester"
+  },
+  {
+    "name": "irtc_murrayville",
+    "pattern": "(^|[._-])murrayville([._-]|$)",
+    "domains": [
+      "irtc.net"
+    ],
+    "country": "US",
+    "city": "Murrayville"
+  },
+  {
+    "name": "irtc_woodson",
+    "pattern": "(^|[._-])woodson([._-]|$)",
+    "domains": [
+      "irtc.net"
+    ],
+    "country": "US",
+    "city": "Woodson"
+  },
+  {
+    "name": "irtc_kampsville",
+    "pattern": "(^|[._-])kampsville([._-]|$)",
+    "domains": [
+      "irtc.net"
+    ],
+    "country": "US",
+    "city": "Kampsville"
+  },
+  {
     "name": "frontier_wtrb_ct_waterbury",
     "pattern": "(^|[._-])wtrb([._-])ct([._-]|$)",
     "domains": [
@@ -425,6 +479,24 @@
     "city": "Ashburn"
   },
   {
+    "name": "twelve99_saca_sacramento",
+    "pattern": "(^|[._-])saca([._-]|$)",
+    "domains": [
+      "twelve99.net"
+    ],
+    "country": "US",
+    "city": "Sacramento"
+  },
+  {
+    "name": "cirion_mex1_mexico_city",
+    "pattern": "(^|[._-])mex1([._-]|$)",
+    "domains": [
+      "ciriontechnologies.net"
+    ],
+    "country": "MX",
+    "city": "Mexico City"
+  },
+  {
     "name": "as7195_jfk_new_york",
     "pattern": "(^|[._-])(?:\\d+)?jfk(?:\\d+)?([._-]|$)",
     "domains": [
@@ -501,6 +573,15 @@
     "pattern": "(^|[._-])grnl\\d*[._-]ia([._-]|$)",
     "domains": [
       "windstream.net"
+    ],
+    "country": "US",
+    "city": "Grinnell"
+  },
+  {
+    "name": "iowatelecom_grinnellcollege_grinnell",
+    "pattern": "(^|[._-])grinnellcollege\\d*([._-]|$)",
+    "domains": [
+      "iowatelecom.net"
     ],
     "country": "US",
     "city": "Grinnell"
@@ -615,6 +696,15 @@
     "city": "Des Moines"
   },
   {
+    "name": "charter_waco_tx_waco",
+    "pattern": "(^|[._-])(?:[a-z]+\\d+)?waco(?:tx[0-9a-z]*)?([._-]|$)",
+    "domains": [
+      "charter.com"
+    ],
+    "country": "US",
+    "city": "Waco"
+  },
+  {
     "name": "att_dtrmi_detroit",
     "pattern": "(^|[._-])dtrmi[0-9a-z]*([._-]|$)",
     "domains": [
@@ -651,9 +741,69 @@
     "city": "Ankara"
   },
   {
+    "name": "turktelekom_26_eskisehir_eskisehir",
+    "pattern": "(^|[._-])26[._-]eskisehir([._-]|$)",
+    "domains": [
+      "turktelekom.com",
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Eskisehir"
+  },
+  {
+    "name": "turktelekom_06_umitkoy_ankara",
+    "pattern": "(^|[._-])06[._-]umitkoy([._-]|$)",
+    "domains": [
+      "turktelekom.com",
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Ankara"
+  },
+  {
+    "name": "turktelekom_06_incesu_ankara",
+    "pattern": "(^|[._-])06[._-]incesu([._-]|$)",
+    "domains": [
+      "turktelekom.com",
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Ankara"
+  },
+  {
     "name": "turktelekom_esenyurt_istanbul",
     "pattern": "(^|[._-])esenyurt([._-]|$)",
     "domains": [
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Istanbul"
+  },
+  {
+    "name": "turktelekom_gayrettepe_istanbul",
+    "pattern": "(^|[._-])gayrettepe([._-]|$)",
+    "domains": [
+      "turktelekom.com",
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Istanbul"
+  },
+  {
+    "name": "turktelekom_pendik_istanbul",
+    "pattern": "(^|[._-])pendik([._-]|$)",
+    "domains": [
+      "turktelekom.com",
+      "turktelekom.com.tr"
+    ],
+    "country": "TR",
+    "city": "Istanbul"
+  },
+  {
+    "name": "turktelekom_samandira_istanbul",
+    "pattern": "(^|[._-])samandira([._-]|$)",
+    "domains": [
+      "turktelekom.com",
       "turktelekom.com.tr"
     ],
     "country": "TR",
