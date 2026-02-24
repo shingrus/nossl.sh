@@ -962,6 +962,7 @@ app.get('/lookup', (req, res) => {
 
 app.all(/^.*\/\.env*/i, honeypotService.handleEnvRequest);
 app.all(/^.*\/phpinfo\.php.*/i, honeypotService.handlePhpInfoRequest);
+app.all(/^.*\/admin\/config\.php.*/i, honeypotService.handleAdminConfigRequest);
 
 app.get('/api/counters', (req, res) => {
     const counters = getCountersSnapshot();

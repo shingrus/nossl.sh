@@ -136,6 +136,63 @@ export const generateFakeEnvFile = () => {
   ].join('\n');
 };
 
+export const generateFakeAdminConfigFile = () => {
+  const dbPassword = randomAlphaNumeric(20);
+  const dbReadonlyPassword = randomAlphaNumeric(18);
+  const jwtSecret = randomHex(32);
+  const appSalt = randomHex(16);
+  const redisPassword = randomAlphaNumeric(16);
+  const smtpPassword = randomAlphaNumeric(24);
+  const hostSuffix = randomAlphaNumeric(6).toLowerCase();
+
+  return [
+    '<?php',
+    '/*',
+    ' * Admin panel runtime config',
+    ' * Keep this file outside public web root.',
+    ' */',
+    "define('APP_ENV', 'production');",
+    "define('APP_DEBUG', false);",
+    "define('APP_TIMEZONE', 'UTC');",
+    "define('APP_SALT', '" + appSalt + "');",
+    '',
+    '$CONFIG = [',
+    "  'db' => [",
+    "    'driver' => 'mysqli',",
+    `    'host' => '${randomPrivateIp()}',`,
+    "    'port' => 3306,",
+    "    'database' => 'admin_portal',",
+    "    'username' => 'portal_admin',",
+    `    'password' => '${dbPassword}',`,
+    "    'readonly_user' => 'portal_ro',",
+    `    'readonly_password' => '${dbReadonlyPassword}',`,
+    '  ],',
+    "  'redis' => [",
+    `    'host' => '${randomPrivateIp()}',`,
+    "    'port' => 6379,",
+    `    'password' => '${redisPassword}',`,
+    '  ],',
+    "  'session' => [",
+    "    'cookie_name' => 'ADMINSESSID',",
+    '    \'secure\' => false,',
+    "    'lifetime' => 7200,",
+    '  ],',
+    "  'mail' => [",
+    `    'host' => 'smtp-${hostSuffix}.nossl.sh',`,
+    "    'port' => 587,",
+    "    'username' => 'alerts@nossl.sh',",
+    `    'password' => '${smtpPassword}',`,
+    '  ],',
+    `  'jwt_secret' => '${jwtSecret}',`,
+    "  'allowed_admin_cidr' => ['10.0.0.0/8', '192.168.0.0/16'],",
+    '];',
+    '',
+    '$GLOBALS[\'admin_config\'] = $CONFIG;',
+    '',
+    '?>',
+  ].join('\n');
+};
+
 export const generateFakePhpInfoPage = (req, {clientIp: providedClientIp} = {}) => {
   const phpVersions = ['8.1.32', '8.2.28', '8.3.17'];
   const phpVersion = randomItem(phpVersions);
@@ -476,11 +533,33 @@ export const createHoneypotService = (db, { getClientIp, maxRecords: maxRecordsO
     res.send(payload.html);
   };
 
+  const handleAdminConfigRequest = (req, res) => {
+    setNoCacheHeaders(res);
+    res.type('text/plain');
+    res.set('X-Powered-By', `PHP/${randomItem(['8.1.32', '8.2.28', '8.3.17'])}`);
+    try {
+      const clientIp = getClientIp(req) || 'unknown';
+      addHoneypotHit(clientIp);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to record honeypot hit', error);
+    }
+
+    const payload = `${generateFakeAdminConfigFile()}\n`;
+    if (req.method === 'HEAD') {
+      res.set('Content-Length', Buffer.byteLength(payload));
+      res.status(200).end();
+      return;
+    }
+    res.send(payload);
+  };
+
   return {
     addHoneypotHit,
     getSummary,
     handleEnvRequest,
     handlePhpInfoRequest,
+    handleAdminConfigRequest,
     maxRecords,
   };
 };
