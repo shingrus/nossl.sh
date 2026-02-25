@@ -253,6 +253,24 @@
     "city": "Tampa"
   },
   {
+    "name": "frontier_ontr_ca_ontario",
+    "pattern": "(^|[._-])ontr([._-])ca([._-]|$)",
+    "domains": [
+      "frontiernet.net"
+    ],
+    "country": "US",
+    "city": "Ontario"
+  },
+  {
+    "name": "frontier_lsan_ca_los_angeles",
+    "pattern": "(^|[._-])lsan([._-])ca([._-]|$)",
+    "domains": [
+      "frontiernet.net"
+    ],
+    "country": "US",
+    "city": "Los Angeles"
+  },
+  {
     "name": "as13285_thw_london",
     "pattern": "(^|[^a-z0-9])thw([^a-z0-9]|$)",
     "domains": [
@@ -325,6 +343,24 @@
     "city": "Salt Lake City"
   },
   {
+    "name": "lumen_tuk_tukwila",
+    "pattern": "(^|[._-])tuk([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "US",
+    "city": "Tukwila"
+  },
+  {
+    "name": "qwest_tukw_tukwila",
+    "pattern": "(^|[._-])tukw([._-]|$)",
+    "domains": [
+      "qwest.net"
+    ],
+    "country": "US",
+    "city": "Tukwila"
+  },
+  {
     "name": "belbone_lon_london",
     "pattern": "(^|[._-])(?:\\d+)?lon(?:\\d+)?([._-]|$)",
     "domains": [
@@ -359,6 +395,24 @@
     ],
     "country": "US",
     "city": "Atlanta"
+  },
+  {
+    "name": "as11404_rentoncab_renton",
+    "pattern": "(^|[._-])rentoncab([._-]|$)",
+    "domains": [
+      "as11404.net"
+    ],
+    "country": "US",
+    "city": "Renton"
+  },
+  {
+    "name": "as11404_duvallhe_duvall",
+    "pattern": "(^|[._-])duvallhe([._-]|$)",
+    "domains": [
+      "as11404.net"
+    ],
+    "country": "US",
+    "city": "Duvall"
   },
   {
     "name": "as6453_ldn_london",
@@ -826,6 +880,15 @@
     ],
     "country": "PL",
     "city": "Szczecin"
+  },
+  {
+    "name": "as9141_waw_warsaw",
+    "pattern": "(^|[._-])waw[0-9a-z]*([._-]|$)",
+    "domains": [
+      "as9141.pl"
+    ],
+    "country": "PL",
+    "city": "Warsaw"
   },
   {
     "name": "tds_lvrgtn_la_vergne",
