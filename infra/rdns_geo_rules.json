@@ -397,6 +397,15 @@
     "city": "Tukwila"
   },
   {
+    "name": "qwest_phn_phoenix",
+    "pattern": "(^|[._-])phn\\d*([._-]|$)",
+    "domains": [
+      "qwest.net"
+    ],
+    "country": "US",
+    "city": "Phoenix"
+  },
+  {
     "name": "belbone_lon_london",
     "pattern": "(^|[._-])(?:\\d+)?lon(?:\\d+)?([._-]|$)",
     "domains": [
@@ -503,6 +512,15 @@
     ],
     "country": "US",
     "city": "New York"
+  },
+  {
+    "name": "zayo_ord_chicago",
+    "pattern": "(^|[._-])(?:\\d+)?ord(?:\\d+)?([._-]|$)",
+    "domains": [
+      "zayo.com"
+    ],
+    "country": "US",
+    "city": "Chicago"
   },
   {
     "name": "tfbnw_lga_new_york",
@@ -813,6 +831,15 @@
     "city": "Detroit"
   },
   {
+    "name": "sbcglobal_sndgca_san_diego",
+    "pattern": "(^|[._-])sndgca[0-9a-z]*([._-]|$)",
+    "domains": [
+      "sbcglobal.net"
+    ],
+    "country": "US",
+    "city": "San Diego"
+  },
+  {
     "name": "metronet_tlhsflaa_tallahassee",
     "pattern": "(^|[._-])tlhsflaa[0-9a-z]*([._-]|$)",
     "domains": [
@@ -820,6 +847,15 @@
     ],
     "country": "US",
     "city": "Tallahassee"
+  },
+  {
+    "name": "metronet_dytnohaa_dayton",
+    "pattern": "(^|[._-])dytnohaa[0-9a-z]*([._-]|$)",
+    "domains": [
+      "metronetinc.net"
+    ],
+    "country": "US",
+    "city": "Dayton"
   },
   {
     "name": "telefonica_ham_de_hamburg",
@@ -1027,5 +1063,14 @@
     "domains": ["frontiernet.net"],
     "country": "US",
     "city": "Succasunna"
+  },
+  {
+    "name": "alternet_phl_philadelphia",
+    "pattern": "(^|[._-])phl\\d*([._-]|$)",
+    "domains": [
+      "alter.net"
+    ],
+    "country": "US",
+    "city": "Philadelphia"
   }
 ]
