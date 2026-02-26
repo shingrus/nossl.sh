@@ -325,6 +325,24 @@
     "city": "London"
   },
   {
+    "name": "lumen_ams_amsterdam",
+    "pattern": "(^|[._-])(?:\\d+)?ams(?:\\d+)?([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "NL",
+    "city": "Amsterdam"
+  },
+  {
+    "name": "lumen_boston_boston",
+    "pattern": "(^|[._-])boston\\d*([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "US",
+    "city": "Boston"
+  },
+  {
     "name": "lumen_dallas_dallas",
     "pattern": "(^|[._-])dallas\\d*([._-]|$)",
     "domains": [
@@ -359,6 +377,15 @@
     ],
     "country": "US",
     "city": "Tukwila"
+  },
+  {
+    "name": "msn_ams_amsterdam",
+    "pattern": "(^|[._-])(?:\\d+)?ams(?:\\d+)?([._-]|$)",
+    "domains": [
+      "msn.net"
+    ],
+    "country": "NL",
+    "city": "Amsterdam"
   },
   {
     "name": "qwest_tukw_tukwila",
@@ -979,5 +1006,26 @@
     ],
     "country": "FR",
     "city": "Paris"
+  },
+  {
+    "name": "frontier_mdtw_ct_middletown",
+    "pattern": "(^|[._-])mdtw([._-])ct([._-]|$)",
+    "domains": ["frontiernet.net"],
+    "country": "US",
+    "city": "Middletown"
+  },
+  {
+    "name": "frontier_mrdn_ct_meriden",
+    "pattern": "(^|[._-])mrdn([._-])ct([._-]|$)",
+    "domains": ["frontiernet.net"],
+    "country": "US",
+    "city": "Meriden"
+  },
+  {
+    "name": "frontier_sccs_nj_succasunna",
+    "pattern": "(^|[._-])sccs([._-])nj([._-]|$)",
+    "domains": ["frontiernet.net"],
+    "country": "US",
+    "city": "Succasunna"
   }
 ]
