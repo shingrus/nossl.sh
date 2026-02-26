@@ -397,10 +397,10 @@
     "city": "Paris"
   },
   {
-    "name": "cogent_atl_atlanta",
+    "name": "cog_or_twelve_atl_atlanta",
     "pattern": "(^|[._-])atl\\d*([._-]|$)",
     "domains": [
-      "cogentco.com"
+      "cogentco.com", "twelve99.net"
     ],
     "country": "US",
     "city": "Atlanta"
@@ -952,5 +952,32 @@
     ],
     "country": "IE",
     "city": "Dublin"
+  },
+  {
+    "name": "blix_osl_oslo",
+    "pattern": "(^|[._-])(?:\\d+)?osl(?:\\d+)?([._-]|$)",
+    "domains": [
+      "blix.com"
+    ],
+    "country": "NO",
+    "city": "Oslo"
+  },
+  {
+    "name": "liquidtelecom_hre_harare",
+    "pattern": "(^|[._-])(?:\\d+)?hre(?:\\d+)?([._-]|$)",
+    "domains": [
+      "liquidtelecom.net"
+    ],
+    "country": "ZW",
+    "city": "Harare"
+  },
+  {
+    "name": "twelve99_prs_paris",
+    "pattern": "(^|[._-])prs([._-]|$)",
+    "domains": [
+      "twelve99.net"
+    ],
+    "country": "FR",
+    "city": "Paris"
   }
 ]
