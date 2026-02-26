@@ -231,18 +231,25 @@
 
     const buildFreeGeoUrl = (ip) => `/free-geo-ip?${encodeURIComponent(ip)}`;
 
-    const setBeaconResolver = (value, {linkToGeo = false, resolverName = ''} = {}) => {
+    const setBeaconResolver = (value, {linkToGeo = false, resolverName = '', resolverLink = ''} = {}) => {
       if (!beaconResolverEl) {
         return;
       }
       const label = value || 'n/a';
       const metaLabel = resolverName || '';
       if (beaconResolverMetaEl) {
+        beaconResolverMetaEl.textContent = '';
         if (metaLabel) {
-          beaconResolverMetaEl.textContent = metaLabel;
+          if (resolverLink) {
+            const metaLink = document.createElement('a');
+            metaLink.href = resolverLink;
+            metaLink.textContent = metaLabel;
+            beaconResolverMetaEl.appendChild(metaLink);
+          } else {
+            beaconResolverMetaEl.textContent = metaLabel;
+          }
           beaconResolverMetaEl.hidden = false;
         } else {
-          beaconResolverMetaEl.textContent = '';
           beaconResolverMetaEl.hidden = true;
         }
       }
@@ -290,9 +297,18 @@
         const payload = await response.json();
         const resolverIp = payload?.resolver_ip || '';
         const resolverName = payload?.resolver_name || payload?.resolverName || '';
+        const resolverOrgSlug = payload?.resolver_org_slug || payload?.resolverOrgSlug || '';
+        const resolverAsnRaw = payload?.resolver_asn ?? payload?.resolverAsn ?? '';
+        const resolverAsn = Number.isSafeInteger(resolverAsnRaw)
+          ? resolverAsnRaw
+          : Number.parseInt(String(resolverAsnRaw || '').trim(), 10);
+        const resolverLink = resolverOrgSlug
+          ? `/asn-${resolverOrgSlug}`
+          : (Number.isSafeInteger(resolverAsn) && resolverAsn > 0 ? `/as${resolverAsn}` : '');
         setBeaconResolver(resolverIp, {
           linkToGeo: Boolean(resolverIp),
           resolverName,
+          resolverLink,
         });
       } catch (error) {
         setBeaconResolver('');

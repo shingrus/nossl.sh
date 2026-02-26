@@ -15,6 +15,7 @@ import {registerAsnTopRoutes} from './componets/asn-top-routes.js';
 import {setNoCacheHeaders} from './componets/cache-headers.js';
 import {buildCountryAsnListPath, countryCodeToFlag, countryCodeToName} from './componets/country-utils.js';
 import {formatTimestamp} from './componets/format-utils.js';
+import {buildOrgSlug} from './componets/org-slug.js';
 import {SEO_PAGE_PATH_SET, SEO_PAGES_BY_CATEGORY} from './componets/seo-pages.js';
 import {registerSeoRoutes} from './componets/seo-routes.js';
 import {createSharedReportService} from './componets/shared-report.js';
@@ -417,19 +418,28 @@ const getResolverAsnDetails = (ip) => {
         return {
             resolver_org: '',
             resolver_name: '',
+            resolver_asn: null,
+            resolver_org_slug: '',
         };
     }
 
     try {
         const asnRecord = asnReader.get(resolverIp);
+        const resolverOrg = trimString(asnRecord?.org || asnRecord?.organization);
+        const resolverOrgSlug = buildOrgSlug(resolverOrg) || '';
+        const resolverAsn = Number.isSafeInteger(asnRecord?.asn) ? asnRecord.asn : null;
         return {
-            resolver_org: trimString(asnRecord?.org || asnRecord?.organization),
+            resolver_org: resolverOrg,
             resolver_name: trimString(asnRecord?.name),
+            resolver_asn: resolverAsn,
+            resolver_org_slug: resolverOrgSlug,
         };
     } catch (error) {
         return {
             resolver_org: '',
             resolver_name: '',
+            resolver_asn: null,
+            resolver_org_slug: '',
         };
     }
 };
