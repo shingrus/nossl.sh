@@ -181,6 +181,15 @@
     "city": "Daly City"
   },
   {
+    "name": "comcast_ogden_ut",
+    "pattern": "(^|[._-])ogden([._-])ut([._-])utah([._-]|$)",
+    "domains": [
+      "comcast.net"
+    ],
+    "country": "US",
+    "city": "Ogden"
+  },
+  {
     "name": "comcast_lyndon_mi",
     "pattern": "(^|[._-])lyndon([._-])mi([._-])michigan([._-]|$)",
     "domains": [
@@ -540,6 +549,15 @@
     ],
     "country": "US",
     "city": "Sacramento"
+  },
+  {
+    "name": "twelve99_pitt_pittsburgh",
+    "pattern": "(^|[._-])pitt([._-]|$)",
+    "domains": [
+      "twelve99.net"
+    ],
+    "country": "US",
+    "city": "Pittsburgh"
   },
   {
     "name": "cirion_mex1_mexico_city",

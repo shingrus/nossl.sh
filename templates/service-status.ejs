@@ -60,7 +60,7 @@
       const geoCoverageSemaphoreLevel = geoIpCoverage?.semaphore?.level || 'none';
       const geoCoverageSemaphoreLabel = geoIpCoverage?.semaphore?.label || 'No data';
       const statItems = [
-        {label: 'Total requests', value: totalRequests},
+        {label: 'Root requests', value: totalRequests},
         {label: 'API requests', value: counters.apiCount},
         {label: 'Health checks', value: counters.healthzCount},
         {label: 'cURL detected', value: counters.curlCount},
