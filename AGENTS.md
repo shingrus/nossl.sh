@@ -48,7 +48,8 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `componets/` feature modules (note the folder name is intentionally spelled)
 - `templates/` EJS views, `templates/partials/` shared fragments
 - `static/` CSS, icons, and robots files
-- `infra/` data tooling (ASN aggregation, domain population)
+- `infra/scripts/` Python data tooling (ASN aggregation, domain population, rDNS pipelines)
+- `infra/configs/` config and rule files (`rdns_geo_rules.json`, `*.conf`, geofeed lists)
 - `infra/beacon/` Go service that ingests dnstap and stores `beacon:<uniq>` in Redis
 - `infra/mmdb-builder/` Go toolchain for building the ASN MMDB from per-ASN `aggregated.json` files
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
