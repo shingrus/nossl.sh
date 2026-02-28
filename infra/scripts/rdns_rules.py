@@ -505,7 +505,7 @@ def sync_rules_file_to_db(
         country = str(entry.get("country") or "").strip().upper()
         city = str(entry.get("city") or "").strip()
 
-        if not name or not pattern or not domains or len(country) != 2 or not city:
+        if not name or not pattern or len(country) != 2 or not city:
             skipped += 1
             continue
         try:
@@ -822,8 +822,6 @@ def dump_rules_from_db(conn: Any, rules_table: PgTableRef, path: Path) -> int:
         except json.JSONDecodeError:
             continue
         domains = normalize_domains(parsed_domains)
-        if not domains:
-            continue
         entries.append(
             {
                 "name": name.strip(),
@@ -876,14 +874,6 @@ def main() -> int:
             log(f"rules_dump_written path={args.dump_rules} total_rules={dumped} mode=dump_only")
             return 0
 
-        pending_host_records = select_unchecked_host_records(conn, hostname_table)
-        if not pending_host_records:
-            log("no unchecked hostnames found in PostgreSQL table")
-            return 0
-
-        log(f"loaded_unchecked_hostnames={len(pending_host_records)}")
-        run_id = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ") + f"-pid{os.getpid()}"
-        log(f"run_id={run_id}")
         synced, inserted, updated, skipped = sync_rules_file_to_db(
             conn=conn,
             rules_table=rules_table,
@@ -895,6 +885,15 @@ def main() -> int:
             f"synced={synced} inserted={inserted} updated={updated} skipped={skipped} "
             f"pgsql_table={rules_table.schema}.{rules_table.table}"
         )
+
+        pending_host_records = select_unchecked_host_records(conn, hostname_table)
+        if not pending_host_records:
+            log("no unchecked hostnames found in PostgreSQL table")
+            return 0
+
+        log(f"loaded_unchecked_hostnames={len(pending_host_records)}")
+        run_id = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ") + f"-pid{os.getpid()}"
+        log(f"run_id={run_id}")
 
         log(
             f"hostnames_pending_check={len(pending_host_records)} "

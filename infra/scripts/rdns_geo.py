@@ -68,6 +68,7 @@ DEFAULT_RULES_URL = (
     Path(__file__).resolve().parents[1] / "configs" / "rdns_geo_rules.json"
 ).resolve().as_uri()
 DEFAULT_PGSQL_TABLE = "hostname_reviews"
+DEFAULT_PGSQL_RULES_TABLE = "generated_rules"
 
 
 def load_rule_entries_from_url(rules_url: str) -> list[dict[str, Any]]:
@@ -177,12 +178,11 @@ def is_public_ip(ip: str) -> bool:
         return False
 
 
-def load_rules(rules_url: str = DEFAULT_RULES_URL) -> list[Rule]:
-    source = load_rule_entries_from_url(rules_url)
+def compile_rules(source: list[dict[str, Any]], source_name: str) -> list[Rule]:
     rules: list[Rule] = []
     for idx, entry in enumerate(source):
         if not isinstance(entry, dict):
-            raise ValueError(f"Rule #{idx + 1} must be an object")
+            raise ValueError(f"Rule #{idx + 1} from {source_name} must be an object")
         name = str(entry.get("name") or f"rule_{idx + 1}").strip()
         pattern_text = str(entry.get("pattern") or "").strip()
         domains_raw = entry.get("domains")
@@ -190,7 +190,7 @@ def load_rules(rules_url: str = DEFAULT_RULES_URL) -> list[Rule]:
         city = str(entry.get("city") or "").strip()
         if not pattern_text or len(country) != 2 or not city:
             raise ValueError(
-                f"Rule #{idx + 1} must include pattern, 2-letter country, and city"
+                f"Rule #{idx + 1} from {source_name} must include pattern, 2-letter country, and city"
             )
         domains: tuple[str, ...] = ()
         if isinstance(domains_raw, str) and domains_raw.strip():
@@ -199,17 +199,21 @@ def load_rules(rules_url: str = DEFAULT_RULES_URL) -> list[Rule]:
             normalized_domains: list[str] = []
             for value in domains_raw:
                 if not isinstance(value, str):
-                    raise ValueError(f"Rule #{idx + 1} has non-string domain in domains")
+                    raise ValueError(
+                        f"Rule #{idx + 1} from {source_name} has non-string domain in domains"
+                    )
                 domain = value.strip().strip(".").lower()
                 if domain:
                     normalized_domains.append(domain)
             domains = tuple(normalized_domains)
         elif domains_raw is not None:
-            raise ValueError(f"Rule #{idx + 1} domains must be string or list of strings")
+            raise ValueError(
+                f"Rule #{idx + 1} from {source_name} domains must be string or list of strings"
+            )
         try:
             pattern = re.compile(pattern_text, re.IGNORECASE)
         except re.error as exc:
-            raise ValueError(f"Rule #{idx + 1} invalid regex: {exc}") from exc
+            raise ValueError(f"Rule #{idx + 1} from {source_name} invalid regex: {exc}") from exc
         rules.append(
             Rule(
                 name=name,
@@ -221,6 +225,137 @@ def load_rules(rules_url: str = DEFAULT_RULES_URL) -> list[Rule]:
         )
 
     return rules
+
+
+def load_rules(rules_url: str = DEFAULT_RULES_URL) -> list[Rule]:
+    source = load_rule_entries_from_url(rules_url)
+    return compile_rules(source, rules_url)
+
+
+def normalize_domains_value(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        v = value.strip().strip(".").lower()
+        return (v,) if v else ()
+    if isinstance(value, list):
+        out: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            v = item.strip().strip(".").lower()
+            if v:
+                out.append(v)
+        return tuple(dict.fromkeys(out))
+    return ()
+
+
+def postgres_table_has_required_columns(
+    conn: Any,
+    table_ref: PgTableRef,
+    required_columns: set[str],
+) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            """,
+            (table_ref.schema, table_ref.table),
+        )
+        rows = cur.fetchall()
+    available = {str(row[0]) for row in rows if row and isinstance(row[0], str)}
+    return required_columns.issubset(available)
+
+
+def load_rule_entries_from_postgres(
+    pgsql_dsn: str,
+    table_ref: PgTableRef,
+) -> tuple[list[dict[str, Any]], int]:
+    conn: Any = None
+    try:
+        conn = open_postgres_connection(pgsql_dsn)
+        required_columns = {"name", "pattern", "domains_json", "country", "city"}
+        if not postgres_table_has_required_columns(conn, table_ref, required_columns):
+            eprint(
+                "pgsql_rules_skipped "
+                f"table={table_ref.schema}.{table_ref.table} "
+                "reason=missing_required_columns"
+            )
+            return [], 0
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT name, pattern, domains_json, country, city
+                FROM {table_ref.quoted}
+                ORDER BY lower(name), name
+                """
+            )
+            rows = cur.fetchall()
+    finally:
+        if conn is not None:
+            conn.close()
+
+    entries: list[dict[str, Any]] = []
+    skipped = 0
+    for row in rows:
+        if not row or len(row) < 5:
+            skipped += 1
+            continue
+        name, pattern, domains_json, country, city = row
+        if not all(isinstance(v, str) and v.strip() for v in (name, pattern, country, city)):
+            skipped += 1
+            continue
+        try:
+            parsed_domains = json.loads(domains_json) if isinstance(domains_json, str) else []
+        except json.JSONDecodeError:
+            skipped += 1
+            continue
+        domains = normalize_domains_value(parsed_domains)
+        if not domains:
+            skipped += 1
+            continue
+        entries.append(
+            {
+                "name": name.strip(),
+                "pattern": pattern.strip(),
+                "domains": list(domains),
+                "country": country.strip().upper(),
+                "city": city.strip(),
+            }
+        )
+    return entries, skipped
+
+
+def merge_rule_entries(
+    base_entries: list[dict[str, Any]],
+    override_entries: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int, int]:
+    merged = list(base_entries)
+    index_by_name: dict[str, int] = {}
+    for idx, entry in enumerate(merged):
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()
+        if name and name not in index_by_name:
+            index_by_name[name] = idx
+
+    replaced = 0
+    appended = 0
+    for entry in override_entries:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()
+        if name and name in index_by_name:
+            merged[index_by_name[name]] = entry
+            replaced += 1
+            continue
+        merged.append(entry)
+        if name:
+            index_by_name[name] = len(merged) - 1
+        appended += 1
+    return merged, replaced, appended
 
 
 def extract_first(record: dict[str, Any], paths: Iterable[tuple[str, ...]]) -> Optional[str]:
@@ -783,6 +918,7 @@ def main() -> int:
     args = parser.parse_args()
     pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
     pgsql_table_ref: Optional[PgTableRef] = None
+    pgsql_rules_table_ref: Optional[PgTableRef] = None
 
     if maxminddb is None:
         eprint("Missing Python package 'maxminddb'. Install: pip install maxminddb")
@@ -801,15 +937,36 @@ def main() -> int:
     try:
         ensure_tool("mtr")
         ensure_tool("dig")
-        rules = load_rules(args.rules_url)
+        file_rule_entries = load_rule_entries_from_url(args.rules_url)
+        pgsql_rule_entries: list[dict[str, Any]] = []
+        pgsql_rules_skipped = 0
         if pgsql_dsn:
             pgsql_table_ref = preflight_postgres_tracking(pgsql_dsn, args.pgsql_table)
+            pgsql_rules_table_ref = parse_pg_table_ref(DEFAULT_PGSQL_RULES_TABLE)
+            pgsql_rule_entries, pgsql_rules_skipped = load_rule_entries_from_postgres(
+                pgsql_dsn,
+                pgsql_rules_table_ref,
+            )
+        merged_rule_entries, merged_rules_replaced, merged_rules_appended = merge_rule_entries(
+            file_rule_entries,
+            pgsql_rule_entries,
+        )
+        rules = compile_rules(merged_rule_entries, "merged rules")
     except Exception as exc:
         eprint(str(exc))
         return 2
 
     eprint(f"rules_url={args.rules_url}")
-    eprint(f"loaded_rules={len(rules)}")
+    eprint(f"loaded_rules_file={len(file_rule_entries)}")
+    eprint(f"loaded_rules_pgsql={len(pgsql_rule_entries)}")
+    eprint(f"loaded_rules_total={len(rules)}")
+    if pgsql_dsn and pgsql_rules_table_ref is not None:
+        eprint(
+            "pgsql_rules_merge "
+            f"table={pgsql_rules_table_ref.schema}.{pgsql_rules_table_ref.table} "
+            f"replaced={merged_rules_replaced} appended={merged_rules_appended} "
+            f"skipped={pgsql_rules_skipped}"
+        )
 
     hints_by_prefix: dict[str, Hint] = {}
     unknown_candidates: list[IpCandidate] = []
