@@ -22,6 +22,9 @@ Options:
   --ips-db <path>
                       SQLite DB path for rdns_geo.py.
                       If omitted, rdns geo step is skipped.
+Environment:
+  PGSQL               Optional PostgreSQL DSN for rdns_geo.py unmatched-host
+                      tracking (passed as --pgsql when set).
   -h, --help          Show this help message.
 EOF
 }
@@ -30,6 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORK_DIR="${ROOT_DIR}"
 IPS_DB=""
+PGSQL_DSN="${PGSQL:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -119,6 +123,7 @@ update_symlink_to_latest() {
 
 run_rdns_geo() {
     local mmdb_path="$1"
+    local -a rdns_pgsql_args=()
 
     if [[ -z "${IPS_DB}" ]]; then
         log "ips DB is not set; skipping rdns geo"
@@ -140,6 +145,13 @@ run_rdns_geo() {
         return 0
     fi
 
+    if [[ -n "${PGSQL_DSN}" ]]; then
+        rdns_pgsql_args+=(--pgsql "${PGSQL_DSN}")
+        log "rdns geo postgres tracking: enabled"
+    else
+        log "rdns geo postgres tracking: disabled"
+    fi
+
     log "running rdns geo"
     log "rdns geo mmdb: ${mmdb_path}"
     log "rdns geo rules: ${RDNS_RULES_URL}"
@@ -148,7 +160,8 @@ run_rdns_geo() {
         --mmdb "${mmdb_path}" \
         --rules-url "${RDNS_RULES_URL}" \
         --output "${RDNS_GEOFEED_OUTPUT}" \
-        --unmatched-zones "${RDNS_UNMATCHED_OUTPUT}"
+        --unmatched-zones "${RDNS_UNMATCHED_OUTPUT}" \
+        "${rdns_pgsql_args[@]}"
 }
 
 patch_country_mmdb_with_rdns() {
