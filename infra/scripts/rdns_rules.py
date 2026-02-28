@@ -3,31 +3,35 @@
 Analyze unmatched rDNS hostnames with OpenAI and automatically extend rules JSON.
 
 Workflow:
-1) Read unmatched hostnames from file ("<ip> <hostname>" or "<hostname>").
+1) Read unchecked hostnames from PostgreSQL hostname review table.
 2) Load existing rdns_geo rules.
 3) Ask OpenAI for high-confidence city rules (grouped by domain).
 4) Validate returned rules locally before accepting.
-5) Upsert generated rules into SQLite table.
+5) Upsert generated rules into PostgreSQL table.
 6) Append accepted rules to rules JSON file.
-7) Upsert hostname match status into SQLite table.
+7) Upsert hostname match status into PostgreSQL table.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
-import ipaddress
 import json
 import os
 import re
-import sqlite3
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from pgsql_hostname_reviews import (
+    PgTableRef,
+    ensure_hostname_reviews_table,
+    open_postgres_connection,
+    parse_pg_table_ref,
+)
 from rdns_geo import (
     Rule,
     load_rule_entries_from_url,
@@ -38,14 +42,19 @@ from rdns_geo import (
 
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_API_BASE = "https://api.openai.com/v1"
-DEFAULT_RULES_URL = Path(__file__).with_name("rdns_geo_rules.json").resolve().as_uri()
+DEFAULT_RULES_URL = (
+    Path(__file__).resolve().parents[1] / "configs" / "rdns_geo_rules.json"
+).resolve().as_uri()
 DEFAULT_MAX_HOSTS_PER_DOMAIN = 60
-DEFAULT_MAX_DOMAINS_PER_REQUEST = 20
+DEFAULT_MAX_DOMAINS_PER_REQUEST = 1
 DEFAULT_MIN_CONFIDENCE = "high"
 RULES_SYNC_MODEL = "rules_file_sync"
 RULES_SYNC_REASON = "synced_from_rules_file"
 LOG_HOST_SAMPLE_LIMIT = 5
 CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+DEFAULT_PGSQL_HOSTNAME_TABLE = "hostname_reviews"
+DEFAULT_PGSQL_RULES_TABLE = "generated_rules"
+DEFAULT_PGSQL_AUDIT_TABLE = "llm_chunk_audit"
 
 
 @dataclass(frozen=True)
@@ -73,20 +82,35 @@ def log(msg: str) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Use OpenAI to derive new rdns_geo rules from unmatched hostnames.",
+        description="Use OpenAI to derive new rdns_geo rules from unchecked PostgreSQL hostnames.",
     )
     parser.add_argument(
-        "--unmatched-zones",
-        "-u",
+        "--pgsql",
         required=False,
-        type=Path,
-        help="Input file with unmatched hosts: '<dst_ip> <hostname>' or '<hostname>'",
+        type=str,
+        default="",
+        help="PostgreSQL DSN (overrides PGSQL env var)",
     )
     parser.add_argument(
-        "--db",
-        required=False,
-        type=Path,
-        help="SQLite database path for hostname and generated rule tracking",
+        "--pgsql-hostname-table",
+        type=str,
+        default=DEFAULT_PGSQL_HOSTNAME_TABLE,
+        help=(
+            "PostgreSQL table for hostname reviews "
+            f"(default: {DEFAULT_PGSQL_HOSTNAME_TABLE})"
+        ),
+    )
+    parser.add_argument(
+        "--pgsql-rules-table",
+        type=str,
+        default=DEFAULT_PGSQL_RULES_TABLE,
+        help=f"PostgreSQL table for generated rules (default: {DEFAULT_PGSQL_RULES_TABLE})",
+    )
+    parser.add_argument(
+        "--pgsql-audit-table",
+        type=str,
+        default=DEFAULT_PGSQL_AUDIT_TABLE,
+        help=f"PostgreSQL table for LLM audit logs (default: {DEFAULT_PGSQL_AUDIT_TABLE})",
     )
     parser.add_argument(
         "--rules-url",
@@ -144,14 +168,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def is_ip(text: str) -> bool:
-    try:
-        ipaddress.ip_address(text)
-        return True
-    except ValueError:
-        return False
-
-
 def root_domain(host: str) -> str:
     labels = [part for part in host.split(".") if part]
     if len(labels) <= 2:
@@ -163,172 +179,103 @@ def root_domain(host: str) -> str:
     return ".".join(labels[-2:])
 
 
-def best_domain_for_host(host: str, known_domains: Iterable[str]) -> str:
-    host = host.lower()
-    best: Optional[str] = None
-    for domain in known_domains:
-        d = domain.lower().strip(".")
-        if not d:
-            continue
-        if host == d or host.endswith(f".{d}"):
-            if best is None or len(d) > len(best):
-                best = d
-    return best if best else root_domain(host)
-
-
-def read_unmatched_hosts(path: Path) -> list[str]:
-    hosts: set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        row = line.strip()
-        if not row or row.startswith("#"):
-            continue
-        parts = row.split(maxsplit=1)
-        candidate = ""
-        if len(parts) == 1:
-            candidate = parts[0]
-        elif len(parts) == 2 and is_ip(parts[0]):
-            candidate = parts[1]
-        else:
-            candidate = row
-        normalized = normalize_ptr_hostname(candidate)
-        if not normalized or normalized == "-":
-            continue
-        hosts.add(normalized)
-    return sorted(hosts)
-
-
-def ensure_tables(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS hostname_reviews (
-            hostname TEXT PRIMARY KEY,
-            domain TEXT NOT NULL,
-            matched INTEGER NOT NULL,
-            rule_name TEXT,
-            checked_at TEXT
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS generated_rules (
-            name TEXT PRIMARY KEY,
-            pattern TEXT NOT NULL,
-            domains_json TEXT NOT NULL,
-            country TEXT NOT NULL,
-            city TEXT NOT NULL,
-            confidence TEXT NOT NULL,
-            reason TEXT,
-            evidence_hosts_json TEXT NOT NULL,
-            source_model TEXT NOT NULL,
-            rules_url TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS llm_chunk_audit (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            run_id TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            chunk_index INTEGER NOT NULL,
-            chunk_total INTEGER NOT NULL,
-            model TEXT NOT NULL,
-            rules_url TEXT NOT NULL,
-            domains_json TEXT NOT NULL,
-            hosts_count INTEGER NOT NULL,
-            system_prompt TEXT NOT NULL,
-            user_prompt TEXT NOT NULL,
-            raw_response TEXT,
-            parse_ok INTEGER NOT NULL,
-            error_text TEXT,
-            proposed_rules_count INTEGER NOT NULL,
-            accepted_rules_count INTEGER NOT NULL,
-            rejected_rules_count INTEGER NOT NULL
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_llm_chunk_audit_run
-        ON llm_chunk_audit (run_id, chunk_index)
-        """
-    )
-    conn.commit()
-
-
-def upsert_hostname_reviews(
-    conn: sqlite3.Connection,
-    hosts: list[HostRecord],
-    rules: list[Rule],
-) -> tuple[int, int]:
-    now = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-    matched_count = 0
-    for host in hosts:
-        found = match_ptr(host.hostname, rules)
-        matched = 1 if found else 0
-        if matched:
-            matched_count += 1
-        conn.execute(
+def ensure_tables(
+    conn: Any,
+    hostname_table: PgTableRef,
+    rules_table: PgTableRef,
+    audit_table: PgTableRef,
+) -> None:
+    ensure_hostname_reviews_table(conn, hostname_table)
+    schemas = {rules_table.schema, audit_table.schema}
+    with conn.cursor() as cur:
+        for schema in sorted(schemas):
+            cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+        cur.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {rules_table.quoted} (
+                name TEXT PRIMARY KEY,
+                pattern TEXT NOT NULL,
+                domains_json TEXT NOT NULL,
+                country TEXT NOT NULL,
+                city TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                reason TEXT,
+                evidence_hosts_json TEXT NOT NULL,
+                source_model TEXT NOT NULL,
+                rules_url TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
             """
-            INSERT INTO hostname_reviews (hostname, domain, matched, rule_name, checked_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(hostname) DO UPDATE SET
-              domain=excluded.domain,
-              matched=excluded.matched,
-              rule_name=excluded.rule_name,
-              checked_at=excluded.checked_at
-            """,
-            (host.hostname, host.domain, matched, found.name if found else None, now),
         )
-    conn.commit()
-    return matched_count, len(hosts) - matched_count
-
-
-def ensure_hostname_review_rows(conn: sqlite3.Connection, hosts: list[HostRecord]) -> None:
-    if not hosts:
-        return
-    conn.executemany(
-        """
-        INSERT INTO hostname_reviews (hostname, domain, matched, rule_name, checked_at)
-        VALUES (?, ?, 0, NULL, NULL)
-        ON CONFLICT(hostname) DO UPDATE SET
-          domain=excluded.domain
-        WHERE hostname_reviews.checked_at IS NULL
-        """,
-        ((host.hostname, host.domain) for host in hosts),
-    )
+        cur.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {audit_table.quoted} (
+                id BIGSERIAL PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                chunk_total INTEGER NOT NULL,
+                model TEXT NOT NULL,
+                rules_url TEXT NOT NULL,
+                domains_json TEXT NOT NULL,
+                hosts_count INTEGER NOT NULL,
+                system_prompt TEXT NOT NULL,
+                user_prompt TEXT NOT NULL,
+                raw_response TEXT,
+                parse_ok INTEGER NOT NULL,
+                error_text TEXT,
+                proposed_rules_count INTEGER NOT NULL,
+                accepted_rules_count INTEGER NOT NULL,
+                rejected_rules_count INTEGER NOT NULL
+            )
+            """
+        )
+        cur.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS idx_{audit_table.table}_run
+            ON {audit_table.quoted} (run_id, chunk_index)
+            """
+        )
     conn.commit()
 
 
 def select_unchecked_host_records(
-    conn: sqlite3.Connection,
-    hosts: list[HostRecord],
+    conn: Any,
+    hostname_table: PgTableRef,
 ) -> list[HostRecord]:
-    if not hosts:
-        return []
-
-    checked_hosts: set[str] = set()
-    hostnames = [host.hostname for host in hosts]
-    batch_size = 500
-    for start in range(0, len(hostnames), batch_size):
-        chunk = hostnames[start : start + batch_size]
-        placeholders = ",".join("?" for _ in chunk)
-        sql = (
-            "SELECT hostname FROM hostname_reviews "
-            f"WHERE checked_at IS NOT NULL AND hostname IN ({placeholders})"
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT hostname, domain
+            FROM {hostname_table.quoted}
+            WHERE checked_at IS NULL AND rule_name = ''
+            ORDER BY hostname
+            """
         )
-        for row in conn.execute(sql, chunk):
-            if row and isinstance(row[0], str):
-                checked_hosts.add(row[0])
+        rows = cur.fetchall()
 
-    return [host for host in hosts if host.hostname not in checked_hosts]
+    out: list[HostRecord] = []
+    for row in rows:
+        if not row or len(row) < 2:
+            continue
+        raw_hostname = row[0]
+        raw_domain = row[1]
+        hostname = normalize_ptr_hostname(raw_hostname if isinstance(raw_hostname, str) else "")
+        if not hostname:
+            continue
+        domain = (
+            str(raw_domain).strip().strip(".").lower()
+            if isinstance(raw_domain, str) and raw_domain.strip()
+            else root_domain(hostname)
+        )
+        out.append(HostRecord(hostname=hostname, domain=domain))
+    return out
 
 
 def mark_hosts_checked_with_rules(
-    conn: sqlite3.Connection,
+    conn: Any,
+    hostname_table: PgTableRef,
     hosts: list[HostRecord],
     rules: list[Rule],
     only_if_matched: bool,
@@ -340,45 +287,50 @@ def mark_hosts_checked_with_rules(
     matched_count = 0
     unmatched_count = 0
 
-    for host in hosts:
-        found = match_ptr(host.hostname, rules)
-        if found:
-            matched_count += 1
-            conn.execute(
-                """
-                UPDATE hostname_reviews
-                SET domain=?, matched=1, rule_name=?, checked_at=?
-                WHERE hostname=?
-                """,
-                (host.domain, found.name, now, host.hostname),
-            )
-            continue
+    with conn.cursor() as cur:
+        for host in hosts:
+            found = match_ptr(host.hostname, rules)
+            if found:
+                matched_count += 1
+                cur.execute(
+                    f"""
+                    UPDATE {hostname_table.quoted}
+                    SET domain=%s, rule_name=%s, checked_at=%s
+                    WHERE hostname=%s
+                    """,
+                    (host.domain, found.name, now, host.hostname),
+                )
+                continue
 
-        unmatched_count += 1
-        if only_if_matched:
-            conn.execute(
-                """
-                UPDATE hostname_reviews
-                SET domain=?, matched=0, rule_name=NULL
-                WHERE hostname=? AND checked_at IS NULL
-                """,
-                (host.domain, host.hostname),
-            )
-        else:
-            conn.execute(
-                """
-                UPDATE hostname_reviews
-                SET domain=?, matched=0, rule_name=NULL, checked_at=?
-                WHERE hostname=?
-                """,
-                (host.domain, now, host.hostname),
-            )
+            unmatched_count += 1
+            if only_if_matched:
+                cur.execute(
+                    f"""
+                    UPDATE {hostname_table.quoted}
+                    SET domain=%s, rule_name=''
+                    WHERE hostname=%s AND checked_at IS NULL
+                    """,
+                    (host.domain, host.hostname),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    UPDATE {hostname_table.quoted}
+                    SET domain=%s, rule_name='', checked_at=%s
+                    WHERE hostname=%s
+                    """,
+                    (host.domain, now, host.hostname),
+                )
 
     conn.commit()
     return matched_count, unmatched_count
 
 
-def summarize_host_reviews(conn: sqlite3.Connection, hosts: list[HostRecord]) -> tuple[int, int, int]:
+def summarize_host_reviews(
+    conn: Any,
+    hostname_table: PgTableRef,
+    hosts: list[HostRecord],
+) -> tuple[int, int, int]:
     if not hosts:
         return 0, 0, 0
 
@@ -388,23 +340,26 @@ def summarize_host_reviews(conn: sqlite3.Connection, hosts: list[HostRecord]) ->
     hostnames = [host.hostname for host in hosts]
     batch_size = 500
 
-    for start in range(0, len(hostnames), batch_size):
-        chunk = hostnames[start : start + batch_size]
-        placeholders = ",".join("?" for _ in chunk)
-        sql = (
-            "SELECT matched, checked_at FROM hostname_reviews "
-            f"WHERE hostname IN ({placeholders})"
-        )
-        for row in conn.execute(sql, chunk):
-            matched_value = int(row[0] or 0)
-            checked_at = row[1]
-            if checked_at is None:
-                unchecked += 1
-                continue
-            if matched_value == 1:
-                matched += 1
-            else:
-                unmatched += 1
+    with conn.cursor() as cur:
+        for start in range(0, len(hostnames), batch_size):
+            chunk = hostnames[start : start + batch_size]
+            placeholders = ",".join("%s" for _ in chunk)
+            cur.execute(
+                f"""
+                SELECT rule_name, checked_at
+                FROM {hostname_table.quoted}
+                WHERE hostname IN ({placeholders})
+                """,
+                chunk,
+            )
+            for rule_name, checked_at in cur.fetchall():
+                if checked_at is None:
+                    unchecked += 1
+                    continue
+                if isinstance(rule_name, str) and rule_name.strip():
+                    matched += 1
+                else:
+                    unmatched += 1
 
     return matched, unmatched, unchecked
 
@@ -429,51 +384,54 @@ def build_runtime_rules(base_rules: list[Rule], extra_rules: list[ProposedRule])
 
 
 def upsert_generated_rule(
-    conn: sqlite3.Connection,
+    conn: Any,
+    rules_table: PgTableRef,
     rule: ProposedRule,
     model: str,
     rules_url: str,
 ) -> None:
     now = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-    conn.execute(
-        """
-        INSERT INTO generated_rules (
-            name, pattern, domains_json, country, city,
-            confidence, reason, evidence_hosts_json, source_model,
-            rules_url, updated_at, created_at
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            INSERT INTO {rules_table.quoted} (
+                name, pattern, domains_json, country, city,
+                confidence, reason, evidence_hosts_json, source_model,
+                rules_url, updated_at, created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT(name) DO UPDATE SET
+              pattern=excluded.pattern,
+              domains_json=excluded.domains_json,
+              country=excluded.country,
+              city=excluded.city,
+              confidence=excluded.confidence,
+              reason=excluded.reason,
+              evidence_hosts_json=excluded.evidence_hosts_json,
+              source_model=excluded.source_model,
+              rules_url=excluded.rules_url,
+              updated_at=excluded.updated_at
+            """,
+            (
+                rule.name,
+                rule.pattern,
+                json.dumps(list(rule.domains), ensure_ascii=True),
+                rule.country,
+                rule.city,
+                rule.confidence,
+                rule.reason,
+                json.dumps(list(rule.evidence_hosts), ensure_ascii=True),
+                model,
+                rules_url,
+                now,
+                now,
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(name) DO UPDATE SET
-          pattern=excluded.pattern,
-          domains_json=excluded.domains_json,
-          country=excluded.country,
-          city=excluded.city,
-          confidence=excluded.confidence,
-          reason=excluded.reason,
-          evidence_hosts_json=excluded.evidence_hosts_json,
-          source_model=excluded.source_model,
-          rules_url=excluded.rules_url,
-          updated_at=excluded.updated_at
-        """,
-        (
-            rule.name,
-            rule.pattern,
-            json.dumps(list(rule.domains), ensure_ascii=True),
-            rule.country,
-            rule.city,
-            rule.confidence,
-            rule.reason,
-            json.dumps(list(rule.evidence_hosts), ensure_ascii=True),
-            model,
-            rules_url,
-            now,
-            now,
-        ),
-    )
 
 
 def insert_llm_chunk_audit(
-    conn: sqlite3.Connection,
+    conn: Any,
+    audit_table: PgTableRef,
     run_id: str,
     chunk_index: int,
     chunk_total: int,
@@ -491,46 +449,47 @@ def insert_llm_chunk_audit(
     rejected_rules_count: int,
 ) -> None:
     now = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-    conn.execute(
-        """
-        INSERT INTO llm_chunk_audit (
-            run_id, created_at, chunk_index, chunk_total, model, rules_url,
-            domains_json, hosts_count, system_prompt, user_prompt, raw_response,
-            parse_ok, error_text, proposed_rules_count, accepted_rules_count, rejected_rules_count
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            INSERT INTO {audit_table.quoted} (
+                run_id, created_at, chunk_index, chunk_total, model, rules_url,
+                domains_json, hosts_count, system_prompt, user_prompt, raw_response,
+                parse_ok, error_text, proposed_rules_count, accepted_rules_count, rejected_rules_count
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                run_id,
+                now,
+                chunk_index,
+                chunk_total,
+                model,
+                rules_url,
+                json.dumps(domains, ensure_ascii=True),
+                hosts_count,
+                system_prompt,
+                user_prompt,
+                raw_response,
+                parse_ok,
+                error_text,
+                proposed_rules_count,
+                accepted_rules_count,
+                rejected_rules_count,
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            run_id,
-            now,
-            chunk_index,
-            chunk_total,
-            model,
-            rules_url,
-            json.dumps(domains, ensure_ascii=True),
-            hosts_count,
-            system_prompt,
-            user_prompt,
-            raw_response,
-            parse_ok,
-            error_text,
-            proposed_rules_count,
-            accepted_rules_count,
-            rejected_rules_count,
-        ),
-    )
 
 
 def sync_rules_file_to_db(
-    conn: sqlite3.Connection,
+    conn: Any,
+    rules_table: PgTableRef,
     rule_entries: list[dict[str, Any]],
     rules_url: str,
 ) -> tuple[int, int, int, int]:
-    existing_names = {
-        row[0]
-        for row in conn.execute("SELECT name FROM generated_rules")
-        if isinstance(row[0], str) and row[0].strip()
-    }
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT name FROM {rules_table.quoted}")
+        existing_rows = cur.fetchall()
+    existing_names = {row[0] for row in existing_rows if isinstance(row[0], str) and row[0].strip()}
     synced = 0
     inserted = 0
     updated = 0
@@ -567,6 +526,7 @@ def sync_rules_file_to_db(
         )
         upsert_generated_rule(
             conn=conn,
+            rules_table=rules_table,
             rule=rule,
             model=RULES_SYNC_MODEL,
             rules_url=rules_url,
@@ -843,15 +803,17 @@ def build_prompts(
     return system_prompt, user_prompt
 
 
-def dump_rules_from_db(conn: sqlite3.Connection, path: Path) -> int:
+def dump_rules_from_db(conn: Any, rules_table: PgTableRef, path: Path) -> int:
     entries: list[dict[str, Any]] = []
-    rows = conn.execute(
-        """
-        SELECT name, pattern, domains_json, country, city
-        FROM generated_rules
-        ORDER BY name COLLATE NOCASE
-        """
-    ).fetchall()
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT name, pattern, domains_json, country, city
+            FROM {rules_table.quoted}
+            ORDER BY lower(name), name
+            """
+        )
+        rows = cur.fetchall()
     for name, pattern, domains_json, country, city in rows:
         if not all(isinstance(v, str) and v.strip() for v in (name, pattern, country, city)):
             continue
@@ -880,38 +842,22 @@ def dump_rules_from_db(conn: sqlite3.Connection, path: Path) -> int:
 
 def main() -> int:
     args = parse_args()
-
-    if args.dump_rules is not None and args.unmatched_zones is None:
-        if args.db is None:
-            log("error: --db is required for dump-only mode")
-            return 2
-        conn = sqlite3.connect(args.db)
-        try:
-            ensure_tables(conn)
-            dumped = dump_rules_from_db(conn, args.dump_rules)
-            log(f"rules_dump_written path={args.dump_rules} total_rules={dumped} mode=dump_only")
-        finally:
-            conn.close()
-        return 0
-
-    if args.unmatched_zones is None or args.db is None:
-        log("error: --unmatched-zones and --db are required unless running dump-only mode")
+    pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
+    if not pgsql_dsn:
+        log("error: --pgsql or PGSQL env var is required")
         return 2
 
     if args.max_hosts_per_domain <= 0 or args.max_domains_per_request <= 0:
         log("error: max limits must be positive")
         return 2
 
-    if not args.unmatched_zones.exists():
-        log(f"error: unmatched file not found: {args.unmatched_zones}")
+    try:
+        hostname_table = parse_pg_table_ref(args.pgsql_hostname_table)
+        rules_table = parse_pg_table_ref(args.pgsql_rules_table)
+        audit_table = parse_pg_table_ref(args.pgsql_audit_table)
+    except Exception as exc:
+        log(f"error: invalid PostgreSQL table setting: {exc}")
         return 2
-
-    hosts = read_unmatched_hosts(args.unmatched_zones)
-    if not hosts:
-        log("no unmatched hostnames found")
-        return 0
-
-    log(f"loaded_unmatched_hostnames={len(hosts)}")
 
     try:
         compiled_rules = load_rules(args.rules_url)
@@ -920,39 +866,39 @@ def main() -> int:
         log(f"error: failed to load rules: {exc}")
         return 2
 
-    known_domains = sorted(
-        {
-            domain
-            for rule in compiled_rules
-            for domain in rule.domains
-            if domain and isinstance(domain, str)
-        }
-    )
-
-    host_records: list[HostRecord] = [
-        HostRecord(hostname=h, domain=best_domain_for_host(h, known_domains)) for h in hosts
-    ]
-
-    conn = sqlite3.connect(args.db)
+    conn = None
     try:
-        ensure_tables(conn)
+        conn = open_postgres_connection(pgsql_dsn)
+        ensure_tables(conn, hostname_table, rules_table, audit_table)
+
+        if args.dump_rules is not None:
+            dumped = dump_rules_from_db(conn, rules_table, args.dump_rules)
+            log(f"rules_dump_written path={args.dump_rules} total_rules={dumped} mode=dump_only")
+            return 0
+
+        pending_host_records = select_unchecked_host_records(conn, hostname_table)
+        if not pending_host_records:
+            log("no unchecked hostnames found in PostgreSQL table")
+            return 0
+
+        log(f"loaded_unchecked_hostnames={len(pending_host_records)}")
         run_id = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ") + f"-pid{os.getpid()}"
         log(f"run_id={run_id}")
         synced, inserted, updated, skipped = sync_rules_file_to_db(
             conn=conn,
+            rules_table=rules_table,
             rule_entries=raw_rule_entries,
             rules_url=args.rules_url,
         )
         log(
             "rules_sync "
-            f"synced={synced} inserted={inserted} updated={updated} skipped={skipped} db={args.db}"
+            f"synced={synced} inserted={inserted} updated={updated} skipped={skipped} "
+            f"pgsql_table={rules_table.schema}.{rules_table.table}"
         )
 
-        ensure_hostname_review_rows(conn, host_records)
-        pending_host_records = select_unchecked_host_records(conn, host_records)
         log(
             f"hostnames_pending_check={len(pending_host_records)} "
-            f"hostnames_total_input={len(host_records)}"
+            f"hostnames_total_input={len(pending_host_records)}"
         )
 
         matched_by_existing_rules = 0
@@ -960,6 +906,7 @@ def main() -> int:
         if pending_host_records:
             matched_by_existing_rules, remaining_for_llm = mark_hosts_checked_with_rules(
                 conn=conn,
+                hostname_table=hostname_table,
                 hosts=pending_host_records,
                 rules=compiled_rules,
                 only_if_matched=True,
@@ -967,7 +914,8 @@ def main() -> int:
             log(
                 "initial_rules_check "
                 f"matched_by_rules={matched_by_existing_rules} "
-                f"remaining_for_llm={remaining_for_llm} db={args.db}"
+                f"remaining_for_llm={remaining_for_llm} "
+                f"pgsql_table={hostname_table.schema}.{hostname_table.table}"
             )
         else:
             log("no_unchecked_hostnames_to_process")
@@ -1058,6 +1006,7 @@ def main() -> int:
                     chunks_failed += 1
                     insert_llm_chunk_audit(
                         conn=conn,
+                        audit_table=audit_table,
                         run_id=run_id,
                         chunk_index=idx,
                         chunk_total=chunks_total,
@@ -1083,6 +1032,7 @@ def main() -> int:
                     chunks_failed += 1
                     insert_llm_chunk_audit(
                         conn=conn,
+                        audit_table=audit_table,
                         run_id=run_id,
                         chunk_index=idx,
                         chunk_total=chunks_total,
@@ -1139,7 +1089,13 @@ def main() -> int:
                     accepted_rules.append(rule)
                     existing_names.add(rule.name)
                     existing_signatures.add((rule.pattern, rule.domains, rule.country, rule.city))
-                    upsert_generated_rule(conn, rule, args.model, args.rules_url)
+                    upsert_generated_rule(
+                        conn=conn,
+                        rules_table=rules_table,
+                        rule=rule,
+                        model=args.model,
+                        rules_url=args.rules_url,
+                    )
                     accepted_in_chunk += 1
                     rules_accepted_total += 1
                     log(
@@ -1150,6 +1106,7 @@ def main() -> int:
                 runtime_rules = build_runtime_rules(compiled_rules, accepted_rules)
                 chunk_matched_after_llm, chunk_unmatched_after_llm = mark_hosts_checked_with_rules(
                     conn=conn,
+                    hostname_table=hostname_table,
                     hosts=chunk_host_records,
                     rules=runtime_rules,
                     only_if_matched=False,
@@ -1161,6 +1118,7 @@ def main() -> int:
 
                 insert_llm_chunk_audit(
                     conn=conn,
+                    audit_table=audit_table,
                     run_id=run_id,
                     chunk_index=idx,
                     chunk_total=chunks_total,
@@ -1197,15 +1155,13 @@ def main() -> int:
             log(f"dry_run enabled; skipping rules dump accepted_rules={len(accepted_rules)}")
             return 0
 
-        if args.dump_rules is not None:
-            dumped = dump_rules_from_db(conn, args.dump_rules)
-            log(f"rules_dump_written path={args.dump_rules} total_rules={dumped}")
-        else:
-            log("rules_dump_skipped reason=no_dump_flag")
+        log("rules_dump_skipped reason=not_requested_in_processing_mode")
 
         if pending_host_records:
             matched_after, unmatched_after, unchecked_after = summarize_host_reviews(
-                conn, pending_host_records
+                conn=conn,
+                hostname_table=hostname_table,
+                hosts=pending_host_records,
             )
             log(
                 "final_classification "
@@ -1217,7 +1173,8 @@ def main() -> int:
             log("final_classification skipped=no_pending_hosts")
 
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
     return 0
 

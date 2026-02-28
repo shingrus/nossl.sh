@@ -28,6 +28,7 @@ import csv
 import ipaddress
 import json
 import math
+import os
 import re
 import shutil
 import sqlite3
@@ -39,6 +40,14 @@ from typing import Any, Iterable, Optional
 from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import url2pathname, urlopen
+
+from pgsql_hostname_reviews import (
+    PgTableRef,
+    ensure_hostname_reviews_table,
+    open_postgres_connection,
+    parse_pg_table_ref,
+    validate_hostname_reviews_table,
+)
 
 try:
     import maxminddb
@@ -55,7 +64,10 @@ CYMRU_MIN_PREFIXLEN_V4 = 16
 
 
 RULES_URL_TIMEOUT_SECONDS = 10
-DEFAULT_RULES_URL = Path(__file__).with_name("rdns_geo_rules.json").resolve().as_uri()
+DEFAULT_RULES_URL = (
+    Path(__file__).resolve().parents[1] / "configs" / "rdns_geo_rules.json"
+).resolve().as_uri()
+DEFAULT_PGSQL_TABLE = "hostname_reviews"
 
 
 def load_rule_entries_from_url(rules_url: str) -> list[dict[str, Any]]:
@@ -131,6 +143,12 @@ class Hint:
     match_source: str
     matched_rule: str
     evidence: HopEvidence
+
+
+@dataclass(frozen=True)
+class UnmatchedHostRecord:
+    hostname: str
+    domain: str
 
 
 def eprint(*args: object) -> None:
@@ -448,6 +466,116 @@ def normalize_ptr_hostname(ptr: str) -> Optional[str]:
     return host or None
 
 
+def root_domain(host: str) -> str:
+    labels = [part for part in host.split(".") if part]
+    if len(labels) <= 2:
+        return host
+    second_level_like = {"co", "com", "net", "org", "gov", "ac", "edu"}
+    cctld_like = {"uk", "au", "nz", "jp", "za", "br", "tr"}
+    if len(labels) >= 3 and labels[-1] in cctld_like and labels[-2] in second_level_like:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:])
+
+
+def build_unmatched_host_records(entries: set[tuple[str, str]]) -> list[UnmatchedHostRecord]:
+    by_hostname: dict[str, UnmatchedHostRecord] = {}
+    for _ip, hostname in entries:
+        normalized = normalize_ptr_hostname(hostname)
+        if not normalized or normalized == "-":
+            continue
+        if normalized not in by_hostname:
+            by_hostname[normalized] = UnmatchedHostRecord(
+                hostname=normalized,
+                domain=root_domain(normalized),
+            )
+    return sorted(by_hostname.values(), key=lambda item: item.hostname)
+
+
+def filter_unmatched_entries_by_hostname(
+    entries: set[tuple[str, str]],
+    hostnames: set[str],
+) -> set[tuple[str, str]]:
+    if not hostnames:
+        return set()
+    out: set[tuple[str, str]] = set()
+    for ip, hostname in entries:
+        normalized = normalize_ptr_hostname(hostname)
+        if normalized and normalized in hostnames:
+            out.add((ip, normalized))
+    return out
+
+
+def preflight_postgres_tracking(pgsql_dsn: str, table_name: str) -> PgTableRef:
+    table_ref = parse_pg_table_ref(table_name)
+    conn: Any = None
+    try:
+        conn = open_postgres_connection(pgsql_dsn)
+        ensure_postgres_unmatched_table(conn, table_ref)
+        validate_postgres_unmatched_table(conn, table_ref)
+    finally:
+        if conn is not None:
+            conn.close()
+    return table_ref
+
+
+def ensure_postgres_unmatched_table(conn: Any, table_ref: PgTableRef) -> None:
+    ensure_hostname_reviews_table(conn, table_ref)
+
+
+def validate_postgres_unmatched_table(conn: Any, table_ref: PgTableRef) -> None:
+    validate_hostname_reviews_table(conn, table_ref)
+
+
+def fetch_existing_postgres_hostnames(
+    conn: Any,
+    table_ref: PgTableRef,
+    hostnames: list[str],
+) -> set[str]:
+    if not hostnames:
+        return set()
+    existing: set[str] = set()
+    with conn.cursor() as cur:
+        batch_size = 500
+        for start in range(0, len(hostnames), batch_size):
+            chunk = hostnames[start : start + batch_size]
+            placeholders = ",".join("%s" for _ in chunk)
+            cur.execute(
+                f"SELECT hostname FROM {table_ref.quoted} WHERE hostname IN ({placeholders})",
+                chunk,
+            )
+            for row in cur.fetchall():
+                if not row or not isinstance(row[0], str):
+                    continue
+                normalized = normalize_ptr_hostname(row[0])
+                if normalized:
+                    existing.add(normalized)
+    return existing
+
+
+def insert_unmatched_postgres_records(
+    conn: Any,
+    table_ref: PgTableRef,
+    records: list[UnmatchedHostRecord],
+) -> int:
+    if not records:
+        return 0
+
+    inserted = 0
+    with conn.cursor() as cur:
+        for record in records:
+            cur.execute(
+                f"""
+                INSERT INTO {table_ref.quoted} (hostname, domain)
+                VALUES (%s, %s)
+                ON CONFLICT(hostname) DO NOTHING
+                """,
+                (record.hostname, record.domain),
+            )
+            inserted += max(0, int(cur.rowcount or 0))
+    conn.commit()
+    return inserted
+
+
 def match_ptr(ptr: str, rules: list[Rule]) -> Optional[Rule]:
     hostname = normalize_ptr_hostname(ptr)
     if not hostname:
@@ -640,7 +768,21 @@ def main() -> int:
             "Defaults to the local rdns_geo_rules.json file URL"
         ),
     )
+    parser.add_argument(
+        "--pgsql",
+        type=str,
+        default="",
+        help="Optional PostgreSQL DSN (overrides PGSQL env var) for unmatched hostname tracking",
+    )
+    parser.add_argument(
+        "--pgsql-table",
+        type=str,
+        default=DEFAULT_PGSQL_TABLE,
+        help=f"PostgreSQL table for unmatched hostnames (default: {DEFAULT_PGSQL_TABLE})",
+    )
     args = parser.parse_args()
+    pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
+    pgsql_table_ref: Optional[PgTableRef] = None
 
     if maxminddb is None:
         eprint("Missing Python package 'maxminddb'. Install: pip install maxminddb")
@@ -660,6 +802,8 @@ def main() -> int:
         ensure_tool("mtr")
         ensure_tool("dig")
         rules = load_rules(args.rules_url)
+        if pgsql_dsn:
+            pgsql_table_ref = preflight_postgres_tracking(pgsql_dsn, args.pgsql_table)
     except Exception as exc:
         eprint(str(exc))
         return 2
@@ -848,9 +992,51 @@ def main() -> int:
                 f"source={matched_source} match={matched_ref}"
             )
 
+    entries_for_dump = unmatched_entries
+    pgsql_tracked_hosts = 0
+    pgsql_existing_hosts = 0
+    pgsql_new_hosts = 0
+    pgsql_inserted_hosts = 0
+    if pgsql_dsn and pgsql_table_ref is not None:
+        try:
+            host_records = build_unmatched_host_records(unmatched_entries)
+            pgsql_tracked_hosts = len(host_records)
+            hostnames = [record.hostname for record in host_records]
+            existing_hostnames: set[str] = set()
+            new_host_records: list[UnmatchedHostRecord] = host_records
+            pg_conn: Any = None
+            try:
+                pg_conn = open_postgres_connection(pgsql_dsn)
+                existing_hostnames = fetch_existing_postgres_hostnames(
+                    pg_conn,
+                    pgsql_table_ref,
+                    hostnames,
+                )
+                pgsql_existing_hosts = len(existing_hostnames)
+                new_host_records = [
+                    record for record in host_records if record.hostname not in existing_hostnames
+                ]
+                pgsql_new_hosts = len(new_host_records)
+                pgsql_inserted_hosts = insert_unmatched_postgres_records(
+                    pg_conn,
+                    pgsql_table_ref,
+                    new_host_records,
+                )
+            finally:
+                if pg_conn is not None:
+                    pg_conn.close()
+            if args.unmatched_zones:
+                entries_for_dump = filter_unmatched_entries_by_hostname(
+                    unmatched_entries,
+                    {record.hostname for record in new_host_records},
+                )
+        except Exception as exc:
+            eprint(f"postgres_tracking_error: {exc}")
+            return 2
+
     write_geofeed(args.output, hints_by_prefix)
     if args.unmatched_zones:
-        write_unmatched_entries(args.unmatched_zones, unmatched_entries)
+        write_unmatched_entries(args.unmatched_zones, entries_for_dump)
 
     eprint(
         "DONE:",
@@ -865,6 +1051,11 @@ def main() -> int:
         f"no_hops={skipped_no_hops}",
         f"prefixes={len(hints_by_prefix)}",
         f"unmatched_ptr_entries={len(unmatched_entries)}",
+        f"unmatched_dump_entries={len(entries_for_dump)}",
+        f"pgsql_tracked_hosts={pgsql_tracked_hosts}",
+        f"pgsql_existing_hosts={pgsql_existing_hosts}",
+        f"pgsql_new_hosts={pgsql_new_hosts}",
+        f"pgsql_inserted_hosts={pgsql_inserted_hosts}",
     )
     eprint(f"Checked {processed} ips, Found new entries: {len(hints_by_prefix)}")
     return 0
