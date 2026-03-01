@@ -1,19 +1,36 @@
-from dagster import op, job, Definitions, in_process_executor, Output
+from dagster import op, job, Definitions, in_process_executor, Output, Field
+from dagster import resource
 import os
 import re
 import subprocess
 from pathlib import Path
 
-
-@op(config_schema={"work_dir": str, "bin_dir": str})
-def geofeed_finder(context):
-    work_dir = Path(context.op_config["work_dir"])
+@resource(config_schema={"work_dir": str, "bin_dir": str})
+def paths(context):
+    work_dir = Path(context.resource_config["work_dir"])
+    bin_dir = Path(context.resource_config["bin_dir"])
     work_dir.mkdir(parents=True, exist_ok=True)
-    bin_dir = Path(context.op_config["bin_dir"])
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    return {"work_dir": work_dir, "bin_dir": bin_dir}
+
+@op(
+    required_resource_keys={"paths"},
+    config_schema={
+        "geofeed_limit": Field(
+            int,
+            default_value=5000,
+            is_required=False,
+            description="Minimum allowed geofeeds total from geofeed-finder stats.",
+        )
+    },
+)
+def geofeed_finder(context):
+    work_dir = context.resources.paths["work_dir"]
+    bin_dir = context.resources.paths["bin_dir"]
+    work_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=False, exist_ok=True)
     binary = bin_dir / "geofeed-finder-linux-x64"
-    # binary = Path("/opt/nossl/bin/geofeed-finder-linux-x64")
-
+    
     cmd = [
         str(binary),
         "-x",
@@ -39,7 +56,9 @@ def geofeed_finder(context):
         raise RuntimeError("geofeed-finder output missing [stats] total=<n> line")
 
     total = int(match.group(1))
-    min_total = 5000
+    min_total = context.op_config["geofeed_limit"]
+    if min_total < 0:
+        raise RuntimeError(f"geofeed_limit must be >= 0, got {min_total}")
     if total < min_total:
         raise RuntimeError(
             f"geofeed total too low: total={total}, required>={min_total}"
@@ -53,10 +72,11 @@ def geofeed_finder(context):
 
 @op(config_schema={"work_dir": str, "bin_dir": str})
 def pdb_asn_geo(context, geofeed_state):
-    work_dir = Path(context.op_config["work_dir"])
+    work_dir = context.resources.paths["work_dir"]
+    bin_dir = context.resources.paths["bin_dir"]
     work_dir.mkdir(parents=True, exist_ok=True)
-    bin_dir = Path(context.op_config["bin_dir"])
     bin_dir.mkdir(parents=False, exist_ok=True)
+
     script = bin_dir / "pdb_asn_geo.py"
     api_key = os.getenv("PDB_KEY")
     if not api_key:
@@ -84,6 +104,3 @@ def geofeed_job():
     pdb_asn_geo(geofeed_state=geofeed_finder())
 
 defs = Definitions(jobs=[geofeed_job])
-
-
-#some comment to delete later

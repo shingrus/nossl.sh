@@ -48,11 +48,23 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `componets/` feature modules (note the folder name is intentionally spelled)
 - `templates/` EJS views, `templates/partials/` shared fragments
 - `static/` CSS, icons, and robots files
+- `infra/dagster/build_data_job.py` Dagster data build job (`geofeed_finder` -> `pdb_asn_geo`)
 - `infra/scripts/` Python data tooling (ASN aggregation, domain population, rDNS pipelines)
 - `infra/configs/` config and rule files (`rdns_geo_rules.json`, `*.conf`, geofeed lists)
 - `infra/beacon/` Go service that ingests dnstap and stores `beacon:<uniq>` in Redis
 - `infra/mmdb-builder/` Go toolchain for building the ASN MMDB from per-ASN `aggregated.json` files
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
+
+## Dagster build data job
+- Job file: `infra/dagster/build_data_job.py`
+- Job: `geofeed_job` runs `geofeed_finder` first, then `pdb_asn_geo` (via `geofeed_state` dependency).
+- Resource: `paths` with config keys `work_dir` and `bin_dir`; both directories are created if missing.
+- `geofeed_finder` executes `geofeed-finder-linux-x64`, parses `[stats] ... total=<n>` from output, and fails if:
+  missing stats line, `geofeed_limit < 0`, or `total < geofeed_limit`.
+- `geofeed_limit` is optional op config with default `5000`.
+- On success, `geofeed_finder` emits output and metadata with `total` and `min_total` for observability.
+- `pdb_asn_geo` executes `./bin/pdb_asn_geo.py --api-key <PDB_KEY> --clean --asn-db asn.sqlite3 --limit 500 --dump-geofeed .cache/pdbdump.txt`.
+- `pdb_asn_geo` requires environment variable `PDB_KEY`; it fails fast if missing.
 
 ## ASN MMDB builder
 - Go entry point: `infra/mmdb-builder/build_mmdb.go`
