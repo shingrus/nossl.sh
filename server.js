@@ -32,6 +32,8 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
     : 24 * 60 * 60;
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
 const CANONICAL_BASE_URL = process.env.CANONICAL_BASE_URL?.trim() || 'http://nossl.sh';
+const MAINTENANCE_TOKEN = process.env.MAINTENANCE_TOKEN?.trim() || '';
+const UNKNOWN_IPS_API_LIMIT = 1024;
 
 const geoDbPathEnv = process.env.GEOIP_DB_PATH;
 const asnDbPathEnv = process.env.ASNIP_DB_PATH;
@@ -563,9 +565,13 @@ const getScheme = (req) => {
 
 const honeypotService = createHoneypotService(db, {getClientIp});
 const ipRecordService = createIpRecordService(db);
-const selectDistinctIpsForGeoCoverageStmt = db.prepare(`
-    SELECT DISTINCT ip
+const selectIpStatsForGeoCoverageStmt = db.prepare(`
+    SELECT ip,
+           SUM(hits)      AS hits,
+           MAX(last_seen) AS lastSeen
     FROM ip_records
+    GROUP BY ip
+    ORDER BY lastSeen DESC
     LIMIT ?
 `);
 const GEO_IP_COVERAGE_CACHE_TTL_MS = 30 * 1000;
@@ -608,7 +614,7 @@ const getGeoIpCoverageStats = () => {
 
     const sampleLimit = ipRecordService.maxRecords;
     try {
-        const rows = selectDistinctIpsForGeoCoverageStmt.all(sampleLimit);
+        const rows = selectIpStatsForGeoCoverageStmt.all(sampleLimit);
         let knownIpCount = 0;
 
         rows.forEach(({ip}) => {
@@ -644,6 +650,42 @@ const getGeoIpCoverageStats = () => {
             semaphore: getGeoCoverageSemaphore(0, 0),
         };
     }
+};
+
+const getUnknownIpRows = (limit = UNKNOWN_IPS_API_LIMIT) => {
+    try {
+        const unknownRows = [];
+        const rows = selectIpStatsForGeoCoverageStmt.all(ipRecordService.maxRecords);
+
+        rows.forEach(({ip, hits, lastSeen}) => {
+            if (unknownRows.length >= limit) {
+                return;
+            }
+            const cityName = lookupGeo(ip)?.cityName;
+            if (typeof cityName === 'string' && cityName.trim()) {
+                return;
+            }
+            unknownRows.push({
+                ip,
+                hits,
+                lastSeen,
+            });
+        });
+
+        return unknownRows;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to fetch unknown IP rows', error);
+        return [];
+    }
+};
+
+const isMaintenanceTokenAuthorized = (req) => {
+    if (!MAINTENANCE_TOKEN) {
+        return false;
+    }
+    const token = req.get('X-Token');
+    return typeof token === 'string' && token.trim() === MAINTENANCE_TOKEN;
 };
 
 const recordEndpointIp = (endpoint, clientIp) => {
@@ -983,6 +1025,16 @@ app.get('/api/counters', (req, res) => {
         counters,
         totalRequests,
     });
+});
+
+app.get('/api/unknown', (req, res) => {
+    setNoCacheHeaders(res);
+    if (!isMaintenanceTokenAuthorized(req)) {
+        res.sendStatus(404);
+        return;
+    }
+
+    res.json(getUnknownIpRows(UNKNOWN_IPS_API_LIMIT));
 });
 
 app.get('/api/request-info', async (req, res) => {
