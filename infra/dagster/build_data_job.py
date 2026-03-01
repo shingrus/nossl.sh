@@ -104,4 +104,7 @@ def pdb_asn_geo_job():
     pdb_asn_geo()
 
 
-defs = Definitions(jobs=[geofeed_finder_job, pdb_asn_geo_job])
+defs = Definitions(
+    jobs=[geofeed_finder_job, pdb_asn_geo_job],
+    resources={"paths": paths},
+)
