@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 @op(config_schema={"work_dir": str, "bin_dir": str})
-def geofeed(context):
+def geofeed_finder(context):
     work_dir = Path(context.op_config["work_dir"])
     work_dir.mkdir(parents=True, exist_ok=True)
     bin_dir = Path(context.op_config["bin_dir"])
@@ -81,7 +81,7 @@ def pdb_asn_geo(context, geofeed_state):
 
 @job(executor_def=in_process_executor)
 def geofeed_job():
-    pdb_asn_geo(geofeed_state=geofeed())
+    pdb_asn_geo(geofeed_state=geofeed_finder())
 
 
 defs = Definitions(jobs=[geofeed_job])
