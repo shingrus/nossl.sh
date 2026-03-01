@@ -1,9 +1,12 @@
-from dagster import op, job, Definitions, in_process_executor, Output, Field
+from dagster import op, job, in_process_executor, Output, Field
 from dagster import resource
 import os
 import re
 import subprocess
 from pathlib import Path
+
+from infra.dagster.path_utils import get_work_and_bin_dirs
+
 
 @resource(config_schema={"work_dir": str, "bin_dir": str})
 def paths(context):
@@ -25,8 +28,7 @@ def paths(context):
     },
 )
 def geofeed_finder(context):
-    work_dir = context.resources.paths["work_dir"]
-    bin_dir = context.resources.paths["bin_dir"]
+    work_dir, bin_dir = get_work_and_bin_dirs(context)
     work_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=False, exist_ok=True)
     binary = bin_dir / "geofeed-finder-linux-x64"
@@ -72,8 +74,7 @@ def geofeed_finder(context):
 
 @op(required_resource_keys={"paths"})
 def pdb_asn_geo(context):
-    work_dir = context.resources.paths["work_dir"]
-    bin_dir = context.resources.paths["bin_dir"]
+    work_dir, bin_dir = get_work_and_bin_dirs(context)
     work_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=False, exist_ok=True)
 
@@ -102,9 +103,3 @@ def geofeed_finder_job():
 @job(executor_def=in_process_executor)
 def pdb_asn_geo_job():
     pdb_asn_geo()
-
-
-defs = Definitions(
-    jobs=[geofeed_finder_job, pdb_asn_geo_job],
-    resources={"paths": paths},
-)

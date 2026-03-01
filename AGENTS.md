@@ -48,7 +48,10 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `componets/` feature modules (note the folder name is intentionally spelled)
 - `templates/` EJS views, `templates/partials/` shared fragments
 - `static/` CSS, icons, and robots files
-- `infra/dagster/build_data_job.py` Dagster data build jobs (`geofeed_finder_job`, `pdb_asn_geo_job`)
+- `infra/dagster/definitions.py` Dagster `Definitions` entrypoint (`defs`)
+- `infra/dagster/build_data_job.py` Dagster geofeed and PeeringDB ops/jobs (`geofeed_finder_job`, `pdb_asn_geo_job`) and shared `paths` resource
+- `infra/dagster/build_databases_job.py` Dagster MMDB/ASN prep pipeline job (`build_databases_job`)
+- `infra/dagster/path_utils.py` shared Dagster helpers for reading `work_dir`/`bin_dir` from the `paths` resource
 - `infra/scripts/` Python data tooling (ASN aggregation, domain population, rDNS pipelines)
 - `infra/configs/` config and rule files (`rdns_geo_rules.json`, `*.conf`, geofeed lists)
 - `infra/beacon/` Go service that ingests dnstap and stores `beacon:<uniq>` in Redis
@@ -56,8 +59,14 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
 
 ## Dagster build data jobs
-- Job file: `infra/dagster/build_data_job.py`
-- Jobs: `geofeed_finder_job` runs `geofeed_finder`, and `pdb_asn_geo_job` runs `pdb_asn_geo` independently.
+- Definitions entrypoint: `infra/dagster/definitions.py` (package `infra.dagster` also exports `defs`).
+- Job modules:
+  - `infra/dagster/build_data_job.py` for `geofeed_finder_job` and `pdb_asn_geo_job`
+  - `infra/dagster/build_databases_job.py` for `build_databases_job`
+- Jobs:
+  - `geofeed_finder_job` runs `geofeed_finder`
+  - `pdb_asn_geo_job` runs `pdb_asn_geo`
+  - `build_databases_job` runs `clone_asn_repo` -> `clone_ip_geo_repo` -> `aggregate_asn` -> `cleanup_temp_dir`
 - Resource: `paths` with config keys `work_dir` and `bin_dir`; both directories are created if missing.
 - `geofeed_finder` executes `geofeed-finder-linux-x64`, parses `[stats] ... total=<n>` from output, and fails if:
   missing stats line, `geofeed_limit < 0`, or `total < geofeed_limit`.
@@ -65,6 +74,12 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - On success, `geofeed_finder` emits output and metadata with `total` and `min_total` for observability.
 - `pdb_asn_geo` executes `./bin/pdb_asn_geo.py --api-key <PDB_KEY> --clean --asn-db asn.sqlite3 --limit 500 --dump-geofeed .cache/pdbdump.txt`.
 - `pdb_asn_geo` requires environment variable `PDB_KEY`; it fails fast if missing.
+- `clone_asn_repo` clones `https://github.com/ipverse/asn-ip` into `<work_dir>/.tmp-ipverse/asn-ip` (URL is hardcoded in the op).
+- `clone_ip_geo_repo` clones `https://github.com/ipverse/country-ip-blocks` into `<work_dir>/.tmp-ipverse/country-ip-blocks` (URL is hardcoded in the op).
+- `aggregate_asn` executes `python3 <bin_dir>/aggregate_asns.py --as-dir <asn-repo>/as --output <work_dir>/asn.sqlite3`.
+- `clone_asn_repo` performs a safe cleanup of `<work_dir>/.tmp-ipverse` before cloning, mirroring the shell script's startup cleanup.
+- `cleanup_temp_dir` removes `<work_dir>/.tmp-ipverse` after aggregation with an unsafe-path guard.
+- `build_databases_job` has a Dagster failure hook that also removes `<work_dir>/.tmp-ipverse` on failed runs.
 
 ## ASN MMDB builder
 - Go entry point: `infra/mmdb-builder/build_mmdb.go`
