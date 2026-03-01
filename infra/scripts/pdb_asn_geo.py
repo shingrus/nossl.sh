@@ -77,6 +77,7 @@ class PDBClient:
         url = f"{BASE}{path}"
         SLEEP_429_TIMEOUT = 60
         SLEEP_RETRY_TIMEOUT = 10
+        SLEEP_5XX_TIMEOUT = 60
         while True:
             self.log.debug("GET %s params=%s", url, params)
             try:
@@ -90,13 +91,21 @@ class PDBClient:
                 time.sleep(SLEEP_RETRY_TIMEOUT)
                 continue
             if r.status_code == 429:
-                SLEEP_429_TIMEOUT = 60
                 self.log.warning(
                     "HTTP 429 rate limit for %s, sleeping %ss then retrying",
                     url,
                     SLEEP_429_TIMEOUT,
                 )
                 time.sleep(SLEEP_429_TIMEOUT)
+                continue
+            if r.status_code in {500, 502, 503, 504}:
+                self.log.warning(
+                    "HTTP %s from %s, sleeping %ss then retrying",
+                    r.status_code,
+                    url,
+                    SLEEP_5XX_TIMEOUT,
+                )
+                time.sleep(SLEEP_5XX_TIMEOUT)
                 continue
             if r.status_code >= 400:
                 raise RuntimeError(f"HTTP {r.status_code}: {r.text[:500]}")
