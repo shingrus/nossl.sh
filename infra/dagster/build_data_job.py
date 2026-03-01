@@ -11,7 +11,7 @@ def geofeed_finder(context):
     work_dir.mkdir(parents=True, exist_ok=True)
     bin_dir = Path(context.op_config["bin_dir"])
     bin_dir.mkdir(parents=False, exist_ok=True)
-    binary = bin_dir / "geofeed-finder"
+    binary = bin_dir / "geofeed-finder-linux-x64"
     # binary = Path("/opt/nossl/bin/geofeed-finder-linux-x64")
 
     cmd = [
