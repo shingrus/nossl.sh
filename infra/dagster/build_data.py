@@ -1,10 +1,13 @@
-from dagster import op, job, Definitions
+from dagster import op, job, Definitions, in_process_executor
 import subprocess
 from pathlib import Path
+
 
 @op(config_schema={"work_dir": str})
 def geofeed(context):
     work_dir = Path(context.op_config["work_dir"])
+    work_dir.mkdir(parents=True, exist_ok=True)
+
     binary = Path("/opt/nossl/bin/geofeed-finder-linux-x64")
 
     cmd = [
@@ -12,13 +15,15 @@ def geofeed(context):
         "-x",
         "-m",
         "-y", "30000",
-        "-f", "/home/shingrus/nossl.sh/infra/geofeeds.txt",
+        "-f", "/opt/nossl/repo/infra/geofeeds.txt",
     ]
 
     subprocess.run(cmd, cwd=str(work_dir), check=True)
 
-@job
+
+@job(executor_def=in_process_executor)
 def geofeed_job():
     geofeed()
+
 
 defs = Definitions(jobs=[geofeed_job])
