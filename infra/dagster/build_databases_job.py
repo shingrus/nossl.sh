@@ -73,6 +73,24 @@ def aggregate_asn(context, asn_repo_dir: str):
 
 
 @op(required_resource_keys={"paths"})
+def populate_asn_domains(context, asn_sqlite_path: str):
+    work_dir, bin_dir = get_work_and_bin_dirs(context)
+    asn_sqlite = Path(asn_sqlite_path)
+    if not asn_sqlite.exists():
+        raise RuntimeError(f"ASN SQLite output not found before domain populate: {asn_sqlite}")
+
+    script = bin_dir / "populate_asn_domains.py"
+    cmd = [
+        "python3",
+        str(script),
+        "--database",
+        str(asn_sqlite),
+    ]
+    subprocess.run(cmd, cwd=str(work_dir), check=True)
+    return str(asn_sqlite)
+
+
+@op(required_resource_keys={"paths"})
 def cleanup_temp_dir(context, asn_sqlite_path: str):
     work_dir = get_work_dir(context)
     asn_sqlite = Path(asn_sqlite_path)
@@ -88,4 +106,5 @@ def build_databases_job():
     asn_repo = clone_asn_repo()
     asn_repo_after_geo = clone_ip_geo_repo(asn_repo)
     asn_sqlite = aggregate_asn(asn_repo_after_geo)
-    cleanup_temp_dir(asn_sqlite)
+    asn_sqlite_with_domains = populate_asn_domains(asn_sqlite)
+    cleanup_temp_dir(asn_sqlite_with_domains)

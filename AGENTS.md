@@ -66,7 +66,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - Jobs:
   - `geofeed_finder_job` runs `geofeed_finder`
   - `pdb_asn_geo_job` runs `pdb_asn_geo`
-  - `build_databases_job` runs `clone_asn_repo` -> `clone_ip_geo_repo` -> `aggregate_asn` -> `cleanup_temp_dir`
+  - `build_databases_job` runs `clone_asn_repo` -> `clone_ip_geo_repo` -> `aggregate_asn` -> `populate_asn_domains` -> `cleanup_temp_dir`
 - Resource: `paths` with config keys `work_dir` and `bin_dir`; both directories are created if missing.
 - `geofeed_finder` executes `geofeed-finder-linux-x64`, parses `[stats] ... total=<n>` from output, and fails if:
   missing stats line, `geofeed_limit < 0`, or `total < geofeed_limit`.
@@ -77,6 +77,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `clone_asn_repo` clones `https://github.com/ipverse/asn-ip` into `<work_dir>/.tmp-ipverse/asn-ip` (URL is hardcoded in the op).
 - `clone_ip_geo_repo` clones `https://github.com/ipverse/country-ip-blocks` into `<work_dir>/.tmp-ipverse/country-ip-blocks` (URL is hardcoded in the op).
 - `aggregate_asn` executes `python3 <bin_dir>/aggregate_asns.py --as-dir <asn-repo>/as --output <work_dir>/asn.sqlite3`.
+- `populate_asn_domains` executes `python3 <bin_dir>/populate_asn_domains.py --database <work_dir>/asn.sqlite3`.
 - `clone_asn_repo` performs a safe cleanup of `<work_dir>/.tmp-ipverse` before cloning, mirroring the shell script's startup cleanup.
 - `cleanup_temp_dir` removes `<work_dir>/.tmp-ipverse` after aggregation with an unsafe-path guard.
 - `build_databases_job` has a Dagster failure hook that also removes `<work_dir>/.tmp-ipverse` on failed runs.
