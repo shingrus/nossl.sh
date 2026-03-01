@@ -1,0 +1,32 @@
+# ip=12.201.236.42 hostname=ae4.cs2.lga5.us.zip.zayo.com distance=-1 total_hops=16 source=rules match=zayo_lga_new_york
+12.201.0.0/16,US,,New York
+# ip=136.36.131.60 hostname=- distance=-1 total_hops=17 source=mmdb match=mmdb_hop_city
+136.36.128.0/20,US,,new york
+# ip=174.112.193.79 hostname=16-cgw01.ym.rmgt.net.rogers.com distance=-3 total_hops=21 source=rules match=rogers_toronto_ym
+174.112.0.0/16,CA,,Toronto
+# ip=184.101.8.0 hostname=71-32-113-66.phn4.qwest.net distance=-1 total_hops=18 source=rules match=qwest_phn_phoenix
+184.101.0.0/16,US,,Phoenix
+# ip=193.255.220.198 hostname=70.96.154.212.static.turk.net distance=-2 total_hops=18 source=mmdb match=mmdb_hop_city
+193.255.0.0/16,TR,,Istanbul
+# ip=212.187.244.82 hostname=ae12.edge7.lon1.sp.lumen.tech distance=-1 total_hops=15 source=rules match=lumen_lon_london
+212.187.128.0/17,GB,,London
+# ip=23.234.98.68 hostname=ae-17.a05.asbnva02.us.bb.gin.ntt.net distance=-1 total_hops=17 source=rules match=ntt_asbnva_ashburn
+23.234.98.0/24,US,,Ashburn
+# ip=2600:1700:7e30:cab0:f0f6:4826:fecf:7981 hostname=ae18.ter1.lga5.us.zip.zayo.com distance=-3 total_hops=13 source=rules match=zayo_lga_new_york
+2600:1700::/28,US,,New York
+# ip=46.161.50.108 hostname=- distance=-2 total_hops=22 source=mmdb match=mmdb_hop_city
+46.161.50.0/23,RU,,St. Petersburg
+# ip=5.101.64.6 hostname=- distance=-3 total_hops=23 source=mmdb match=mmdb_hop_city
+5.101.64.0/22,RU,,St. Petersburg
+# ip=66.176.182.185 hostname=be-33811-arsc1.pompanobeach.fl.pompano.comcast.net distance=-1 total_hops=20 source=rules match=comcast_pompanobeach_fl
+66.176.0.0/16,US,,Pompano Beach
+# ip=73.250.53.202 hostname=be-2111-cs01.newark.nj.ibone.comcast.net distance=-5 total_hops=23 source=rules match=comcast_newark_nj
+73.250.0.0/16,US,,Newark
+# ip=95.2.62.192 hostname=06-idc-t3-1---06-ulus-sr14s-t2-1.statik.turktelekom.com.tr distance=-1 total_hops=21 source=rules match=turktelekom_06_ulus_ankara
+95.2.0.0/17,TR,,Ankara
+# ip=98.252.94.32 hostname=be-202-pe11.newark.nj.ibone.comcast.net distance=-3 total_hops=20 source=rules match=comcast_newark_nj
+98.252.0.0/16,US,,Newark
+# ip=99.152.249.30 hostname=ae4.cs2.lga5.us.zip.zayo.com distance=-1 total_hops=16 source=rules match=zayo_lga_new_york
+99.152.0.0/16,US,,New York
+# ip=99.63.68.7 hostname=ae4.cs2.lga5.us.zip.zayo.com distance=-1 total_hops=16 source=rules match=zayo_lga_new_york
+99.63.0.0/16,US,,New York

@@ -1,0 +1,203 @@
+from dagster import op, job, in_process_executor, Field
+import subprocess
+from pathlib import Path
+
+from infra.dagster.common_ops import build_date_tag
+from infra.dagster.utils import (
+    get_work_and_bin_dirs,
+    get_work_dir,
+    make_temp_cleanup_failure_hook,
+    remove_if_exists,
+    safe_remove_dir,
+    update_symlink_to_latest,
+)
+
+
+GEO_TEMP_DIR_NAME = ".tmp-ipverse-geo"
+RDNS_RULES_URL = "https://raw.githubusercontent.com/shingrus/nossl.sh/refs/heads/main/infra/rdns_geo_rules.json"
+
+
+def _geo_temp_dir(work_dir: Path) -> Path:
+    return work_dir / GEO_TEMP_DIR_NAME
+
+
+def _geo_output_paths(work_dir: Path, date_tag: str):
+    return {
+        "geo_mmdb": work_dir / f"ip2geo-nossl-sh-{date_tag}.mmdb",
+        "geo_latest_link": work_dir / "ip2geo-latest.mmdb",
+        "rdns_geofeed_output": work_dir / "rdns_geo.csv",
+        "rdns_unmatched_output": work_dir / "unmatched.txt",
+    }
+
+
+cleanup_geo_temp_on_failure = make_temp_cleanup_failure_hook(GEO_TEMP_DIR_NAME, "GEO")
+
+
+@op(required_resource_keys={"paths"})
+def clone_ip_geo_repo(context):
+    work_dir = get_work_dir(context)
+    temp_dir = _geo_temp_dir(work_dir)
+    safe_remove_dir(temp_dir)
+
+    repo_dir = temp_dir / "country-ip-blocks"
+    repo_url = "https://github.com/ipverse/country-ip-blocks"
+
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    cmd = ["git", "clone", "--depth", "1", repo_url, str(repo_dir)]
+    subprocess.run(cmd, cwd=str(temp_dir), check=True)
+    return str(repo_dir)
+
+
+@op(required_resource_keys={"paths"})
+def build_geo_mmdb(context, country_repo_dir: str, date_tag: str):
+    work_dir, bin_dir = get_work_and_bin_dirs(context)
+    country_dir = Path(country_repo_dir) / "country"
+    if not country_dir.is_dir():
+        raise RuntimeError(f"Country repo directory not found: {country_dir}")
+
+    build_command = bin_dir / "build_mmdb"
+    outputs = _geo_output_paths(work_dir, date_tag)
+    geo_mmdb = outputs["geo_mmdb"]
+
+    # Keep shell parity: rm -f old MMDB target before rebuild.
+    remove_if_exists(geo_mmdb)
+
+    cmd = [
+        str(build_command),
+        "--country-dir",
+        str(country_dir),
+        "--country-out",
+        str(geo_mmdb),
+        "--geofeed-dir",
+        str(work_dir),
+    ]
+    subprocess.run(cmd, cwd=str(work_dir), check=True)
+    return str(geo_mmdb)
+
+
+@op(
+    required_resource_keys={"paths"},
+    config_schema={
+        "ips_db": Field(
+            str,
+            default_value="",
+            is_required=False,
+            description="SQLite DB path for rdns_geo.py; when empty, rDNS geo is skipped.",
+        ),
+    },
+)
+def run_rdns_geo(context, geo_mmdb_path: str):
+    work_dir, bin_dir = get_work_and_bin_dirs(context)
+    outputs = _geo_output_paths(work_dir, "unused")
+    geo_mmdb = Path(geo_mmdb_path)
+    ips_db = (context.op_config.get("ips_db") or "").strip()
+
+    rdns_geofeed_output = outputs["rdns_geofeed_output"]
+    rdns_unmatched_output = outputs["rdns_unmatched_output"]
+    rdns_geo_script = bin_dir / "rdns_geo.py"
+
+    if not ips_db:
+        context.log.info("ips_db is not set; skipping rdns geo")
+        return {
+            "geo_mmdb_path": str(geo_mmdb),
+            "rdns_enabled": False,
+            "rdns_geofeed_output": str(rdns_geofeed_output),
+        }
+
+    remove_if_exists(rdns_geofeed_output)
+    remove_if_exists(rdns_unmatched_output)
+
+    if not rdns_geo_script.is_file():
+        context.log.warning(f"rdns geo script not found: {rdns_geo_script}; skipping")
+        return {
+            "geo_mmdb_path": str(geo_mmdb),
+            "rdns_enabled": True,
+            "rdns_geofeed_output": str(rdns_geofeed_output),
+        }
+
+    ips_db_path = Path(ips_db).expanduser()
+    if not ips_db_path.is_file():
+        raise RuntimeError(f"ips DB not found: {ips_db_path}")
+
+    if not geo_mmdb.is_file():
+        context.log.warning(f"geo mmdb not found for rdns geo: {geo_mmdb}; skipping")
+        return {
+            "geo_mmdb_path": str(geo_mmdb),
+            "rdns_enabled": True,
+            "rdns_geofeed_output": str(rdns_geofeed_output),
+        }
+
+    cmd = [
+        "python3",
+        str(rdns_geo_script),
+        "--db",
+        str(ips_db_path),
+        "--mmdb",
+        str(geo_mmdb),
+        "--rules-url",
+        RDNS_RULES_URL,
+        "--output",
+        str(rdns_geofeed_output),
+        "--unmatched-zones",
+        str(rdns_unmatched_output),
+    ]
+    subprocess.run(cmd, cwd=str(work_dir), check=True)
+    return {
+        "geo_mmdb_path": str(geo_mmdb),
+        "rdns_enabled": True,
+        "rdns_geofeed_output": str(rdns_geofeed_output),
+    }
+
+
+@op(required_resource_keys={"paths"})
+def patch_geo_mmdb_with_rdns(context, rdns_geo_result: dict):
+    work_dir, bin_dir = get_work_and_bin_dirs(context)
+    geo_mmdb = Path(rdns_geo_result["geo_mmdb_path"])
+    rdns_enabled = bool(rdns_geo_result.get("rdns_enabled"))
+    rdns_geofeed_output = Path(rdns_geo_result["rdns_geofeed_output"])
+
+    if not rdns_enabled:
+        return str(geo_mmdb)
+
+    if not rdns_geofeed_output.is_file() or rdns_geofeed_output.stat().st_size == 0:
+        context.log.info("rdns geofeed output is empty; skipping patch")
+        return str(geo_mmdb)
+
+    build_command = bin_dir / "build_mmdb"
+    cmd = [
+        str(build_command),
+        "--patch-mmdb",
+        str(geo_mmdb),
+        "--patch-geofeed",
+        str(rdns_geofeed_output),
+    ]
+    subprocess.run(cmd, cwd=str(work_dir), check=True)
+    return str(geo_mmdb)
+
+
+@op(required_resource_keys={"paths"})
+def update_geo_latest_symlink(context, geo_mmdb_path: str):
+    work_dir = get_work_dir(context)
+    link_path = work_dir / "ip2geo-latest.mmdb"
+    target_path = Path(geo_mmdb_path)
+    update_symlink_to_latest(target_path, link_path)
+    return str(link_path)
+
+
+@op(required_resource_keys={"paths"})
+def cleanup_geo_temp_dir(context, _geo_latest_link_path: str):
+    work_dir = get_work_dir(context)
+    temp_dir = _geo_temp_dir(work_dir)
+    safe_remove_dir(temp_dir)
+    context.log.info(f"cleaned GEO temp dir: {temp_dir}")
+
+
+@job(executor_def=in_process_executor, hooks={cleanup_geo_temp_on_failure})
+def build_geo_database_job():
+    date_tag = build_date_tag()
+    country_repo = clone_ip_geo_repo()
+    geo_mmdb = build_geo_mmdb(country_repo, date_tag)
+    rdns_geo_result = run_rdns_geo(geo_mmdb)
+    patched_geo_mmdb = patch_geo_mmdb_with_rdns(rdns_geo_result)
+    geo_latest = update_geo_latest_symlink(patched_geo_mmdb)
+    cleanup_geo_temp_dir(geo_latest)

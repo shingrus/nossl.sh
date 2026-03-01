@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from infra.dagster.path_utils import get_work_and_bin_dirs
+from infra.dagster.utils import get_work_and_bin_dirs
 
 
 @resource(config_schema={"work_dir": str, "bin_dir": str})
