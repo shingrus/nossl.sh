@@ -48,16 +48,16 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `componets/` feature modules (note the folder name is intentionally spelled)
 - `templates/` EJS views, `templates/partials/` shared fragments
 - `static/` CSS, icons, and robots files
-- `infra/dagster/build_data_job.py` Dagster data build job (`geofeed_finder` -> `pdb_asn_geo`)
+- `infra/dagster/build_data_job.py` Dagster data build jobs (`geofeed_finder_job`, `pdb_asn_geo_job`)
 - `infra/scripts/` Python data tooling (ASN aggregation, domain population, rDNS pipelines)
 - `infra/configs/` config and rule files (`rdns_geo_rules.json`, `*.conf`, geofeed lists)
 - `infra/beacon/` Go service that ingests dnstap and stores `beacon:<uniq>` in Redis
 - `infra/mmdb-builder/` Go toolchain for building the ASN MMDB from per-ASN `aggregated.json` files
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
 
-## Dagster build data job
+## Dagster build data jobs
 - Job file: `infra/dagster/build_data_job.py`
-- Job: `geofeed_job` runs `geofeed_finder` first, then `pdb_asn_geo` (via `geofeed_state` dependency).
+- Jobs: `geofeed_finder_job` runs `geofeed_finder`, and `pdb_asn_geo_job` runs `pdb_asn_geo` independently.
 - Resource: `paths` with config keys `work_dir` and `bin_dir`; both directories are created if missing.
 - `geofeed_finder` executes `geofeed-finder-linux-x64`, parses `[stats] ... total=<n>` from output, and fails if:
   missing stats line, `geofeed_limit < 0`, or `total < geofeed_limit`.

@@ -70,8 +70,8 @@ def geofeed_finder(context):
     )
 
 
-@op(config_schema={"work_dir": str, "bin_dir": str})
-def pdb_asn_geo(context, geofeed_state):
+@op(required_resource_keys={"paths"})
+def pdb_asn_geo(context):
     work_dir = context.resources.paths["work_dir"]
     bin_dir = context.resources.paths["bin_dir"]
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -92,15 +92,16 @@ def pdb_asn_geo(context, geofeed_state):
     ]
 
     subprocess.run(cmd, cwd=str(work_dir), check=True)
-    context.log.info(
-        "geofeed validation passed: total=%s threshold=%s",
-        geofeed_state["total"],
-        geofeed_state["min_total"],
-    )
 
 
 @job(executor_def=in_process_executor)
-def geofeed_job():
-    pdb_asn_geo(geofeed_state=geofeed_finder())
+def geofeed_finder_job():
+    geofeed_finder()
 
-defs = Definitions(jobs=[geofeed_job])
+
+@job(executor_def=in_process_executor)
+def pdb_asn_geo_job():
+    pdb_asn_geo()
+
+
+defs = Definitions(jobs=[geofeed_finder_job, pdb_asn_geo_job])
