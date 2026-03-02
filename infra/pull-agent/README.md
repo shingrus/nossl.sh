@@ -14,30 +14,30 @@ local `ip2geo` MMDB updated from S3.
 
 ## Files
 
-- `pull_latest_ip2geo_mmdb.py` - pull/install script
-- `nossl-ip2geo-pull.service` - systemd oneshot service
-- `nossl-ip2geo-pull.timer` - periodic timer (hourly by default)
-- `pull-agent.env.example` - environment configuration template
+- `nossl-pull-agent.py` - pull/install script
+- `nossl-pull-agent.service` - systemd oneshot service
+- `nossl-pull-agent.timer` - periodic timer (every 5 minutes by default)
+- `nossl-pull-agent.env.example` - environment configuration template
 
 ## Install example
 
 ```bash
 sudo install -d /etc/nossl
-sudo cp infra/pull-agent/pull-agent.env.example /etc/nossl/ip2geo-pull.env
-sudo cp infra/pull-agent/nossl-ip2geo-pull.service /etc/systemd/system/
-sudo cp infra/pull-agent/nossl-ip2geo-pull.timer /etc/systemd/system/
+sudo cp infra/pull-agent/nossl-pull-agent.env.example /etc/nossl/nossl-pull-agent.env
+sudo cp infra/pull-agent/nossl-pull-agent.service /etc/systemd/system/
+sudo cp infra/pull-agent/nossl-pull-agent.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now nossl-ip2geo-pull.timer
+sudo systemctl enable --now nossl-pull-agent.timer
 ```
 
 If your checkout path is not `/opt/nossl.sh`, edit
-`/etc/systemd/system/nossl-ip2geo-pull.service` and adjust `WorkingDirectory`
+`/etc/systemd/system/nossl-pull-agent.service` and adjust `WorkingDirectory`
 and `ExecStart` script path/flags (`--bucket`, `--region`, `--target`).
 
 ## Manual run
 
 ```bash
-python3 infra/pull-agent/pull_latest_ip2geo_mmdb.py \
+python3 infra/pull-agent/nossl-pull-agent.py \
   --bucket nossl-sh-dbs \
   --region eu-north-1 \
   --target /opt/nossl/ip2geo-latest.mmdb
