@@ -33,7 +33,6 @@ const REPORT_TTL_SECONDS = Number.isFinite(Number.parseInt(process.env.REPORT_TT
 const REDIS_CONNECT_TIMEOUT_MS = 1000;
 const CANONICAL_BASE_URL = process.env.CANONICAL_BASE_URL?.trim() || 'http://nossl.sh';
 const MAINTENANCE_TOKEN = process.env.MAINTENANCE_TOKEN?.trim() || '';
-const UNKNOWN_IPS_API_LIMIT = 1024;
 
 const geoDbPathEnv = process.env.GEOIP_DB_PATH;
 const asnDbPathEnv = process.env.ASNIP_DB_PATH;
@@ -570,6 +569,10 @@ const selectDistinctIpsForGeoCoverageStmt = db.prepare(`
     FROM ip_records
     LIMIT ?
 `);
+const selectAllDistinctIpsStmt = db.prepare(`
+    SELECT DISTINCT ip
+    FROM ip_records
+`);
 const GEO_IP_COVERAGE_CACHE_TTL_MS = 30 * 1000;
 let geoIpCoverageCache = null;
 
@@ -648,15 +651,12 @@ const getGeoIpCoverageStats = () => {
     }
 };
 
-const getUnknownIpRows = (limit = UNKNOWN_IPS_API_LIMIT) => {
+const getUnknownIpRows = () => {
     try {
         const unknownRows = [];
-        const rows = selectDistinctIpsForGeoCoverageStmt.all(ipRecordService.maxRecords);
+        const rows = selectAllDistinctIpsStmt.all();
 
         rows.forEach(({ip}) => {
-            if (unknownRows.length >= limit) {
-                return;
-            }
             const cityName = lookupGeo(ip)?.cityName;
             if (typeof cityName === 'string' && cityName.trim()) {
                 return;
@@ -1026,7 +1026,7 @@ app.get('/api/unknown', (req, res) => {
         return;
     }
 
-    res.json(getUnknownIpRows(UNKNOWN_IPS_API_LIMIT));
+    res.json(getUnknownIpRows());
 });
 
 app.get('/api/request-info', async (req, res) => {
