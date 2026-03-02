@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Derive geofeed hints for unknown-geo destination IPs from ip_records.
+Derive geofeed hints for unknown-geo destination IPs from the unknown IP API.
 
 Pipeline:
-1) Read destination IPs from SQLite ip_records.
+1) Read destination IPs from the unknown IPs API.
 2) Keep only public IPs with unknown geo in MMDB.
 3) Run mtr in numeric mode to collect hops.
 4) Resolve PTR for the last 25% of hops (closest hop has highest priority).
@@ -31,7 +31,6 @@ import math
 import os
 import re
 import shutil
-import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -39,7 +38,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 from urllib.error import URLError
 from urllib.parse import urlparse
-from urllib.request import url2pathname, urlopen
+from urllib.request import Request, url2pathname, urlopen
 
 from pgsql_hostname_reviews import (
     PgTableRef,
@@ -118,8 +117,6 @@ class Rule:
 @dataclass
 class IpCandidate:
     ip: str
-    hits: int
-    last_seen: str
 
 
 @dataclass
@@ -136,8 +133,6 @@ class Hint:
     country: str
     city: str
     destination_ip: str
-    destination_hits: int
-    destination_last_seen: str
     total_hops: int
     cymru_asn: str
     cymru_country: str
@@ -423,32 +418,38 @@ def is_unknown_geo(mmdb_reader: Any, ip: str) -> bool:
     return is_unknown
 
 
-def query_candidates(db_path: Path, limit: int) -> list[IpCandidate]:
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
+def fetch_unknown_candidates(unknown_ips_url: str, maintenance_token: str) -> list[IpCandidate]:
     try:
-        rows = conn.execute(
-            """
-            SELECT ip, SUM(hits) AS hits, MAX(last_seen) AS last_seen
-            FROM ip_records
-            WHERE ip IS NOT NULL AND TRIM(ip) != ''
-            GROUP BY ip
-            ORDER BY hits DESC, last_seen DESC
-            """
+        request = Request(
+            unknown_ips_url,
+            headers={
+                "Accept": "application/json",
+                "X-Token": maintenance_token,
+            },
         )
-        out: list[IpCandidate] = []
-        for row in rows:
-            ip = normalize_ip(str(row["ip"]))
-            if not ip or not is_public_ip(ip):
-                continue
-            hits = int(row["hits"] or 0)
-            last_seen = str(row["last_seen"] or "")
-            out.append(IpCandidate(ip=ip, hits=hits, last_seen=last_seen))
-            if len(out) >= limit:
-                break
-        return out
-    finally:
-        conn.close()
+        with urlopen(request, timeout=RULES_URL_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except URLError as exc:
+        raise ValueError(f"Failed to load unknown IPs URL {unknown_ips_url}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Unknown IPs URL did not return valid JSON: {exc}") from exc
+
+    if not isinstance(payload, list):
+        raise ValueError("Unknown IPs API response must be a JSON array of IP strings")
+
+    out: list[IpCandidate] = []
+    seen: set[str] = set()
+    for index, item in enumerate(payload):
+        if not isinstance(item, str):
+            raise ValueError(
+                f"Unknown IPs API response item #{index + 1} must be a string IP, got {type(item).__name__}"
+            )
+        ip = normalize_ip(item)
+        if not ip or not is_public_ip(ip) or ip in seen:
+            continue
+        seen.add(ip)
+        out.append(IpCandidate(ip=ip))
+    return out
 
 
 def run_cmd(args: list[str], timeout: int) -> tuple[int, str, str]:
@@ -798,12 +799,6 @@ def better_hint(left: Hint, right: Hint) -> Hint:
         return right
     if right.evidence.priority > left.evidence.priority:
         return left
-    if right.destination_hits > left.destination_hits:
-        return right
-    if right.destination_hits < left.destination_hits:
-        return left
-    if right.destination_last_seen > left.destination_last_seen:
-        return right
     return left
 
 
@@ -878,7 +873,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Infer missing geo hints from rDNS patterns on the last 25% of mtr hops.",
     )
-    parser.add_argument("-db", "--db", type=Path, help="SQLite DB path")
+    parser.add_argument(
+        "--unknown-ips",
+        required=True,
+        type=str,
+        help="Required URL for unknown IP API endpoint that returns a JSON array of IP strings.",
+    )
     parser.add_argument("-mmdb", "--mmdb", required=True, type=Path, help="Geo MMDB path")
     parser.add_argument("-o", "--output", required=True, type=Path, help="Output geofeed CSV path")
     parser.add_argument(
@@ -892,7 +892,7 @@ def main() -> int:
         "--test-ip",
         type=str,
         default=None,
-        help="Process only this exact IP and skip SQLite candidate scan",
+        help="Process only this exact IP and skip unknown IP API candidate scan",
     )
     parser.add_argument(
         "--rules-url",
@@ -917,6 +917,8 @@ def main() -> int:
     )
     args = parser.parse_args()
     pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
+    unknown_ips_url = (args.unknown_ips or "").strip()
+    maintenance_token = (os.getenv("MAINTENANCE_TOKEN") or "").strip()
     pgsql_table_ref: Optional[PgTableRef] = None
     pgsql_rules_table_ref: Optional[PgTableRef] = None
 
@@ -926,13 +928,16 @@ def main() -> int:
     if not args.mmdb.exists():
         eprint(f"MMDB file not found: {args.mmdb}")
         return 2
-    if not args.test_ip:
-        if not args.db:
-            eprint("SQLite DB path is required unless --test-ip is provided")
-            return 2
-        if not args.db.exists():
-            eprint(f"SQLite DB not found: {args.db}")
-            return 2
+    if not unknown_ips_url:
+        eprint("--unknown-ips is required")
+        return 2
+    unknown_ips_parsed = urlparse(unknown_ips_url)
+    if unknown_ips_parsed.scheme not in ("http", "https"):
+        eprint(f"--unknown-ips must be http:// or https:// URL, got: {unknown_ips_url}")
+        return 2
+    if not maintenance_token:
+        eprint("Missing MAINTENANCE_TOKEN environment variable")
+        return 2
 
     try:
         ensure_tool("mtr")
@@ -976,13 +981,13 @@ def main() -> int:
         if not test_ip:
             eprint(f"Invalid --test-ip value: {args.test_ip}")
             return 2
-        unknown_candidates = [IpCandidate(ip=test_ip, hits=0, last_seen="")]
+        unknown_candidates = [IpCandidate(ip=test_ip)]
         eprint(f"test_ip_mode ip={test_ip}")
     else:
         with maxminddb.open_database(str(args.mmdb)) as reader:
-            all_candidates = query_candidates(args.db, limit=DEFAULT_SCAN_LIMIT * 10)
+            all_candidates = fetch_unknown_candidates(unknown_ips_url, maintenance_token)
             eprint(
-                f"db_candidates_public_unique={len(all_candidates)} "
+                f"api_candidates_public_unique={len(all_candidates)} "
                 f"selection_limit={DEFAULT_SCAN_LIMIT}"
             )
             for candidate in all_candidates:
@@ -1011,9 +1016,7 @@ def main() -> int:
     with maxminddb.open_database(str(args.mmdb)) as hop_geo_reader:
         for candidate in unknown_candidates:
             processed += 1
-            eprint(
-                f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip} hits = {candidate.hits}"
-            )
+            eprint(f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip}")
 
             ranked_hops, total_hops, tail_hops_count = mtr_last_hops(candidate.ip)
             if not ranked_hops:
@@ -1127,8 +1130,6 @@ def main() -> int:
                 country=final_country_code,
                 city=matched_city,
                 destination_ip=candidate.ip,
-                destination_hits=candidate.hits,
-                destination_last_seen=candidate.last_seen,
                 total_hops=total_hops,
                 cymru_asn=asn,
                 cymru_country=cymru_country or "",

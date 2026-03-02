@@ -1,4 +1,5 @@
 from dagster import op, job, in_process_executor, Field
+import os
 import subprocess
 from pathlib import Path
 
@@ -78,11 +79,10 @@ def build_geo_mmdb(context, country_repo_dir: str, date_tag: str):
 @op(
     required_resource_keys={"paths"},
     config_schema={
-        "ips_db": Field(
+        "unknown_ips_url": Field(
             str,
-            default_value="",
-            is_required=False,
-            description="SQLite DB path for rdns_geo.py; when empty, rDNS geo is skipped.",
+            is_required=True,
+            description="Required URL for rdns_geo.py unknown IP API (returns JSON array of IPs).",
         ),
     },
 )
@@ -90,19 +90,17 @@ def run_rdns_geo(context, geo_mmdb_path: str):
     work_dir, bin_dir = get_work_and_bin_dirs(context)
     outputs = _geo_output_paths(work_dir, "unused")
     geo_mmdb = Path(geo_mmdb_path)
-    ips_db = (context.op_config.get("ips_db") or "").strip()
+    unknown_ips_url = (context.op_config.get("unknown_ips_url") or "").strip()
+    maintenance_token = (os.getenv("MAINTENANCE_TOKEN") or "").strip()
 
     rdns_geofeed_output = outputs["rdns_geofeed_output"]
     rdns_unmatched_output = outputs["rdns_unmatched_output"]
     rdns_geo_script = bin_dir / "rdns_geo.py"
 
-    if not ips_db:
-        context.log.info("ips_db is not set; skipping rdns geo")
-        return {
-            "geo_mmdb_path": str(geo_mmdb),
-            "rdns_enabled": False,
-            "rdns_geofeed_output": str(rdns_geofeed_output),
-        }
+    if not unknown_ips_url:
+        raise RuntimeError("run_rdns_geo config 'unknown_ips_url' is required")
+    if not maintenance_token:
+        raise RuntimeError("Missing MAINTENANCE_TOKEN environment variable")
 
     remove_if_exists(rdns_geofeed_output)
     remove_if_exists(rdns_unmatched_output)
@@ -115,10 +113,6 @@ def run_rdns_geo(context, geo_mmdb_path: str):
             "rdns_geofeed_output": str(rdns_geofeed_output),
         }
 
-    ips_db_path = Path(ips_db).expanduser()
-    if not ips_db_path.is_file():
-        raise RuntimeError(f"ips DB not found: {ips_db_path}")
-
     if not geo_mmdb.is_file():
         context.log.warning(f"geo mmdb not found for rdns geo: {geo_mmdb}; skipping")
         return {
@@ -130,8 +124,8 @@ def run_rdns_geo(context, geo_mmdb_path: str):
     cmd = [
         "python3",
         str(rdns_geo_script),
-        "--db",
-        str(ips_db_path),
+        "--unknown-ips",
+        unknown_ips_url,
         "--mmdb",
         str(geo_mmdb),
         "--rules-url",
