@@ -565,13 +565,9 @@ const getScheme = (req) => {
 
 const honeypotService = createHoneypotService(db, {getClientIp});
 const ipRecordService = createIpRecordService(db);
-const selectIpStatsForGeoCoverageStmt = db.prepare(`
-    SELECT ip,
-           SUM(hits)      AS hits,
-           MAX(last_seen) AS lastSeen
+const selectDistinctIpsForGeoCoverageStmt = db.prepare(`
+    SELECT DISTINCT ip
     FROM ip_records
-    GROUP BY ip
-    ORDER BY lastSeen DESC
     LIMIT ?
 `);
 const GEO_IP_COVERAGE_CACHE_TTL_MS = 30 * 1000;
@@ -614,7 +610,7 @@ const getGeoIpCoverageStats = () => {
 
     const sampleLimit = ipRecordService.maxRecords;
     try {
-        const rows = selectIpStatsForGeoCoverageStmt.all(sampleLimit);
+        const rows = selectDistinctIpsForGeoCoverageStmt.all(sampleLimit);
         let knownIpCount = 0;
 
         rows.forEach(({ip}) => {
@@ -655,9 +651,9 @@ const getGeoIpCoverageStats = () => {
 const getUnknownIpRows = (limit = UNKNOWN_IPS_API_LIMIT) => {
     try {
         const unknownRows = [];
-        const rows = selectIpStatsForGeoCoverageStmt.all(ipRecordService.maxRecords);
+        const rows = selectDistinctIpsForGeoCoverageStmt.all(ipRecordService.maxRecords);
 
-        rows.forEach(({ip, hits, lastSeen}) => {
+        rows.forEach(({ip}) => {
             if (unknownRows.length >= limit) {
                 return;
             }
@@ -665,11 +661,7 @@ const getUnknownIpRows = (limit = UNKNOWN_IPS_API_LIMIT) => {
             if (typeof cityName === 'string' && cityName.trim()) {
                 return;
             }
-            unknownRows.push({
-                ip,
-                hits,
-                lastSeen,
-            });
+            unknownRows.push(ip);
         });
 
         return unknownRows;
