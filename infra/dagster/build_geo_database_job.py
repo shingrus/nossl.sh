@@ -122,7 +122,7 @@ def run_rdns_geo(context, geo_mmdb_path: str):
         }
 
     cmd = [
-        "/opt/nossl/dagster-venv/bin/python",
+        "python3",
         str(rdns_geo_script),
         "--unknown-ips",
         unknown_ips_url,
