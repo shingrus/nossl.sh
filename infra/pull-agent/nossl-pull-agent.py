@@ -7,6 +7,7 @@ Selection logic:
 2) Pick the latest date folder.
 3) Build expected filename `ip2geo-nossl-sh-<YYYYMMDD>.mmdb` from the latest folder date.
 4) Download it only when target file size differs, then atomically replace target.
+5) With --dry-run, run the same logic, but skip install after successful download+validate.
 """
 
 from __future__ import annotations
@@ -150,6 +151,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         required=True,
         help="Target MMDB file path to install",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run normal checks/download flow, but skip install",
+    )
 
     args = parser.parse_args(argv)
     return args
@@ -204,6 +210,9 @@ def main(argv: list[str]) -> int:
             min_size_bytes=MIN_SIZE_BYTES,
             expected_size=selected.size,
         )
+        if args.dry_run:
+            log(f"dry-run: validated download and skipped install: {target_path}")
+            return 0
 
         install_atomically(temp_file, target_path)
         log(f"installed: {target_path}")

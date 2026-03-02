@@ -43,4 +43,14 @@ python3 infra/pull-agent/nossl-pull-agent.py \
   --target /opt/nossl/ip2geo-latest.mmdb
 ```
 
+Dry run (download + validate, no install):
+
+```bash
+python3 infra/pull-agent/nossl-pull-agent.py \
+  --bucket nossl-sh-dbs \
+  --region eu-north-1 \
+  --target /opt/nossl/ip2geo-latest.mmdb \
+  --dry-run
+```
+
 Environment file should contain only AWS credentials when needed.
