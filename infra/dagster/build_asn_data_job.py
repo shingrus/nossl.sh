@@ -130,6 +130,7 @@ def build_asn_data_job():
     asn_repo = clone_asn_repo()
     asn_sqlite = aggregate_asn(asn_repo)
     asn_sqlite_with_domains = populate_asn_domains(asn_sqlite)
+    upload_file_to_s3.alias("upload_asn_sqlite_to_s3")(asn_sqlite_with_domains, date_tag)
     asn_mmdb = build_asn_mmdb(asn_repo, asn_sqlite_with_domains, date_tag)
     upload_file_to_s3.alias("upload_asn_mmdb_to_s3")(asn_mmdb, date_tag)
     asn_latest = update_asn_latest_symlink(asn_mmdb)
