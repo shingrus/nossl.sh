@@ -53,7 +53,7 @@ def aggregate_asn(context, asn_repo_dir: str):
     as_dir = Path(asn_repo_dir) / "as"
 
     cmd = [
-        "python3",
+        "/opt/nossl/dagster-venv/bin/python",
         str(script),
         "--as-dir",
         str(as_dir),
@@ -73,7 +73,7 @@ def populate_asn_domains(context, asn_sqlite_path: str):
 
     script = bin_dir / "populate_asn_domains.py"
     cmd = [
-        "python3",
+        "/opt/nossl/dagster-venv/bin/python",
         str(script),
         "--database",
         str(asn_sqlite),
