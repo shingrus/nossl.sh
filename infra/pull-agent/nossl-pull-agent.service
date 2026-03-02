@@ -1,0 +1,10 @@
+^[Unit]
+Description=Pull latest ip2geo MMDB from S3
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/nossl/ip2geo-pull.env
+WorkingDirectory=/opt/nossl.sh
+ExecStart=/usr/bin/env python3 /opt/nossl.sh/bin/pull-agent/nossl-pull-agent.py --bucket nossl-sh-dbs --region eu-north-1 --target /opt/nossl/ip2geo-latest.mmdb
