@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-Analyze unmatched rDNS hostnames with OpenAI and automatically extend rules JSON.
+Analyze unmatched rDNS hostnames with OpenAI and extend PostgreSQL-backed rules.
 
 Workflow:
 1) Read unchecked hostnames from PostgreSQL hostname review table.
-2) Load existing rdns_geo rules.
+2) Load existing rules from PostgreSQL.
 3) Ask OpenAI for high-confidence city rules (grouped by domain).
 4) Validate returned rules locally before accepting.
 5) Upsert generated rules into PostgreSQL table.
-6) Append accepted rules to rules JSON file.
-7) Upsert hostname match status into PostgreSQL table.
+6) Upsert hostname match status into PostgreSQL table.
 """
 
 from __future__ import annotations
@@ -21,7 +20,6 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -35,8 +33,8 @@ try:
     )
     from .rdns_geo import (
         Rule,
-        load_rule_entries_from_url,
-        load_rules,
+        compile_rules,
+        load_rule_entries_from_postgres,
         match_ptr,
         normalize_ptr_hostname,
     )
@@ -49,22 +47,17 @@ except ImportError:
     )
     from rdns_geo import (
         Rule,
-        load_rule_entries_from_url,
-        load_rules,
+        compile_rules,
+        load_rule_entries_from_postgres,
         match_ptr,
         normalize_ptr_hostname,
     )
 
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_API_BASE = "https://api.openai.com/v1"
-DEFAULT_RULES_URL = (
-    Path(__file__).resolve().parents[1] / "configs" / "rdns_geo_rules.json"
-).resolve().as_uri()
 DEFAULT_MAX_HOSTS_PER_DOMAIN = 60
 DEFAULT_MAX_DOMAINS_PER_REQUEST = 1
 DEFAULT_MIN_CONFIDENCE = "high"
-RULES_SYNC_MODEL = "rules_file_sync"
-RULES_SYNC_REASON = "synced_from_rules_file"
 LOG_HOST_SAMPLE_LIMIT = 5
 CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
 DEFAULT_PGSQL_HOSTNAME_TABLE = "hostname_reviews"
@@ -90,14 +83,12 @@ class ProposedRule:
     reason: str
     evidence_hosts: tuple[str, ...]
 
-
 def log(msg: str) -> None:
-    ts = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-    line = f"{ts} {msg}"
+
     if _log_sink is not None:
-        _log_sink(line)
+        _log_sink(msg)
         return
-    print(line, file=sys.stderr)
+    print(msg, file=sys.stderr)
 
 
 def parse_args() -> argparse.Namespace:
@@ -133,23 +124,6 @@ def parse_args() -> argparse.Namespace:
         help=f"PostgreSQL table for LLM audit logs (default: {DEFAULT_PGSQL_AUDIT_TABLE})",
     )
     parser.add_argument(
-        "--rules-url",
-        default=DEFAULT_RULES_URL,
-        type=str,
-        help="Rules JSON URL (file://, http://, https://) like rdns_geo.py",
-    )
-    parser.add_argument(
-        "--dump-rules",
-        "--rules-out",
-        dest="dump_rules",
-        type=Path,
-        default=None,
-        help=(
-            "Dump all rules from DB to this JSON file. "
-            "--rules-out is kept as a deprecated alias."
-        ),
-    )
-    parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
         type=str,
@@ -183,7 +157,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run analysis and DB upserts but do not write rules file",
+        help="Run analysis and DB upserts but skip final completion mode.",
     )
     return parser.parse_args()
 
@@ -222,7 +196,7 @@ def ensure_tables(
                 reason TEXT,
                 evidence_hosts_json TEXT NOT NULL,
                 source_model TEXT NOT NULL,
-                rules_url TEXT NOT NULL,
+                rules_source TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
@@ -237,7 +211,7 @@ def ensure_tables(
                 chunk_index INTEGER NOT NULL,
                 chunk_total INTEGER NOT NULL,
                 model TEXT NOT NULL,
-                rules_url TEXT NOT NULL,
+                rules_source TEXT NOT NULL,
                 domains_json TEXT NOT NULL,
                 hosts_count INTEGER NOT NULL,
                 system_prompt TEXT NOT NULL,
@@ -251,6 +225,46 @@ def ensure_tables(
             )
             """
         )
+        cur.execute(
+            f"""
+            ALTER TABLE {rules_table.quoted}
+            ADD COLUMN IF NOT EXISTS rules_source TEXT
+            """
+        )
+        cur.execute(
+            f"""
+            ALTER TABLE {audit_table.quoted}
+            ADD COLUMN IF NOT EXISTS rules_source TEXT
+            """
+        )
+        for table_ref in (rules_table, audit_table):
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = %s
+                  AND table_name = %s
+                  AND column_name LIKE 'rules_%'
+                  AND column_name <> 'rules_source'
+                  AND is_nullable = 'NO'
+                  AND column_default IS NULL
+                  AND data_type IN ('text', 'character varying')
+                ORDER BY ordinal_position
+                """,
+                (table_ref.schema, table_ref.table),
+            )
+            legacy_required_columns = [
+                row[0]
+                for row in cur.fetchall()
+                if row and isinstance(row[0], str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", row[0])
+            ]
+            for column_name in legacy_required_columns:
+                cur.execute(
+                    f"""
+                    ALTER TABLE {table_ref.quoted}
+                    ALTER COLUMN "{column_name}" SET DEFAULT ''
+                    """
+                )
         cur.execute(
             f"""
             CREATE INDEX IF NOT EXISTS idx_{audit_table.table}_run
@@ -303,7 +317,6 @@ def mark_hosts_checked_with_rules(
     if not hosts:
         return 0, 0
 
-    now = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     matched_count = 0
     unmatched_count = 0
 
@@ -315,10 +328,10 @@ def mark_hosts_checked_with_rules(
                 cur.execute(
                     f"""
                     UPDATE {hostname_table.quoted}
-                    SET domain=%s, rule_name=%s, checked_at=%s
+                    SET domain=%s, rule_name=%s, checked_at=now()
                     WHERE hostname=%s
                     """,
-                    (host.domain, found.name, now, host.hostname),
+                    (host.domain, found.name, host.hostname),
                 )
                 continue
 
@@ -336,10 +349,10 @@ def mark_hosts_checked_with_rules(
                 cur.execute(
                     f"""
                     UPDATE {hostname_table.quoted}
-                    SET domain=%s, rule_name='', checked_at=%s
+                    SET domain=%s, rule_name='', checked_at=now()
                     WHERE hostname=%s
                     """,
-                    (host.domain, now, host.hostname),
+                    (host.domain, host.hostname),
                 )
 
     conn.commit()
@@ -408,18 +421,17 @@ def upsert_generated_rule(
     rules_table: PgTableRef,
     rule: ProposedRule,
     model: str,
-    rules_url: str,
+    rules_source: str,
 ) -> None:
-    now = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     with conn.cursor() as cur:
         cur.execute(
             f"""
             INSERT INTO {rules_table.quoted} (
                 name, pattern, domains_json, country, city,
                 confidence, reason, evidence_hosts_json, source_model,
-                rules_url, updated_at, created_at
+                rules_source, updated_at, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
             ON CONFLICT(name) DO UPDATE SET
               pattern=excluded.pattern,
               domains_json=excluded.domains_json,
@@ -429,8 +441,8 @@ def upsert_generated_rule(
               reason=excluded.reason,
               evidence_hosts_json=excluded.evidence_hosts_json,
               source_model=excluded.source_model,
-              rules_url=excluded.rules_url,
-              updated_at=excluded.updated_at
+              rules_source=excluded.rules_source,
+              updated_at=now()
             """,
             (
                 rule.name,
@@ -442,9 +454,7 @@ def upsert_generated_rule(
                 rule.reason,
                 json.dumps(list(rule.evidence_hosts), ensure_ascii=True),
                 model,
-                rules_url,
-                now,
-                now,
+                rules_source,
             ),
         )
 
@@ -456,7 +466,7 @@ def insert_llm_chunk_audit(
     chunk_index: int,
     chunk_total: int,
     model: str,
-    rules_url: str,
+    rules_source: str,
     domains: list[str],
     hosts_count: int,
     system_prompt: str,
@@ -468,24 +478,22 @@ def insert_llm_chunk_audit(
     accepted_rules_count: int,
     rejected_rules_count: int,
 ) -> None:
-    now = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     with conn.cursor() as cur:
         cur.execute(
             f"""
             INSERT INTO {audit_table.quoted} (
-                run_id, created_at, chunk_index, chunk_total, model, rules_url,
+                run_id, created_at, chunk_index, chunk_total, model, rules_source,
                 domains_json, hosts_count, system_prompt, user_prompt, raw_response,
                 parse_ok, error_text, proposed_rules_count, accepted_rules_count, rejected_rules_count
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, now(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 run_id,
-                now,
                 chunk_index,
                 chunk_total,
                 model,
-                rules_url,
+                rules_source,
                 json.dumps(domains, ensure_ascii=True),
                 hosts_count,
                 system_prompt,
@@ -498,68 +506,6 @@ def insert_llm_chunk_audit(
                 rejected_rules_count,
             ),
         )
-
-
-def sync_rules_file_to_db(
-    conn: Any,
-    rules_table: PgTableRef,
-    rule_entries: list[dict[str, Any]],
-    rules_url: str,
-) -> tuple[int, int, int, int]:
-    with conn.cursor() as cur:
-        cur.execute(f"SELECT name FROM {rules_table.quoted}")
-        existing_rows = cur.fetchall()
-    existing_names = {row[0] for row in existing_rows if isinstance(row[0], str) and row[0].strip()}
-    synced = 0
-    inserted = 0
-    updated = 0
-    skipped = 0
-
-    for entry in rule_entries:
-        if not isinstance(entry, dict):
-            skipped += 1
-            continue
-        name = str(entry.get("name") or "").strip()
-        pattern = str(entry.get("pattern") or "").strip()
-        domains = normalize_domains(entry.get("domains"))
-        country = str(entry.get("country") or "").strip().upper()
-        city = str(entry.get("city") or "").strip()
-
-        if not name or not pattern or len(country) != 2 or not city:
-            skipped += 1
-            continue
-        try:
-            re.compile(pattern, re.IGNORECASE)
-        except re.error:
-            skipped += 1
-            continue
-
-        rule = ProposedRule(
-            name=name,
-            pattern=pattern,
-            domains=domains,
-            country=country,
-            city=city,
-            confidence="high",
-            reason=RULES_SYNC_REASON,
-            evidence_hosts=(),
-        )
-        upsert_generated_rule(
-            conn=conn,
-            rules_table=rules_table,
-            rule=rule,
-            model=RULES_SYNC_MODEL,
-            rules_url=rules_url,
-        )
-        synced += 1
-        if name in existing_names:
-            updated += 1
-        else:
-            inserted += 1
-            existing_names.add(name)
-
-    conn.commit()
-    return synced, inserted, updated, skipped
 
 
 def openai_request(
@@ -823,44 +769,8 @@ def build_prompts(
     return system_prompt, user_prompt
 
 
-def dump_rules_from_db(conn: Any, rules_table: PgTableRef, path: Path) -> int:
-    entries: list[dict[str, Any]] = []
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT name, pattern, domains_json, country, city
-            FROM {rules_table.quoted}
-            ORDER BY lower(name), name
-            """
-        )
-        rows = cur.fetchall()
-    for name, pattern, domains_json, country, city in rows:
-        if not all(isinstance(v, str) and v.strip() for v in (name, pattern, country, city)):
-            continue
-        try:
-            parsed_domains = json.loads(domains_json) if isinstance(domains_json, str) else []
-        except json.JSONDecodeError:
-            continue
-        domains = normalize_domains(parsed_domains)
-        entries.append(
-            {
-                "name": name.strip(),
-                "pattern": pattern.strip(),
-                "domains": list(domains),
-                "country": country.strip().upper(),
-                "city": city.strip(),
-            }
-        )
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(entries, ensure_ascii=True, indent=2)
-    path.write_text(text + "\n", encoding="utf-8")
-    return len(entries)
-
-
 def run_generate_new_rdns_rules_pipeline(
     *,
-    rules_url: str = DEFAULT_RULES_URL,
     model: str = DEFAULT_MODEL,
     api_base: str = DEFAULT_API_BASE,
     max_hosts_per_domain: int = DEFAULT_MAX_HOSTS_PER_DOMAIN,
@@ -871,7 +781,6 @@ def run_generate_new_rdns_rules_pipeline(
     pgsql_hostname_table: str = DEFAULT_PGSQL_HOSTNAME_TABLE,
     pgsql_rules_table: str = DEFAULT_PGSQL_RULES_TABLE,
     pgsql_audit_table: str = DEFAULT_PGSQL_AUDIT_TABLE,
-    dump_rules: Optional[Path | str] = None,
     log_sink: Optional[Callable[[str], None]] = None,
 ) -> dict[str, Any]:
     global _log_sink
@@ -892,11 +801,19 @@ def run_generate_new_rdns_rules_pipeline(
     except Exception as exc:
         raise RuntimeError(f"Invalid PostgreSQL table setting: {exc}") from exc
 
+    rules_source = f"pgsql:{rules_table.schema}.{rules_table.table}"
     try:
-        compiled_rules = load_rules(rules_url)
-        raw_rule_entries = load_rule_entries_from_url(rules_url)
+        raw_rule_entries, pgsql_skipped = load_rule_entries_from_postgres(
+            pgsql_dsn,
+            rules_table,
+        )
+        if not raw_rule_entries:
+            raise RuntimeError(
+                f"No base rules found in PostgreSQL table {rules_table.schema}.{rules_table.table}"
+            )
+        compiled_rules = compile_rules(raw_rule_entries, rules_source)
     except Exception as exc:
-        raise RuntimeError(f"Failed to load rules: {exc}") from exc
+        raise RuntimeError(f"Failed to load PostgreSQL rules: {exc}") from exc
 
     previous_log_sink = _log_sink
     _log_sink = log_sink
@@ -905,32 +822,15 @@ def run_generate_new_rdns_rules_pipeline(
     try:
         conn = open_postgres_connection(pgsql_dsn)
         ensure_tables(conn, hostname_table, rules_table, audit_table)
-
-        dump_rules_path: Optional[Path] = Path(dump_rules) if dump_rules is not None else None
-        if dump_rules_path is not None:
-            dumped = dump_rules_from_db(conn, rules_table, dump_rules_path)
-            log(f"rules_dump_written path={dump_rules_path} total_rules={dumped} mode=dump_only")
-            return {"mode": "dump_only", "dumped_rules": dumped}
-
-        synced, inserted, updated, skipped = sync_rules_file_to_db(
-            conn=conn,
-            rules_table=rules_table,
-            rule_entries=raw_rule_entries,
-            rules_url=rules_url,
-        )
         log(
-            "rules_sync "
-            f"synced={synced} inserted={inserted} updated={updated} skipped={skipped} "
-            f"pgsql_table={rules_table.schema}.{rules_table.table}"
+            "rules_source_pgsql "
+            f"source={rules_source} loaded={len(raw_rule_entries)} skipped={pgsql_skipped}"
         )
 
         pending_host_records = select_unchecked_host_records(conn, hostname_table)
         metrics: dict[str, Any] = {
             "mode": "completed",
-            "rules_synced": synced,
-            "rules_inserted": inserted,
-            "rules_updated": updated,
-            "rules_skipped": skipped,
+            "rules_source": rules_source,
             "pending_hosts": len(pending_host_records),
             "matched_by_existing_rules": 0,
             "remaining_for_llm": 0,
@@ -1068,7 +968,7 @@ def run_generate_new_rdns_rules_pipeline(
                         chunk_index=idx,
                         chunk_total=chunks_total,
                         model=model,
-                        rules_url=rules_url,
+                        rules_source=rules_source,
                         domains=chunk,
                         hosts_count=chunk_hosts_count,
                         system_prompt=system_prompt,
@@ -1094,7 +994,7 @@ def run_generate_new_rdns_rules_pipeline(
                         chunk_index=idx,
                         chunk_total=chunks_total,
                         model=model,
-                        rules_url=rules_url,
+                        rules_source=rules_source,
                         domains=chunk,
                         hosts_count=chunk_hosts_count,
                         system_prompt=system_prompt,
@@ -1151,7 +1051,7 @@ def run_generate_new_rdns_rules_pipeline(
                         rules_table=rules_table,
                         rule=rule,
                         model=model,
-                        rules_url=rules_url,
+                        rules_source=rules_source,
                     )
                     accepted_in_chunk += 1
                     rules_accepted_total += 1
@@ -1180,7 +1080,7 @@ def run_generate_new_rdns_rules_pipeline(
                     chunk_index=idx,
                     chunk_total=chunks_total,
                     model=model,
-                    rules_url=rules_url,
+                    rules_source=rules_source,
                     domains=chunk,
                     hosts_count=chunk_hosts_count,
                     system_prompt=system_prompt,
@@ -1216,11 +1116,10 @@ def run_generate_new_rdns_rules_pipeline(
         metrics["rules_rejected"] = rules_rejected_total
 
         if dry_run:
-            log(f"dry_run enabled; skipping rules dump accepted_rules={len(accepted_rules)}")
+            log(f"dry_run enabled; accepted_rules={len(accepted_rules)}")
             metrics["mode"] = "dry_run"
             return metrics
 
-        log("rules_dump_skipped reason=not_requested_in_processing_mode")
         matched_after, unmatched_after, unchecked_after = summarize_host_reviews(
             conn=conn,
             hostname_table=hostname_table,
@@ -1247,7 +1146,6 @@ def main() -> int:
     args = parse_args()
     try:
         run_generate_new_rdns_rules_pipeline(
-            rules_url=args.rules_url,
             model=args.model,
             api_base=args.api_base,
             max_hosts_per_domain=args.max_hosts_per_domain,
@@ -1258,7 +1156,6 @@ def main() -> int:
             pgsql_hostname_table=args.pgsql_hostname_table,
             pgsql_rules_table=args.pgsql_rules_table,
             pgsql_audit_table=args.pgsql_audit_table,
-            dump_rules=args.dump_rules,
             log_sink=None,
         )
     except Exception as exc:

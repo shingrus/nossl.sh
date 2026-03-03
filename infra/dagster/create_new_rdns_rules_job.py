@@ -9,7 +9,6 @@ from infra.scripts.rdns_rules import (
     DEFAULT_PGSQL_AUDIT_TABLE,
     DEFAULT_PGSQL_HOSTNAME_TABLE,
     DEFAULT_PGSQL_RULES_TABLE,
-    DEFAULT_RULES_URL,
     run_generate_new_rdns_rules_pipeline,
 )
 
@@ -27,12 +26,6 @@ from infra.scripts.rdns_rules import (
             is_required=False,
             default_value=DEFAULT_API_BASE,
             description=f"OpenAI API base URL (default: {DEFAULT_API_BASE}).",
-        ),
-        "rules_url": Field(
-            str,
-            is_required=False,
-            default_value=DEFAULT_RULES_URL,
-            description="Rules JSON URL (file://, http://, https://).",
         ),
         "max_hosts_per_domain": Field(
             int,
@@ -80,7 +73,6 @@ from infra.scripts.rdns_rules import (
 )
 def generate_new_rdns_rules(context):
     metrics = run_generate_new_rdns_rules_pipeline(
-        rules_url=context.op_config["rules_url"],
         model=context.op_config["model"],
         api_base=context.op_config["api_base"],
         max_hosts_per_domain=context.op_config["max_hosts_per_domain"],
