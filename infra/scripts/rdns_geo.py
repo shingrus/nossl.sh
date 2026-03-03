@@ -604,7 +604,7 @@ def parse_hops_from_mtr_json(raw: str) -> list[Optional[str]]:
 def parse_hops_from_mtr_text(raw: str) -> list[Optional[str]]:
     hops: list[Optional[str]] = []
     for line in raw.splitlines():
-        if not re.match(r"^\s*\d+\.\|\-\-", line):
+        if not re.match(r"^\s*\d+\.\|", line):
             continue
         if "???" in line:
             hops.append(None)
@@ -670,7 +670,6 @@ def mtr_last_hops(dest_ip: str) -> tuple[list[HopEvidence], int, int]:
 
 
 def ptr_lookup(ip: str) -> str:
-    dig_had_error = False
     if dig_cmd_available:
         short_cmd = ["dig", "+time=2", "+tries=1", "+short", "-x", ip]
         code, out, err = run_cmd(short_cmd, timeout=DIG_TIMEOUT_SECONDS)
@@ -680,8 +679,6 @@ def ptr_lookup(ip: str) -> str:
                 ptr = line.strip().strip('"').rstrip(".")
                 if ptr and not ptr.startswith(";"):
                     return ptr
-        else:
-            dig_had_error = True
 
         answer_cmd = ["dig", "+time=2", "+tries=1", "+noall", "+answer", "-x", ip]
         code, out, err = run_cmd(answer_cmd, timeout=DIG_TIMEOUT_SECONDS)
@@ -694,23 +691,22 @@ def ptr_lookup(ip: str) -> str:
                 match = re.search(r"\bPTR\s+(\S+)\.?$", text, flags=re.IGNORECASE)
                 if match:
                     return match.group(1).strip().rstrip(".")
-        else:
-            dig_had_error = True
 
-    if dig_had_error or not dig_cmd_available:
-        try:
-            qname = ipaddress.ip_address(ip).reverse_pointer
-        except ValueError:
-            qname = ""
-        if qname:
-            for value in doh_lookup(qname, "PTR"):
-                ptr = value.strip().strip('"').rstrip(".")
-                if ptr and not ptr.startswith(";"):
-                    return ptr
+    # Reaching this point means dig did not produce a usable PTR answer.
+    # Fall back to DoH/system resolver even when dig exited with code 0.
+    try:
+        qname = ipaddress.ip_address(ip).reverse_pointer
+    except ValueError:
+        qname = ""
+    if qname:
+        for value in doh_lookup(qname, "PTR"):
+            ptr = value.strip().strip('"').rstrip(".")
+            if ptr and not ptr.startswith(";"):
+                return ptr
 
-        ptr = ptr_lookup_resolver(ip)
-        if ptr:
-            return ptr
+    ptr = ptr_lookup_resolver(ip)
+    if ptr:
+        return ptr
     return ""
 
 
