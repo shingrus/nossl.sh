@@ -31,13 +31,14 @@ import math
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
-from urllib.error import URLError
-from urllib.parse import urlparse
+from urllib.error import URLError, HTTPError
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, url2pathname, urlopen
 
 from pgsql_hostname_reviews import (
@@ -58,6 +59,7 @@ DEFAULT_SCAN_LIMIT = 1000
 MTR_CYCLES = 1
 MTR_TIMEOUT_SECONDS = 30
 DIG_TIMEOUT_SECONDS = 8
+DOH_TIMEOUT_SECONDS = 8
 CYMRU_MIN_PREFIXLEN_V4 = 16
 
 
@@ -68,6 +70,17 @@ DEFAULT_RULES_URL = (
 ).resolve().as_uri()
 DEFAULT_PGSQL_TABLE = "hostname_reviews"
 DEFAULT_PGSQL_RULES_TABLE = "generated_rules"
+DEFAULT_DOH_URL = "https://cloudflare-dns.com/dns-query"
+DIG_ERROR_LOG_LIMIT = 10
+DOH_ERROR_LOG_LIMIT = 3
+DOH_FAILURE_DISABLE_AFTER = 5
+
+
+dig_cmd_available = True
+dig_error_logged = 0
+doh_error_logged = 0
+doh_failure_streak = 0
+doh_disabled = False
 
 
 def load_rule_entries_from_url(rules_url: str) -> list[dict[str, Any]]:
@@ -469,6 +482,93 @@ def run_cmd(args: list[str], timeout: int) -> tuple[int, str, str]:
     return completed.returncode, completed.stdout or "", completed.stderr or ""
 
 
+def maybe_log_dig_error(label: str, args: list[str], code: int, err: str) -> None:
+    global dig_error_logged
+    if code == 0 or dig_error_logged >= DIG_ERROR_LOG_LIMIT:
+        return
+    dig_error_logged += 1
+    stderr_line = (err or "").strip().splitlines()
+    stderr_sample = stderr_line[0] if stderr_line else "-"
+    eprint(
+        "dig_error "
+        f"label={label} code={code} stderr={stderr_sample} cmd={' '.join(args)}"
+    )
+
+
+def doh_lookup(qname: str, qtype: str) -> list[str]:
+    global doh_error_logged, doh_failure_streak, doh_disabled
+    if doh_disabled:
+        return []
+
+    endpoint = (os.getenv("RDNS_DOH_URL") or DEFAULT_DOH_URL).strip()
+    if not endpoint:
+        return []
+
+    query = urlencode({"name": qname, "type": qtype})
+    url = f"{endpoint}?{query}"
+    request = Request(
+        url,
+        headers={
+            "Accept": "application/dns-json",
+            "User-Agent": "rdns_geo/1",
+        },
+    )
+    try:
+        with urlopen(request, timeout=DOH_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (URLError, TimeoutError, HTTPError, json.JSONDecodeError) as exc:
+        doh_failure_streak += 1
+        if doh_error_logged < DOH_ERROR_LOG_LIMIT:
+            doh_error_logged += 1
+            eprint(
+                "doh_error "
+                f"qtype={qtype} name={qname} "
+                f"reason={type(exc).__name__}: {exc}"
+            )
+        if doh_failure_streak >= DOH_FAILURE_DISABLE_AFTER:
+            doh_disabled = True
+            eprint(
+                "doh_disabled "
+                f"failures={doh_failure_streak} "
+                "reason=consecutive_lookup_failures"
+            )
+        return []
+
+    doh_failure_streak = 0
+    if not isinstance(payload, dict):
+        return []
+    status = payload.get("Status")
+    if status not in (0, "0", None):
+        return []
+
+    answers = payload.get("Answer")
+    if not isinstance(answers, list):
+        doh_failure_streak = 0
+        return []
+
+    out: list[str] = []
+    for answer in answers:
+        if not isinstance(answer, dict):
+            continue
+        data = answer.get("data")
+        if not isinstance(data, str):
+            continue
+        value = data.strip()
+        if value:
+            out.append(value)
+    doh_failure_streak = 0
+    return out
+
+
+def ptr_lookup_resolver(ip: str) -> str:
+    try:
+        host = socket.gethostbyaddr(ip)[0]
+    except (OSError, socket.herror):
+        return ""
+    normalized = normalize_ptr_hostname(host)
+    return normalized or ""
+
+
 def is_ip_token(token: str) -> bool:
     cleaned = token.strip().strip("()[]{}<>|,;")
     if not cleaned:
@@ -570,30 +670,47 @@ def mtr_last_hops(dest_ip: str) -> tuple[list[HopEvidence], int, int]:
 
 
 def ptr_lookup(ip: str) -> str:
-    # Primary path: explicit reverse-DNS query.
-    code, out, _err = run_cmd(
-        ["dig", "+time=2", "+tries=1", "+short", "-x", ip],
-        timeout=DIG_TIMEOUT_SECONDS,
-    )
-    if code == 0:
-        for line in out.splitlines():
-            ptr = line.strip().strip('"').rstrip(".")
-            if ptr and not ptr.startswith(";"):
-                return ptr
+    dig_had_error = False
+    if dig_cmd_available:
+        short_cmd = ["dig", "+time=2", "+tries=1", "+short", "-x", ip]
+        code, out, err = run_cmd(short_cmd, timeout=DIG_TIMEOUT_SECONDS)
+        maybe_log_dig_error("ptr_short", short_cmd, code, err)
+        if code == 0:
+            for line in out.splitlines():
+                ptr = line.strip().strip('"').rstrip(".")
+                if ptr and not ptr.startswith(";"):
+                    return ptr
+        else:
+            dig_had_error = True
 
-    # Fallback: parse PTR from full answer section when +short path is empty.
-    code, out, _err = run_cmd(
-        ["dig", "+time=2", "+tries=1", "+noall", "+answer", "-x", ip],
-        timeout=DIG_TIMEOUT_SECONDS,
-    )
-    if code == 0:
-        for line in out.splitlines():
-            text = line.strip()
-            if not text:
-                continue
-            match = re.search(r"\bPTR\s+(\S+)\.?$", text, flags=re.IGNORECASE)
-            if match:
-                return match.group(1).strip().rstrip(".")
+        answer_cmd = ["dig", "+time=2", "+tries=1", "+noall", "+answer", "-x", ip]
+        code, out, err = run_cmd(answer_cmd, timeout=DIG_TIMEOUT_SECONDS)
+        maybe_log_dig_error("ptr_answer", answer_cmd, code, err)
+        if code == 0:
+            for line in out.splitlines():
+                text = line.strip()
+                if not text:
+                    continue
+                match = re.search(r"\bPTR\s+(\S+)\.?$", text, flags=re.IGNORECASE)
+                if match:
+                    return match.group(1).strip().rstrip(".")
+        else:
+            dig_had_error = True
+
+    if dig_had_error or not dig_cmd_available:
+        try:
+            qname = ipaddress.ip_address(ip).reverse_pointer
+        except ValueError:
+            qname = ""
+        if qname:
+            for value in doh_lookup(qname, "PTR"):
+                ptr = value.strip().strip('"').rstrip(".")
+                if ptr and not ptr.startswith(";"):
+                    return ptr
+
+        ptr = ptr_lookup_resolver(ip)
+        if ptr:
+            return ptr
     return ""
 
 
@@ -779,13 +896,19 @@ def normalize_cymru_prefix(ip: str, prefix: str) -> Optional[str]:
 
 def team_cymru_origin(ip: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
     qname = cymru_query_name(ip)
-    code, out, _err = run_cmd(
-        ["dig", "+time=2", "+tries=1", "+short", "TXT", qname],
-        timeout=DIG_TIMEOUT_SECONDS,
-    )
-    if code != 0:
-        return None, None, None
+    out = ""
+
+    if dig_cmd_available:
+        cmd = ["dig", "+time=2", "+tries=1", "+short", "TXT", qname]
+        code, out, err = run_cmd(cmd, timeout=DIG_TIMEOUT_SECONDS)
+        maybe_log_dig_error("cymru_txt", cmd, code, err)
+
     asn, prefix, country = parse_cymru_txt(out)
+    if not asn or not prefix:
+        doh_txt = "\n".join(doh_lookup(qname, "TXT"))
+        if doh_txt:
+            asn, prefix, country = parse_cymru_txt(doh_txt)
+
     if not asn or not prefix:
         return None, None, None
     normalized_prefix = normalize_cymru_prefix(ip, prefix)
@@ -870,6 +993,7 @@ def ensure_tool(name: str) -> None:
 
 
 def main() -> int:
+    global dig_cmd_available
     parser = argparse.ArgumentParser(
         description="Infer missing geo hints from rDNS patterns on the last 25% of mtr hops.",
     )
@@ -941,7 +1065,9 @@ def main() -> int:
 
     try:
         ensure_tool("mtr")
-        ensure_tool("dig")
+        dig_cmd_available = bool(shutil.which("dig"))
+        if not dig_cmd_available:
+            eprint("warning: dig is not available, using DoH/resolver fallback for DNS lookups")
         file_rule_entries = load_rule_entries_from_url(args.rules_url)
         pgsql_rule_entries: list[dict[str, Any]] = []
         pgsql_rules_skipped = 0
