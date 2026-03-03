@@ -196,7 +196,6 @@ def ensure_tables(
                 reason TEXT,
                 evidence_hosts_json TEXT NOT NULL,
                 source_model TEXT NOT NULL,
-                rules_source TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
@@ -211,7 +210,6 @@ def ensure_tables(
                 chunk_index INTEGER NOT NULL,
                 chunk_total INTEGER NOT NULL,
                 model TEXT NOT NULL,
-                rules_source TEXT NOT NULL,
                 domains_json TEXT NOT NULL,
                 hosts_count INTEGER NOT NULL,
                 system_prompt TEXT NOT NULL,
@@ -225,46 +223,6 @@ def ensure_tables(
             )
             """
         )
-        cur.execute(
-            f"""
-            ALTER TABLE {rules_table.quoted}
-            ADD COLUMN IF NOT EXISTS rules_source TEXT
-            """
-        )
-        cur.execute(
-            f"""
-            ALTER TABLE {audit_table.quoted}
-            ADD COLUMN IF NOT EXISTS rules_source TEXT
-            """
-        )
-        for table_ref in (rules_table, audit_table):
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = %s
-                  AND table_name = %s
-                  AND column_name LIKE 'rules_%'
-                  AND column_name <> 'rules_source'
-                  AND is_nullable = 'NO'
-                  AND column_default IS NULL
-                  AND data_type IN ('text', 'character varying')
-                ORDER BY ordinal_position
-                """,
-                (table_ref.schema, table_ref.table),
-            )
-            legacy_required_columns = [
-                row[0]
-                for row in cur.fetchall()
-                if row and isinstance(row[0], str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", row[0])
-            ]
-            for column_name in legacy_required_columns:
-                cur.execute(
-                    f"""
-                    ALTER TABLE {table_ref.quoted}
-                    ALTER COLUMN "{column_name}" SET DEFAULT ''
-                    """
-                )
         cur.execute(
             f"""
             CREATE INDEX IF NOT EXISTS idx_{audit_table.table}_run
@@ -421,7 +379,6 @@ def upsert_generated_rule(
     rules_table: PgTableRef,
     rule: ProposedRule,
     model: str,
-    rules_source: str,
 ) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -429,9 +386,9 @@ def upsert_generated_rule(
             INSERT INTO {rules_table.quoted} (
                 name, pattern, domains_json, country, city,
                 confidence, reason, evidence_hosts_json, source_model,
-                rules_source, updated_at, created_at
+                updated_at, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
             ON CONFLICT(name) DO UPDATE SET
               pattern=excluded.pattern,
               domains_json=excluded.domains_json,
@@ -441,7 +398,6 @@ def upsert_generated_rule(
               reason=excluded.reason,
               evidence_hosts_json=excluded.evidence_hosts_json,
               source_model=excluded.source_model,
-              rules_source=excluded.rules_source,
               updated_at=now()
             """,
             (
@@ -454,7 +410,6 @@ def upsert_generated_rule(
                 rule.reason,
                 json.dumps(list(rule.evidence_hosts), ensure_ascii=True),
                 model,
-                rules_source,
             ),
         )
 
@@ -466,7 +421,6 @@ def insert_llm_chunk_audit(
     chunk_index: int,
     chunk_total: int,
     model: str,
-    rules_source: str,
     domains: list[str],
     hosts_count: int,
     system_prompt: str,
@@ -482,18 +436,17 @@ def insert_llm_chunk_audit(
         cur.execute(
             f"""
             INSERT INTO {audit_table.quoted} (
-                run_id, created_at, chunk_index, chunk_total, model, rules_source,
+                run_id, created_at, chunk_index, chunk_total, model,
                 domains_json, hosts_count, system_prompt, user_prompt, raw_response,
                 parse_ok, error_text, proposed_rules_count, accepted_rules_count, rejected_rules_count
             )
-            VALUES (%s, now(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, now(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 run_id,
                 chunk_index,
                 chunk_total,
                 model,
-                rules_source,
                 json.dumps(domains, ensure_ascii=True),
                 hosts_count,
                 system_prompt,
@@ -801,7 +754,6 @@ def run_generate_new_rdns_rules_pipeline(
     except Exception as exc:
         raise RuntimeError(f"Invalid PostgreSQL table setting: {exc}") from exc
 
-    rules_source = f"pgsql:{rules_table.schema}.{rules_table.table}"
     try:
         raw_rule_entries, pgsql_skipped = load_rule_entries_from_postgres(
             pgsql_dsn,
@@ -811,7 +763,7 @@ def run_generate_new_rdns_rules_pipeline(
             raise RuntimeError(
                 f"No base rules found in PostgreSQL table {rules_table.schema}.{rules_table.table}"
             )
-        compiled_rules = compile_rules(raw_rule_entries, rules_source)
+        compiled_rules = compile_rules(raw_rule_entries, f"{rules_table.schema}.{rules_table.table}")
     except Exception as exc:
         raise RuntimeError(f"Failed to load PostgreSQL rules: {exc}") from exc
 
@@ -823,14 +775,14 @@ def run_generate_new_rdns_rules_pipeline(
         conn = open_postgres_connection(pgsql_dsn)
         ensure_tables(conn, hostname_table, rules_table, audit_table)
         log(
-            "rules_source_pgsql "
-            f"source={rules_source} loaded={len(raw_rule_entries)} skipped={pgsql_skipped}"
+            "pgsql_rules_loaded "
+            f"table={rules_table.schema}.{rules_table.table} "
+            f"loaded={len(raw_rule_entries)} skipped={pgsql_skipped}"
         )
 
         pending_host_records = select_unchecked_host_records(conn, hostname_table)
         metrics: dict[str, Any] = {
             "mode": "completed",
-            "rules_source": rules_source,
             "pending_hosts": len(pending_host_records),
             "matched_by_existing_rules": 0,
             "remaining_for_llm": 0,
@@ -853,7 +805,7 @@ def run_generate_new_rdns_rules_pipeline(
             return metrics
 
         log(f"loaded_unchecked_hostnames={len(pending_host_records)}")
-        run_id = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ") + f"-pid{os.getpid()}"
+        run_id = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ") + f"-pid{os.getpid()}"
         log(f"run_id={run_id}")
 
         log(
@@ -968,7 +920,6 @@ def run_generate_new_rdns_rules_pipeline(
                         chunk_index=idx,
                         chunk_total=chunks_total,
                         model=model,
-                        rules_source=rules_source,
                         domains=chunk,
                         hosts_count=chunk_hosts_count,
                         system_prompt=system_prompt,
@@ -994,7 +945,6 @@ def run_generate_new_rdns_rules_pipeline(
                         chunk_index=idx,
                         chunk_total=chunks_total,
                         model=model,
-                        rules_source=rules_source,
                         domains=chunk,
                         hosts_count=chunk_hosts_count,
                         system_prompt=system_prompt,
@@ -1051,7 +1001,6 @@ def run_generate_new_rdns_rules_pipeline(
                         rules_table=rules_table,
                         rule=rule,
                         model=model,
-                        rules_source=rules_source,
                     )
                     accepted_in_chunk += 1
                     rules_accepted_total += 1
@@ -1080,7 +1029,6 @@ def run_generate_new_rdns_rules_pipeline(
                     chunk_index=idx,
                     chunk_total=chunks_total,
                     model=model,
-                    rules_source=rules_source,
                     domains=chunk,
                     hosts_count=chunk_hosts_count,
                     system_prompt=system_prompt,
