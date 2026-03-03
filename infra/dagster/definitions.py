@@ -4,6 +4,7 @@ from infra.dagster.build_data_job import geofeed_finder_job, pdb_asn_geo_job, pa
 from infra.dagster.build_asn_data_job import build_asn_data_job
 from infra.dagster.build_geo_database_job import build_geo_database_job
 from infra.dagster.create_new_rdns_rules_job import create_new_rdns_rules_job
+from infra.dagster.schedules import create_new_rdns_rules_hourly_schedule
 
 
 defs = Definitions(
@@ -15,4 +16,7 @@ defs = Definitions(
         create_new_rdns_rules_job,
     ],
     resources={"paths": paths},
+    schedules=[
+        create_new_rdns_rules_hourly_schedule,
+    ],
 )
