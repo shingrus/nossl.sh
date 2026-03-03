@@ -352,6 +352,15 @@
     "city": "Dallas"
   },
   {
+    "name": "lumen_washington_washington",
+    "pattern": "(^|[._-])washington\\d*([._-]|$)",
+    "domains": [
+      "lumen.tech"
+    ],
+    "country": "US",
+    "city": "Washington"
+  },
+  {
     "name": "lumen_jfk_new_york",
     "pattern": "(^|[._-])jfk\\d*([._-]|$)",
     "domains": [
