@@ -5,6 +5,8 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-EnvironmentFile=-/etc/nossl/nossl-pull-agent.env
+User=nossl
+Group=nossl
+EnvironmentFile=-/etc/nossl-pull-agent.env
 WorkingDirectory=/opt/nossl.sh
 ExecStart=/usr/bin/env python3 /opt/nossl.sh/bin/nossl-pull-agent.py --bucket nossl-sh-dbs --region eu-north-1 --geo-target /opt/nossl.sh/ip2geo-latest.mmdb --asn-target /opt/nossl.sh/ip2asn-latest.mmdb
