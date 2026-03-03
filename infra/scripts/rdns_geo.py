@@ -1026,8 +1026,12 @@ def main() -> int:
     parser.add_argument(
         "--pgsql",
         type=str,
-        default="",
-        help="Optional PostgreSQL DSN (overrides PGSQL env var) for unmatched hostname tracking",
+        default=None,
+        help=(
+            "Optional PostgreSQL DSN for unmatched hostname tracking. "
+            "Disabled by default. Pass an explicit empty value (--pgsql \"\") "
+            "to use PGSQL env var."
+        ),
     )
     parser.add_argument(
         "--pgsql-table",
@@ -1036,7 +1040,9 @@ def main() -> int:
         help=f"PostgreSQL table for unmatched hostnames (default: {DEFAULT_PGSQL_TABLE})",
     )
     args = parser.parse_args()
-    pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
+    pgsql_dsn = ""
+    if args.pgsql is not None:
+        pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
     unknown_ips_url = (args.unknown_ips or "").strip()
     maintenance_token = (os.getenv("MAINTENANCE_TOKEN") or "").strip()
     pgsql_table_ref: Optional[PgTableRef] = None

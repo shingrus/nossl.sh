@@ -1,5 +1,6 @@
-from dagster import op, job, in_process_executor, Field
+from dagster import op, job, in_process_executor, Field, Noneable
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -16,6 +17,8 @@ from infra.dagster.utils import (
 
 GEO_TEMP_DIR_NAME = ".tmp-ipverse-geo"
 RDNS_RULES_URL = "https://raw.githubusercontent.com/shingrus/nossl.sh/refs/heads/main/infra/rdns_geo_rules.json"
+RDNS_DONE_PATTERN = re.compile(r"^DONE:\s+(?P<body>.+)$", re.MULTILINE)
+RDNS_DONE_KV_PATTERN = re.compile(r"([a-z_]+)=(-?\d+)")
 
 
 def _geo_temp_dir(work_dir: Path) -> Path:
@@ -29,6 +32,16 @@ def _geo_output_paths(work_dir: Path, date_tag: str):
         "rdns_geofeed_output": work_dir / "rdns_geo.csv",
         "rdns_unmatched_output": work_dir / "unmatched.txt",
     }
+
+
+def _parse_rdns_done_metrics(output_text: str) -> dict[str, int]:
+    last_match = None
+    for match in RDNS_DONE_PATTERN.finditer(output_text or ""):
+        last_match = match
+    if last_match is None:
+        return {}
+    body = last_match.group("body")
+    return {key: int(value) for key, value in RDNS_DONE_KV_PATTERN.findall(body)}
 
 
 cleanup_geo_temp_on_failure = make_temp_cleanup_failure_hook(GEO_TEMP_DIR_NAME, "GEO")
@@ -84,6 +97,15 @@ def build_geo_mmdb(context, country_repo_dir: str, date_tag: str):
             is_required=True,
             description="Required URL for rdns_geo.py unknown IP API (returns JSON array of IPs).",
         ),
+        "pgsql": Field(
+            Noneable(str),
+            is_required=False,
+            default_value=None,
+            description=(
+                "Optional PostgreSQL DSN pass-through for rdns_geo.py. "
+                "Disabled by default. Set to empty string to use PGSQL env var."
+            ),
+        ),
     },
 )
 def run_rdns_geo(context, geo_mmdb_path: str):
@@ -91,6 +113,7 @@ def run_rdns_geo(context, geo_mmdb_path: str):
     outputs = _geo_output_paths(work_dir, "unused")
     geo_mmdb = Path(geo_mmdb_path)
     unknown_ips_url = (context.op_config.get("unknown_ips_url") or "").strip()
+    pgsql = context.op_config.get("pgsql")
     maintenance_token = (os.getenv("MAINTENANCE_TOKEN") or "").strip()
 
     rdns_geofeed_output = outputs["rdns_geofeed_output"]
@@ -135,11 +158,53 @@ def run_rdns_geo(context, geo_mmdb_path: str):
         "--unmatched-zones",
         str(rdns_unmatched_output),
     ]
-    subprocess.run(cmd, cwd=str(work_dir), check=True)
+    if pgsql is not None:
+        cmd.extend(["--pgsql", pgsql])
+    result = subprocess.run(
+        cmd,
+        cwd=str(work_dir),
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.stdout:
+        context.log.info(result.stdout.rstrip())
+    if result.stderr:
+        context.log.info(result.stderr.rstrip())
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            cmd,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+
+    done_metrics = _parse_rdns_done_metrics(f"{result.stdout}\n{result.stderr}")
+    if done_metrics:
+        if hasattr(context, "add_output_metadata"):
+            context.add_output_metadata(done_metrics)
+        summary = " ".join(
+            f"{key}={done_metrics[key]}"
+            for key in (
+                "processed",
+                "matched",
+                "matched_mmdb",
+                "matched_rules",
+                "unmatched",
+                "cymru_missing",
+                "country_conflicts",
+            )
+            if key in done_metrics
+        )
+        if summary:
+            context.log.info(f"rdns_geo_done {summary}")
+
     return {
         "geo_mmdb_path": str(geo_mmdb),
         "rdns_enabled": True,
         "rdns_geofeed_output": str(rdns_geofeed_output),
+        "rdns_done_metrics": done_metrics,
     }
 
 
