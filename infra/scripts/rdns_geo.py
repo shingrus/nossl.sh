@@ -1076,7 +1076,7 @@ def run_rdns_geo_pipeline(
     pgsql_table: str = DEFAULT_PGSQL_TABLE,
     maintenance_token: Optional[str] = None,
     log_sink: Optional[Callable[[str], None]] = None,
-) -> dict[str, int]:
+) -> dict[str, int | float]:
     global dig_cmd_available, _log_sink
     _reset_runtime_state()
 
@@ -1142,6 +1142,9 @@ def run_rdns_geo_pipeline(
 
         hints_by_prefix: dict[str, Hint] = {}
         unknown_candidates: list[IpCandidate] = []
+        api_candidates_total = 0
+        known_city_candidates = 0
+        start_known_pct = 0.0
 
         if test_ip:
             normalized_test_ip = normalize_ip(test_ip)
@@ -1152,6 +1155,7 @@ def run_rdns_geo_pipeline(
         else:
             with maxminddb.open_database(str(mmdb)) as reader:
                 all_candidates = fetch_unknown_candidates(unknown_ips_url, effective_maintenance_token)
+                api_candidates_total = len(all_candidates)
                 eprint(
                     f"api_candidates_public_unique={len(all_candidates)} "
                     f"selection_limit={DEFAULT_SCAN_LIMIT}"
@@ -1163,10 +1167,13 @@ def run_rdns_geo_pipeline(
                         f"country={country or '-'} city={city or '-'}"
                     )
                     if is_unknown:
-                        unknown_candidates.append(candidate)
-                    if len(unknown_candidates) >= DEFAULT_SCAN_LIMIT:
-                        break
-            eprint(f"unknown_geo_candidates={len(unknown_candidates)}")
+                        if len(unknown_candidates) < DEFAULT_SCAN_LIMIT:
+                            unknown_candidates.append(candidate)
+                    else:
+                        known_city_candidates += 1
+            start_known_pct = (
+                (known_city_candidates * 100.0) / api_candidates_total if api_candidates_total else 0.0
+            )
 
         processed = 0
         unmatched = 0
@@ -1362,6 +1369,12 @@ def run_rdns_geo_pipeline(
         if unmatched_zones:
             write_unmatched_entries(unmatched_zones, entries_for_dump)
 
+        end_known_pct = (
+            ((known_city_candidates + matched) * 100.0 / api_candidates_total)
+            if api_candidates_total
+            else 0.0
+        )
+
         done_metrics = {
             "processed": processed,
             "matched": matched,
@@ -1379,6 +1392,8 @@ def run_rdns_geo_pipeline(
             "pgsql_existing_hosts": pgsql_existing_hosts,
             "pgsql_new_hosts": pgsql_new_hosts,
             "pgsql_inserted_hosts": pgsql_inserted_hosts,
+            "known_city_percent_begin": round(start_known_pct, 1),
+            "known_city_percent_end": round(end_known_pct, 1),
         }
         eprint(
             "DONE:",

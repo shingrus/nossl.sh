@@ -146,6 +146,8 @@ def run_rdns_geo(context, geo_mmdb_path: str):
                 "unmatched",
                 "cymru_missing",
                 "country_conflicts",
+                "known_city_percent_begin",
+                "known_city_percent_end",
             )
             if key in done_metrics
         )
