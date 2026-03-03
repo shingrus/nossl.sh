@@ -653,18 +653,7 @@ const getGeoIpCoverageStats = () => {
 
 const getUnknownIpRows = () => {
     try {
-        const unknownRows = [];
-        const rows = selectAllDistinctIpsStmt.all();
-
-        rows.forEach(({ip}) => {
-            const cityName = lookupGeo(ip)?.cityName;
-            if (typeof cityName === 'string' && cityName.trim()) {
-                return;
-            }
-            unknownRows.push(ip);
-        });
-
-        return unknownRows;
+        return selectAllDistinctIpsStmt.all().map(({ ip }) => ip);
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Failed to fetch unknown IP rows', error);
