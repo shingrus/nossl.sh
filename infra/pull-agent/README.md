@@ -1,14 +1,14 @@
 # Pull Agent (S3 -> local MMDB)
 
 This folder contains a small Python pull agent and systemd units to keep a
-local `ip2geo` MMDB updated from S3.
+local `ip2geo`/`ip2asn` MMDB updated from S3.
 
 ## What it does
 
 - Reads date folders in S3 that match `YYYY-MM-DD`
 - Picks the latest date folder
-- Builds expected file name from that folder:
-  `ip2geo-nossl-sh-YYYYMMDD.mmdb`
+- Builds expected file names from that folder:
+  `ip2geo-nossl-sh-YYYYMMDD.mmdb` and `ip2asn-nossl-sh-YYYYMMDD.mmdb`
 - Downloads and validates minimum size
 - Atomically replaces the target file
 
@@ -32,7 +32,8 @@ sudo systemctl enable --now nossl-pull-agent.timer
 
 If your checkout path is not `/opt/nossl.sh`, edit
 `/etc/systemd/system/nossl-pull-agent.service` and adjust `WorkingDirectory`
-and `ExecStart` script path/flags (`--bucket`, `--region`, `--target`).
+and `ExecStart` script path/flags (`--bucket`, `--region`, `--geo-target`,
+`--asn-target`).
 
 ## Manual run
 
@@ -40,7 +41,8 @@ and `ExecStart` script path/flags (`--bucket`, `--region`, `--target`).
 python3 infra/pull-agent/nossl-pull-agent.py \
   --bucket nossl-sh-dbs \
   --region eu-north-1 \
-  --target /opt/nossl/ip2geo-latest.mmdb
+  --geo-target /opt/nossl/ip2geo-latest.mmdb \
+  --asn-target /opt/nossl/ip2asn-latest.mmdb
 ```
 
 Dry run (download + validate, no install):
@@ -49,7 +51,8 @@ Dry run (download + validate, no install):
 python3 infra/pull-agent/nossl-pull-agent.py \
   --bucket nossl-sh-dbs \
   --region eu-north-1 \
-  --target /opt/nossl/ip2geo-latest.mmdb \
+  --geo-target /opt/nossl/ip2geo-latest.mmdb \
+  --asn-target /opt/nossl/ip2asn-latest.mmdb \
   --dry-run
 ```
 

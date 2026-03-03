@@ -1,5 +1,5 @@
 [Unit]
-Description=Periodic pull of latest ip2geo MMDB from S3
+Description=Periodic pull of latest ip2geo/ip2asn MMDB from S3
 
 [Timer]
 OnCalendar=*:0/5
@@ -9,4 +9,3 @@ Unit=nossl-pull-agent.service
 
 [Install]
 WantedBy=timers.target
-

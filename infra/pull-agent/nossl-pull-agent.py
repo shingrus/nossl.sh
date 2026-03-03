@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Pull the latest ip2geo MMDB artifact from S3 and install it atomically.
+Pull the latest MMDB artifacts from S3 and install them atomically.
 
 Selection logic:
 1) List top-level date folders matching YYYY-MM-DD.
 2) Pick the latest date folder.
-3) Build expected filename `ip2geo-nossl-sh-<YYYYMMDD>.mmdb` from the latest folder date.
-4) Download it only when target file size differs, then atomically replace target.
+3) Build expected filenames from the latest folder date:
+   `ip2geo-nossl-sh-<YYYYMMDD>.mmdb` and/or `ip2asn-nossl-sh-<YYYYMMDD>.mmdb`.
+4) Download each only when target file size differs, then atomically replace target.
 5) With --dry-run, run the same logic, but skip install after successful download+validate.
 """
 
@@ -25,14 +26,20 @@ from typing import Any, Optional
 DATE_FOLDER_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MIN_SIZE_BYTES = 1024 * 1024
 INSTALL_MODE = 0o644
-TEMP_PREFIX = ".ip2geo-pull-"
 TEMP_SUFFIX = ".mmdb"
+SUPPORTED_DATASETS = ("ip2geo", "ip2asn")
 
 
 @dataclass(frozen=True)
 class S3Object:
     key: str
     size: int
+
+
+@dataclass(frozen=True)
+class PullTarget:
+    dataset: str
+    target_path: Path
 
 
 def log(message: str) -> None:
@@ -66,12 +73,14 @@ def list_date_folders(client: Any, bucket: str) -> list[str]:
     return folders
 
 
-def build_expected_key(latest_folder: str) -> str:
+def build_expected_key(latest_folder: str, dataset: str) -> str:
+    if dataset not in SUPPORTED_DATASETS:
+        raise RuntimeError(f"Unsupported dataset: {dataset!r}")
     folder_date = parse_date_folder(latest_folder)
     if folder_date is None:
         raise RuntimeError(f"Invalid latest date folder: {latest_folder!r}")
     date_tag = folder_date.strftime("%Y%m%d")
-    return f"{latest_folder}/ip2geo-nossl-sh-{date_tag}.mmdb"
+    return f"{latest_folder}/{dataset}-nossl-sh-{date_tag}.mmdb"
 
 
 def get_required_object(client: Any, bucket: str, key: str) -> S3Object:
@@ -85,9 +94,15 @@ def get_required_object(client: Any, bucket: str, key: str) -> S3Object:
     )
 
 
-def download_object_to_temp(client: Any, bucket: str, key: str, temp_dir: Path) -> Path:
+def temp_prefix_for(dataset: str) -> str:
+    return f".{dataset}-pull-"
+
+
+def download_object_to_temp(
+    client: Any, bucket: str, key: str, temp_dir: Path, dataset: str
+) -> Path:
     fd, temp_path = tempfile.mkstemp(
-        prefix=TEMP_PREFIX,
+        prefix=temp_prefix_for(dataset),
         suffix=TEMP_SUFFIX,
         dir=str(temp_dir),
     )
@@ -123,17 +138,70 @@ def install_atomically(source_path: Path, target_path: Path) -> None:
     os.chmod(target_path, INSTALL_MODE)
 
 
-def cleanup_stale_temp_files(temp_dir: Path) -> None:
-    for path in temp_dir.glob(f"{TEMP_PREFIX}*{TEMP_SUFFIX}"):
+def cleanup_stale_temp_files(temp_dir: Path, dataset: str) -> None:
+    temp_prefix = temp_prefix_for(dataset)
+    for path in temp_dir.glob(f"{temp_prefix}*{TEMP_SUFFIX}"):
         if path.is_file():
             path.unlink(missing_ok=True)
+
+
+def validate_target_path(path: Path) -> None:
+    if not path.parent.is_dir():
+        raise RuntimeError(f"Target directory does not exist: {path.parent}")
+
+
+def sync_dataset_to_target(
+    client: Any,
+    bucket: str,
+    latest_folder: str,
+    target: PullTarget,
+    dry_run: bool,
+) -> None:
+    expected_key = build_expected_key(latest_folder, target.dataset)
+    selected = get_required_object(client=client, bucket=bucket, key=expected_key)
+    log(
+        f"[{target.dataset}] selected object: s3://{bucket}/{selected.key} "
+        f"({selected.size} bytes)"
+    )
+    if target.target_path.is_file() and target.target_path.stat().st_size == selected.size:
+        log(
+            f"[{target.dataset}] skip download: target already has matching size "
+            f"({selected.size} bytes): {target.target_path}"
+        )
+        return
+
+    cleanup_stale_temp_files(target.target_path.parent, target.dataset)
+    temp_file = download_object_to_temp(
+        client=client,
+        bucket=bucket,
+        key=selected.key,
+        temp_dir=target.target_path.parent,
+        dataset=target.dataset,
+    )
+    try:
+        validate_download(
+            path=temp_file,
+            min_size_bytes=MIN_SIZE_BYTES,
+            expected_size=selected.size,
+        )
+        if dry_run:
+            log(
+                f"[{target.dataset}] dry-run: validated download and "
+                f"skipped install: {target.target_path}"
+            )
+            return
+
+        install_atomically(temp_file, target.target_path)
+        log(f"[{target.dataset}] installed: {target.target_path}")
+    finally:
+        temp_file.unlink(missing_ok=True)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Download the latest ip2geo MMDB from S3 date folders and "
-            "install it atomically to --target."
+            "Download latest ip2geo/ip2asn MMDB files from S3 date folders "
+            "and install them atomically."
         )
     )
     parser.add_argument(
@@ -146,11 +214,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         required=True,
         help="S3 region",
     )
-    parser.add_argument(
-        "--target",
-        required=True,
-        help="Target MMDB file path to install",
-    )
+    parser.add_argument("--target", help="Backward-compatible alias for --geo-target")
+    parser.add_argument("--geo-target", help="Target MMDB file path for ip2geo")
+    parser.add_argument("--asn-target", help="Target MMDB file path for ip2asn")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -163,9 +229,24 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    target_path = Path(args.target).expanduser().resolve()
-    if not target_path.parent.is_dir():
-        eprint(f"Target directory does not exist: {target_path.parent}")
+    geo_target_arg = args.geo_target or args.target
+    targets: list[PullTarget] = []
+
+    if geo_target_arg:
+        geo_target = Path(geo_target_arg).expanduser().resolve()
+        targets.append(PullTarget(dataset="ip2geo", target_path=geo_target))
+    if args.asn_target:
+        asn_target = Path(args.asn_target).expanduser().resolve()
+        targets.append(PullTarget(dataset="ip2asn", target_path=asn_target))
+    if not targets:
+        eprint("At least one target is required: --geo-target/--target and/or --asn-target")
+        return 2
+
+    try:
+        for target in targets:
+            validate_target_path(target.target_path)
+    except RuntimeError as exc:
+        eprint(str(exc))
         return 2
 
     try:
@@ -187,38 +268,19 @@ def main(argv: list[str]) -> int:
     latest_folder = folders[-1]
     log(f"latest date folder: {latest_folder}")
 
-    expected_key = build_expected_key(latest_folder)
-    selected = get_required_object(client=client, bucket=args.bucket, key=expected_key)
-    log(f"selected object: s3://{args.bucket}/{selected.key} ({selected.size} bytes)")
-    if target_path.is_file() and target_path.stat().st_size == selected.size:
-        log(
-            f"skip download: target already has matching size "
-            f"({selected.size} bytes): {target_path}"
-        )
-        return 0
-
-    cleanup_stale_temp_files(target_path.parent)
-    temp_file = download_object_to_temp(
-        client=client,
-        bucket=args.bucket,
-        key=selected.key,
-        temp_dir=target_path.parent,
-    )
     try:
-        validate_download(
-            path=temp_file,
-            min_size_bytes=MIN_SIZE_BYTES,
-            expected_size=selected.size,
-        )
-        if args.dry_run:
-            log(f"dry-run: validated download and skipped install: {target_path}")
-            return 0
-
-        install_atomically(temp_file, target_path)
-        log(f"installed: {target_path}")
+        for target in targets:
+            sync_dataset_to_target(
+                client=client,
+                bucket=args.bucket,
+                latest_folder=latest_folder,
+                target=target,
+                dry_run=args.dry_run,
+            )
         return 0
-    finally:
-        temp_file.unlink(missing_ok=True)
+    except RuntimeError as exc:
+        eprint(str(exc))
+        return 1
 
 
 if __name__ == "__main__":
