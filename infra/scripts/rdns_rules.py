@@ -22,23 +22,38 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from pgsql_hostname_reviews import (
-    PgTableRef,
-    ensure_hostname_reviews_table,
-    open_postgres_connection,
-    parse_pg_table_ref,
-)
-from rdns_geo import (
-    Rule,
-    load_rule_entries_from_url,
-    load_rules,
-    match_ptr,
-    normalize_ptr_hostname,
-)
+try:
+    from .pgsql_hostname_reviews import (
+        PgTableRef,
+        ensure_hostname_reviews_table,
+        open_postgres_connection,
+        parse_pg_table_ref,
+    )
+    from .rdns_geo import (
+        Rule,
+        load_rule_entries_from_url,
+        load_rules,
+        match_ptr,
+        normalize_ptr_hostname,
+    )
+except ImportError:
+    from pgsql_hostname_reviews import (
+        PgTableRef,
+        ensure_hostname_reviews_table,
+        open_postgres_connection,
+        parse_pg_table_ref,
+    )
+    from rdns_geo import (
+        Rule,
+        load_rule_entries_from_url,
+        load_rules,
+        match_ptr,
+        normalize_ptr_hostname,
+    )
 
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_API_BASE = "https://api.openai.com/v1"
@@ -55,6 +70,7 @@ CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
 DEFAULT_PGSQL_HOSTNAME_TABLE = "hostname_reviews"
 DEFAULT_PGSQL_RULES_TABLE = "generated_rules"
 DEFAULT_PGSQL_AUDIT_TABLE = "llm_chunk_audit"
+_log_sink: Optional[Callable[[str], None]] = None
 
 
 @dataclass(frozen=True)
@@ -77,7 +93,11 @@ class ProposedRule:
 
 def log(msg: str) -> None:
     ts = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-    print(f"{ts} {msg}", file=sys.stderr)
+    line = f"{ts} {msg}"
+    if _log_sink is not None:
+        _log_sink(line)
+        return
+    print(line, file=sys.stderr)
 
 
 def parse_args() -> argparse.Namespace:
@@ -838,47 +858,65 @@ def dump_rules_from_db(conn: Any, rules_table: PgTableRef, path: Path) -> int:
     return len(entries)
 
 
-def main() -> int:
-    args = parse_args()
-    pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
+def run_generate_new_rdns_rules_pipeline(
+    *,
+    rules_url: str = DEFAULT_RULES_URL,
+    model: str = DEFAULT_MODEL,
+    api_base: str = DEFAULT_API_BASE,
+    max_hosts_per_domain: int = DEFAULT_MAX_HOSTS_PER_DOMAIN,
+    max_domains_per_request: int = DEFAULT_MAX_DOMAINS_PER_REQUEST,
+    min_confidence: str = DEFAULT_MIN_CONFIDENCE,
+    dry_run: bool = False,
+    pgsql: Optional[str] = None,
+    pgsql_hostname_table: str = DEFAULT_PGSQL_HOSTNAME_TABLE,
+    pgsql_rules_table: str = DEFAULT_PGSQL_RULES_TABLE,
+    pgsql_audit_table: str = DEFAULT_PGSQL_AUDIT_TABLE,
+    dump_rules: Optional[Path | str] = None,
+    log_sink: Optional[Callable[[str], None]] = None,
+) -> dict[str, Any]:
+    global _log_sink
+
+    pgsql_dsn = (pgsql or os.getenv("PGSQL") or "").strip()
     if not pgsql_dsn:
-        log("error: --pgsql or PGSQL env var is required")
-        return 2
+        raise RuntimeError("Missing PGSQL environment variable")
 
-    if args.max_hosts_per_domain <= 0 or args.max_domains_per_request <= 0:
-        log("error: max limits must be positive")
-        return 2
-
-    try:
-        hostname_table = parse_pg_table_ref(args.pgsql_hostname_table)
-        rules_table = parse_pg_table_ref(args.pgsql_rules_table)
-        audit_table = parse_pg_table_ref(args.pgsql_audit_table)
-    except Exception as exc:
-        log(f"error: invalid PostgreSQL table setting: {exc}")
-        return 2
+    if max_hosts_per_domain <= 0 or max_domains_per_request <= 0:
+        raise RuntimeError("max_hosts_per_domain and max_domains_per_request must be positive")
+    if min_confidence not in CONFIDENCE_RANK:
+        raise RuntimeError(f"Invalid min_confidence: {min_confidence}")
 
     try:
-        compiled_rules = load_rules(args.rules_url)
-        raw_rule_entries = load_rule_entries_from_url(args.rules_url)
+        hostname_table = parse_pg_table_ref(pgsql_hostname_table)
+        rules_table = parse_pg_table_ref(pgsql_rules_table)
+        audit_table = parse_pg_table_ref(pgsql_audit_table)
     except Exception as exc:
-        log(f"error: failed to load rules: {exc}")
-        return 2
+        raise RuntimeError(f"Invalid PostgreSQL table setting: {exc}") from exc
+
+    try:
+        compiled_rules = load_rules(rules_url)
+        raw_rule_entries = load_rule_entries_from_url(rules_url)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load rules: {exc}") from exc
+
+    previous_log_sink = _log_sink
+    _log_sink = log_sink
 
     conn = None
     try:
         conn = open_postgres_connection(pgsql_dsn)
         ensure_tables(conn, hostname_table, rules_table, audit_table)
 
-        if args.dump_rules is not None:
-            dumped = dump_rules_from_db(conn, rules_table, args.dump_rules)
-            log(f"rules_dump_written path={args.dump_rules} total_rules={dumped} mode=dump_only")
-            return 0
+        dump_rules_path: Optional[Path] = Path(dump_rules) if dump_rules is not None else None
+        if dump_rules_path is not None:
+            dumped = dump_rules_from_db(conn, rules_table, dump_rules_path)
+            log(f"rules_dump_written path={dump_rules_path} total_rules={dumped} mode=dump_only")
+            return {"mode": "dump_only", "dumped_rules": dumped}
 
         synced, inserted, updated, skipped = sync_rules_file_to_db(
             conn=conn,
             rules_table=rules_table,
             rule_entries=raw_rule_entries,
-            rules_url=args.rules_url,
+            rules_url=rules_url,
         )
         log(
             "rules_sync "
@@ -887,9 +925,32 @@ def main() -> int:
         )
 
         pending_host_records = select_unchecked_host_records(conn, hostname_table)
+        metrics: dict[str, Any] = {
+            "mode": "completed",
+            "rules_synced": synced,
+            "rules_inserted": inserted,
+            "rules_updated": updated,
+            "rules_skipped": skipped,
+            "pending_hosts": len(pending_host_records),
+            "matched_by_existing_rules": 0,
+            "remaining_for_llm": 0,
+            "domains_to_check": 0,
+            "chunks_total": 0,
+            "chunks_ok": 0,
+            "chunks_failed": 0,
+            "rules_proposed": 0,
+            "rules_accepted": 0,
+            "rules_rejected": 0,
+            "final_matched": 0,
+            "final_unmatched": 0,
+            "final_unchecked": 0,
+            "newly_matched_via_llm": 0,
+        }
+
         if not pending_host_records:
             log("no unchecked hostnames found in PostgreSQL table")
-            return 0
+            metrics["mode"] = "no_pending_hosts"
+            return metrics
 
         log(f"loaded_unchecked_hostnames={len(pending_host_records)}")
         run_id = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ") + f"-pid{os.getpid()}"
@@ -900,24 +961,21 @@ def main() -> int:
             f"hostnames_total_input={len(pending_host_records)}"
         )
 
-        matched_by_existing_rules = 0
-        remaining_for_llm = 0
-        if pending_host_records:
-            matched_by_existing_rules, remaining_for_llm = mark_hosts_checked_with_rules(
-                conn=conn,
-                hostname_table=hostname_table,
-                hosts=pending_host_records,
-                rules=compiled_rules,
-                only_if_matched=True,
-            )
-            log(
-                "initial_rules_check "
-                f"matched_by_rules={matched_by_existing_rules} "
-                f"remaining_for_llm={remaining_for_llm} "
-                f"pgsql_table={hostname_table.schema}.{hostname_table.table}"
-            )
-        else:
-            log("no_unchecked_hostnames_to_process")
+        matched_by_existing_rules, remaining_for_llm = mark_hosts_checked_with_rules(
+            conn=conn,
+            hostname_table=hostname_table,
+            hosts=pending_host_records,
+            rules=compiled_rules,
+            only_if_matched=True,
+        )
+        metrics["matched_by_existing_rules"] = matched_by_existing_rules
+        metrics["remaining_for_llm"] = remaining_for_llm
+        log(
+            "initial_rules_check "
+            f"matched_by_rules={matched_by_existing_rules} "
+            f"remaining_for_llm={remaining_for_llm} "
+            f"pgsql_table={hostname_table.schema}.{hostname_table.table}"
+        )
 
         unmatched_only = [
             hr
@@ -925,23 +983,29 @@ def main() -> int:
             if match_ptr(hr.hostname, compiled_rules) is None
         ]
         accepted_rules: list[ProposedRule] = []
+        chunks_total = 0
+        chunks_ok = 0
+        chunks_failed = 0
+        rules_proposed_total = 0
+        rules_accepted_total = 0
+        rules_rejected_total = 0
+
         if not unmatched_only:
-            if pending_host_records:
-                log("all pending hosts already match existing rules; nothing to generate")
+            log("all pending hosts already match existing rules; nothing to generate")
         else:
             api_key = os.getenv("OPENAI_API_KEY", "").strip()
             if not api_key:
-                log("error: OPENAI_API_KEY env var is required")
-                return 2
+                raise RuntimeError("Missing OPENAI_API_KEY environment variable")
 
             grouped: dict[str, list[str]] = {}
             for hr in unmatched_only:
                 grouped.setdefault(hr.domain, []).append(hr.hostname)
             for domain in list(grouped.keys()):
-                grouped[domain] = sorted(list(dict.fromkeys(grouped[domain])))[: args.max_hosts_per_domain]
+                grouped[domain] = sorted(list(dict.fromkeys(grouped[domain])))[:max_hosts_per_domain]
             unmatched_by_hostname = {host.hostname: host for host in unmatched_only}
 
             domains = sorted(grouped.keys())
+            metrics["domains_to_check"] = len(domains)
             log(f"domains_to_check={len(domains)}")
             for domain in domains:
                 hosts_for_domain = grouped.get(domain, [])
@@ -949,7 +1013,7 @@ def main() -> int:
                     f"domain_check_plan domain={domain} hosts={len(hosts_for_domain)} "
                     f"sample={format_host_sample(hosts_for_domain)}"
                 )
-            domain_chunks = chunk_domains(domains, args.max_domains_per_request)
+            domain_chunks = chunk_domains(domains, max_domains_per_request)
 
             existing_names = {rule.name for rule in compiled_rules}
             existing_signatures = {
@@ -958,12 +1022,6 @@ def main() -> int:
             }
 
             chunks_total = len(domain_chunks)
-            chunks_ok = 0
-            chunks_failed = 0
-            rules_proposed_total = 0
-            rules_accepted_total = 0
-            rules_rejected_total = 0
-
             for idx, chunk in enumerate(domain_chunks, start=1):
                 system_prompt, user_prompt = build_prompts(chunk, raw_rule_entries, grouped)
                 chunk_hosts_count = sum(len(grouped.get(d, [])) for d in chunk)
@@ -990,8 +1048,8 @@ def main() -> int:
                 try:
                     raw_response = openai_request(
                         api_key=api_key,
-                        api_base=args.api_base,
-                        model=args.model,
+                        api_base=api_base,
+                        model=model,
                         system_prompt=system_prompt,
                         user_prompt=user_prompt,
                     )
@@ -1009,8 +1067,8 @@ def main() -> int:
                         run_id=run_id,
                         chunk_index=idx,
                         chunk_total=chunks_total,
-                        model=args.model,
-                        rules_url=args.rules_url,
+                        model=model,
+                        rules_url=rules_url,
                         domains=chunk,
                         hosts_count=chunk_hosts_count,
                         system_prompt=system_prompt,
@@ -1035,8 +1093,8 @@ def main() -> int:
                         run_id=run_id,
                         chunk_index=idx,
                         chunk_total=chunks_total,
-                        model=args.model,
-                        rules_url=args.rules_url,
+                        model=model,
+                        rules_url=rules_url,
                         domains=chunk,
                         hosts_count=chunk_hosts_count,
                         system_prompt=system_prompt,
@@ -1072,7 +1130,7 @@ def main() -> int:
                     candidate_name = ensure_rule_name(str(candidate.get("name") or "")) or "-"
                     rule, rejection_reason = compile_rule_candidate(
                         raw=candidate,
-                        min_confidence=args.min_confidence,
+                        min_confidence=min_confidence,
                         domain_to_hosts=grouped,
                         existing_names=existing_names,
                         existing_signatures=existing_signatures,
@@ -1092,8 +1150,8 @@ def main() -> int:
                         conn=conn,
                         rules_table=rules_table,
                         rule=rule,
-                        model=args.model,
-                        rules_url=args.rules_url,
+                        model=model,
+                        rules_url=rules_url,
                     )
                     accepted_in_chunk += 1
                     rules_accepted_total += 1
@@ -1121,8 +1179,8 @@ def main() -> int:
                     run_id=run_id,
                     chunk_index=idx,
                     chunk_total=chunks_total,
-                    model=args.model,
-                    rules_url=args.rules_url,
+                    model=model,
+                    rules_url=rules_url,
                     domains=chunk,
                     hosts_count=chunk_hosts_count,
                     system_prompt=system_prompt,
@@ -1150,31 +1208,62 @@ def main() -> int:
             if not accepted_rules:
                 log("no valid rules accepted from llm")
 
-        if args.dry_run:
+        metrics["chunks_total"] = chunks_total
+        metrics["chunks_ok"] = chunks_ok
+        metrics["chunks_failed"] = chunks_failed
+        metrics["rules_proposed"] = rules_proposed_total
+        metrics["rules_accepted"] = rules_accepted_total
+        metrics["rules_rejected"] = rules_rejected_total
+
+        if dry_run:
             log(f"dry_run enabled; skipping rules dump accepted_rules={len(accepted_rules)}")
-            return 0
+            metrics["mode"] = "dry_run"
+            return metrics
 
         log("rules_dump_skipped reason=not_requested_in_processing_mode")
-
-        if pending_host_records:
-            matched_after, unmatched_after, unchecked_after = summarize_host_reviews(
-                conn=conn,
-                hostname_table=hostname_table,
-                hosts=pending_host_records,
-            )
-            log(
-                "final_classification "
-                f"matched={matched_after} unmatched={unmatched_after} "
-                f"unchecked={unchecked_after} "
-                f"newly_matched_via_llm={matched_after - matched_by_existing_rules}"
-            )
-        else:
-            log("final_classification skipped=no_pending_hosts")
-
+        matched_after, unmatched_after, unchecked_after = summarize_host_reviews(
+            conn=conn,
+            hostname_table=hostname_table,
+            hosts=pending_host_records,
+        )
+        metrics["final_matched"] = matched_after
+        metrics["final_unmatched"] = unmatched_after
+        metrics["final_unchecked"] = unchecked_after
+        metrics["newly_matched_via_llm"] = matched_after - matched_by_existing_rules
+        log(
+            "final_classification "
+            f"matched={matched_after} unmatched={unmatched_after} "
+            f"unchecked={unchecked_after} "
+            f"newly_matched_via_llm={matched_after - matched_by_existing_rules}"
+        )
+        return metrics
     finally:
+        _log_sink = previous_log_sink
         if conn is not None:
             conn.close()
 
+
+def main() -> int:
+    args = parse_args()
+    try:
+        run_generate_new_rdns_rules_pipeline(
+            rules_url=args.rules_url,
+            model=args.model,
+            api_base=args.api_base,
+            max_hosts_per_domain=args.max_hosts_per_domain,
+            max_domains_per_request=args.max_domains_per_request,
+            min_confidence=args.min_confidence,
+            dry_run=args.dry_run,
+            pgsql=args.pgsql,
+            pgsql_hostname_table=args.pgsql_hostname_table,
+            pgsql_rules_table=args.pgsql_rules_table,
+            pgsql_audit_table=args.pgsql_audit_table,
+            dump_rules=args.dump_rules,
+            log_sink=None,
+        )
+    except Exception as exc:
+        log(f"error: {exc}")
+        return 2
     return 0
 
 
