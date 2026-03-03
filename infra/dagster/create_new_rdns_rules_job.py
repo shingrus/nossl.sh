@@ -85,12 +85,29 @@ def generate_new_rdns_rules(context):
         pgsql_audit_table=context.op_config["pgsql_audit_table"],
         log_sink=context.log.info,
     )
+    final_classification = ""
+    if all(
+        key in metrics
+        for key in ("final_matched", "final_unmatched", "final_unchecked", "matched_by_existing_rules")
+    ):
+        newly_matched_via_llm = metrics["final_matched"] - metrics["matched_by_existing_rules"]
+        metrics["newly_matched_via_llm"] = newly_matched_via_llm
+        final_classification = (
+            "final_classification "
+            f"matched={metrics['final_matched']} unmatched={metrics['final_unmatched']} "
+            f"unchecked={metrics['final_unchecked']} "
+            f"newly_matched_via_llm={newly_matched_via_llm}"
+        )
+        context.log.info(final_classification)
+
     if hasattr(context, "add_output_metadata"):
         metadata = {
             key: value
             for key, value in metrics.items()
             if isinstance(value, (int, float, bool, str))
         }
+        if final_classification:
+            metadata["final_classification"] = final_classification
         if metadata:
             context.add_output_metadata(metadata)
 
@@ -107,6 +124,7 @@ def generate_new_rdns_rules(context):
             "final_matched",
             "final_unmatched",
             "final_unchecked",
+            "newly_matched_via_llm",
         )
         if key in metrics
     )
