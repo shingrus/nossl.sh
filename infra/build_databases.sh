@@ -19,12 +19,13 @@ Usage: infra/build_databases.sh [--work-dir <path>]
 Options:
   --work-dir <path>   Output directory for generated databases.
                       Temporary data is stored under <work-dir>/.tmp-ipverse.
-  --ips-db <path>
-                      SQLite DB path for rdns_geo.py.
+  --ips-url <url>
+                      Unknown IPs API URL for rdns_geo.py (http:// or https://).
                       If omitted, rdns geo step is skipped.
 Environment:
   PGSQL               Optional PostgreSQL DSN for rdns_geo.py unmatched-host
                       tracking (passed as --pgsql when set).
+  MAINTENANCE_TOKEN   Required when --ips-url is set (consumed by rdns_geo.py).
   -h, --help          Show this help message.
 EOF
 }
@@ -32,7 +33,7 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORK_DIR="${ROOT_DIR}"
-IPS_DB=""
+IPS_URL=""
 PGSQL_DSN="${PGSQL:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -45,12 +46,12 @@ while [[ $# -gt 0 ]]; do
             WORK_DIR="$2"
             shift 2
             ;;
-        --ips-db)
+        --ips-url)
             if [[ $# -lt 2 ]]; then
-                log "error: --ips-db requires a path"
+                log "error: --ips-url requires a URL"
                 exit 2
             fi
-            IPS_DB="$2"
+            IPS_URL="$2"
             shift 2
             ;;
         -h|--help)
@@ -125,8 +126,8 @@ run_rdns_geo() {
     local mmdb_path="$1"
     local -a rdns_pgsql_args=()
 
-    if [[ -z "${IPS_DB}" ]]; then
-        log "ips DB is not set; skipping rdns geo"
+    if [[ -z "${IPS_URL}" ]]; then
+        log "ips URL is not set; skipping rdns geo"
         return 0
     fi
 
@@ -136,8 +137,12 @@ run_rdns_geo() {
         log "warning: rdns geo script not found: ${RDNS_GEO_SCRIPT}; skipping"
         return 0
     fi
-    if [[ ! -f "${IPS_DB}" ]]; then
-        log "error: ips DB not found: ${IPS_DB}"
+    if [[ ! "${IPS_URL}" =~ ^https?:// ]]; then
+        log "error: --ips-url must be http:// or https:// URL, got: ${IPS_URL}"
+        exit 2
+    fi
+    if [[ -z "${MAINTENANCE_TOKEN:-}" ]]; then
+        log "error: MAINTENANCE_TOKEN must be set when --ips-url is provided"
         exit 2
     fi
     if [[ ! -f "${mmdb_path}" ]]; then
@@ -153,10 +158,11 @@ run_rdns_geo() {
     fi
 
     log "running rdns geo"
+    log "rdns geo unknown ips URL: ${IPS_URL}"
     log "rdns geo mmdb: ${mmdb_path}"
     log "rdns geo rules: ${RDNS_RULES_URL}"
     python3 "${RDNS_GEO_SCRIPT}" \
-        --db "${IPS_DB}" \
+        --unknown-ips "${IPS_URL}" \
         --mmdb "${mmdb_path}" \
         --rules-url "${RDNS_RULES_URL}" \
         --output "${RDNS_GEOFEED_OUTPUT}" \
@@ -165,7 +171,7 @@ run_rdns_geo() {
 }
 
 patch_country_mmdb_with_rdns() {
-    if [[ -z "${IPS_DB}" ]]; then
+    if [[ -z "${IPS_URL}" ]]; then
         return 0
     fi
     if [[ ! -f "${RDNS_GEOFEED_OUTPUT}" || ! -s "${RDNS_GEOFEED_OUTPUT}" ]]; then
