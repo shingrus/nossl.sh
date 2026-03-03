@@ -36,18 +36,27 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, url2pathname, urlopen
 
-from pgsql_hostname_reviews import (
-    PgTableRef,
-    ensure_hostname_reviews_table,
-    open_postgres_connection,
-    parse_pg_table_ref,
-    validate_hostname_reviews_table,
-)
+try:
+    from .pgsql_hostname_reviews import (
+        PgTableRef,
+        ensure_hostname_reviews_table,
+        open_postgres_connection,
+        parse_pg_table_ref,
+        validate_hostname_reviews_table,
+    )
+except ImportError:
+    from pgsql_hostname_reviews import (
+        PgTableRef,
+        ensure_hostname_reviews_table,
+        open_postgres_connection,
+        parse_pg_table_ref,
+        validate_hostname_reviews_table,
+    )
 
 try:
     import maxminddb
@@ -81,6 +90,7 @@ dig_error_logged = 0
 doh_error_logged = 0
 doh_failure_streak = 0
 doh_disabled = False
+_log_sink: Optional[Callable[[str], None]] = None
 
 
 def load_rule_entries_from_url(rules_url: str) -> list[dict[str, Any]]:
@@ -161,7 +171,11 @@ class UnmatchedHostRecord:
 
 
 def eprint(*args: object) -> None:
-    print(*args, file=sys.stderr)
+    message = " ".join(str(arg) for arg in args)
+    if _log_sink is not None:
+        _log_sink(message)
+        return
+    print(message, file=sys.stderr)
 
 
 def normalize_ip(raw: str) -> Optional[str]:
@@ -988,8 +1002,16 @@ def ensure_tool(name: str) -> None:
     raise RuntimeError(f"Required command is missing from PATH: {name}")
 
 
-def main() -> int:
-    global dig_cmd_available
+def _reset_runtime_state() -> None:
+    global dig_cmd_available, dig_error_logged, doh_error_logged, doh_failure_streak, doh_disabled
+    dig_cmd_available = True
+    dig_error_logged = 0
+    doh_error_logged = 0
+    doh_failure_streak = 0
+    doh_disabled = False
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Infer missing geo hints from rDNS patterns on the last 25% of mtr hops.",
     )
@@ -1039,42 +1061,62 @@ def main() -> int:
         default=DEFAULT_PGSQL_TABLE,
         help=f"PostgreSQL table for unmatched hostnames (default: {DEFAULT_PGSQL_TABLE})",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def run_rdns_geo_pipeline(
+    *,
+    unknown_ips_url: str,
+    mmdb_path: Path | str,
+    output_path: Path | str,
+    rules_url: str = DEFAULT_RULES_URL,
+    unmatched_zones_path: Optional[Path | str] = None,
+    test_ip: Optional[str] = None,
+    pgsql: Optional[str] = None,
+    pgsql_table: str = DEFAULT_PGSQL_TABLE,
+    maintenance_token: Optional[str] = None,
+    log_sink: Optional[Callable[[str], None]] = None,
+) -> dict[str, int]:
+    global dig_cmd_available, _log_sink
+    _reset_runtime_state()
+
+    mmdb = Path(mmdb_path)
+    output = Path(output_path)
+    unmatched_zones = Path(unmatched_zones_path) if unmatched_zones_path else None
     pgsql_dsn = ""
-    if args.pgsql is not None:
-        pgsql_dsn = (args.pgsql or os.getenv("PGSQL") or "").strip()
-    unknown_ips_url = (args.unknown_ips or "").strip()
-    maintenance_token = (os.getenv("MAINTENANCE_TOKEN") or "").strip()
+    if pgsql is not None:
+        pgsql_dsn = (pgsql or os.getenv("PGSQL") or "").strip()
+    unknown_ips_url = (unknown_ips_url or "").strip()
+    effective_maintenance_token = (
+        maintenance_token if maintenance_token is not None else os.getenv("MAINTENANCE_TOKEN") or ""
+    ).strip()
     pgsql_table_ref: Optional[PgTableRef] = None
     pgsql_rules_table_ref: Optional[PgTableRef] = None
 
-    if maxminddb is None:
-        eprint("Missing Python package 'maxminddb'. Install: pip install maxminddb")
-        return 2
-    if not args.mmdb.exists():
-        eprint(f"MMDB file not found: {args.mmdb}")
-        return 2
-    if not unknown_ips_url:
-        eprint("--unknown-ips is required")
-        return 2
-    unknown_ips_parsed = urlparse(unknown_ips_url)
-    if unknown_ips_parsed.scheme not in ("http", "https"):
-        eprint(f"--unknown-ips must be http:// or https:// URL, got: {unknown_ips_url}")
-        return 2
-    if not maintenance_token:
-        eprint("Missing MAINTENANCE_TOKEN environment variable")
-        return 2
-
+    previous_log_sink = _log_sink
+    _log_sink = log_sink
     try:
+        if maxminddb is None:
+            raise RuntimeError("Missing Python package 'maxminddb'. Install: pip install maxminddb")
+        if not mmdb.exists():
+            raise RuntimeError(f"MMDB file not found: {mmdb}")
+        if not unknown_ips_url:
+            raise RuntimeError("--unknown-ips is required")
+        unknown_ips_parsed = urlparse(unknown_ips_url)
+        if unknown_ips_parsed.scheme not in ("http", "https"):
+            raise RuntimeError(f"--unknown-ips must be http:// or https:// URL, got: {unknown_ips_url}")
+        if not effective_maintenance_token:
+            raise RuntimeError("Missing MAINTENANCE_TOKEN environment variable")
+
         ensure_tool("mtr")
         dig_cmd_available = bool(shutil.which("dig"))
         if not dig_cmd_available:
             eprint("warning: dig is not available, using DoH/resolver fallback for DNS lookups")
-        file_rule_entries = load_rule_entries_from_url(args.rules_url)
+        file_rule_entries = load_rule_entries_from_url(rules_url)
         pgsql_rule_entries: list[dict[str, Any]] = []
         pgsql_rules_skipped = 0
         if pgsql_dsn:
-            pgsql_table_ref = preflight_postgres_tracking(pgsql_dsn, args.pgsql_table)
+            pgsql_table_ref = preflight_postgres_tracking(pgsql_dsn, pgsql_table)
             pgsql_rules_table_ref = parse_pg_table_ref(DEFAULT_PGSQL_RULES_TABLE)
             pgsql_rule_entries, pgsql_rules_skipped = load_rule_entries_from_postgres(
                 pgsql_dsn,
@@ -1085,206 +1127,205 @@ def main() -> int:
             pgsql_rule_entries,
         )
         rules = compile_rules(merged_rule_entries, "merged rules")
-    except Exception as exc:
-        eprint(str(exc))
-        return 2
 
-    eprint(f"rules_url={args.rules_url}")
-    eprint(f"loaded_rules_file={len(file_rule_entries)}")
-    eprint(f"loaded_rules_pgsql={len(pgsql_rule_entries)}")
-    eprint(f"loaded_rules_total={len(rules)}")
-    if pgsql_dsn and pgsql_rules_table_ref is not None:
-        eprint(
-            "pgsql_rules_merge "
-            f"table={pgsql_rules_table_ref.schema}.{pgsql_rules_table_ref.table} "
-            f"replaced={merged_rules_replaced} appended={merged_rules_appended} "
-            f"skipped={pgsql_rules_skipped}"
-        )
-
-    hints_by_prefix: dict[str, Hint] = {}
-    unknown_candidates: list[IpCandidate] = []
-
-    if args.test_ip:
-        test_ip = normalize_ip(args.test_ip)
-        if not test_ip:
-            eprint(f"Invalid --test-ip value: {args.test_ip}")
-            return 2
-        unknown_candidates = [IpCandidate(ip=test_ip)]
-        eprint(f"test_ip_mode ip={test_ip}")
-    else:
-        with maxminddb.open_database(str(args.mmdb)) as reader:
-            all_candidates = fetch_unknown_candidates(unknown_ips_url, maintenance_token)
+        eprint(f"rules_url={rules_url}")
+        eprint(f"loaded_rules_file={len(file_rule_entries)}")
+        eprint(f"loaded_rules_pgsql={len(pgsql_rule_entries)}")
+        eprint(f"loaded_rules_total={len(rules)}")
+        if pgsql_dsn and pgsql_rules_table_ref is not None:
             eprint(
-                f"api_candidates_public_unique={len(all_candidates)} "
-                f"selection_limit={DEFAULT_SCAN_LIMIT}"
+                "pgsql_rules_merge "
+                f"table={pgsql_rules_table_ref.schema}.{pgsql_rules_table_ref.table} "
+                f"replaced={merged_rules_replaced} appended={merged_rules_appended} "
+                f"skipped={pgsql_rules_skipped}"
             )
-            for candidate in all_candidates:
-                is_unknown, country, city, geo_status = geo_city_status(reader, candidate.ip)
+
+        hints_by_prefix: dict[str, Hint] = {}
+        unknown_candidates: list[IpCandidate] = []
+
+        if test_ip:
+            normalized_test_ip = normalize_ip(test_ip)
+            if not normalized_test_ip:
+                raise RuntimeError(f"Invalid --test-ip value: {test_ip}")
+            unknown_candidates = [IpCandidate(ip=normalized_test_ip)]
+            eprint(f"test_ip_mode ip={normalized_test_ip}")
+        else:
+            with maxminddb.open_database(str(mmdb)) as reader:
+                all_candidates = fetch_unknown_candidates(unknown_ips_url, effective_maintenance_token)
                 eprint(
-                    f"geo_check ip={candidate.ip} status={geo_status} "
-                    f"country={country or '-'} city={city or '-'}"
+                    f"api_candidates_public_unique={len(all_candidates)} "
+                    f"selection_limit={DEFAULT_SCAN_LIMIT}"
                 )
-                if is_unknown:
-                    unknown_candidates.append(candidate)
-                if len(unknown_candidates) >= DEFAULT_SCAN_LIMIT:
-                    break
-        eprint(f"unknown_geo_candidates={len(unknown_candidates)}")
+                for candidate in all_candidates:
+                    is_unknown, country, city, geo_status = geo_city_status(reader, candidate.ip)
+                    eprint(
+                        f"geo_check ip={candidate.ip} status={geo_status} "
+                        f"country={country or '-'} city={city or '-'}"
+                    )
+                    if is_unknown:
+                        unknown_candidates.append(candidate)
+                    if len(unknown_candidates) >= DEFAULT_SCAN_LIMIT:
+                        break
+            eprint(f"unknown_geo_candidates={len(unknown_candidates)}")
 
-    processed = 0
-    unmatched = 0
-    matched = 0
-    matched_via_mmdb = 0
-    matched_via_rules = 0
-    cymru_missing = 0
-    country_conflicts = 0
-    country_missing = 0
-    skipped_no_hops = 0
-    unmatched_entries: set[tuple[str, str]] = set()
+        processed = 0
+        unmatched = 0
+        matched = 0
+        matched_via_mmdb = 0
+        matched_via_rules = 0
+        cymru_missing = 0
+        country_conflicts = 0
+        country_missing = 0
+        skipped_no_hops = 0
+        unmatched_entries: set[tuple[str, str]] = set()
 
-    with maxminddb.open_database(str(args.mmdb)) as hop_geo_reader:
-        for candidate in unknown_candidates:
-            processed += 1
-            eprint(f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip}")
+        with maxminddb.open_database(str(mmdb)) as hop_geo_reader:
+            for candidate in unknown_candidates:
+                processed += 1
+                eprint(f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip}")
 
-            ranked_hops, total_hops, tail_hops_count = mtr_last_hops(candidate.ip)
-            if not ranked_hops:
-                skipped_no_hops += 1
-                eprint("  result=no_hops")
-                continue
-            eprint(
-                "  "
-                f"hops_total={total_hops} "
-                f"hops_tail25_count={tail_hops_count} "
-                f"hops_tail25_ip_count={len(ranked_hops)} "
-                f"hops_tail25={','.join(entry.hop_ip for entry in ranked_hops)}"
-            )
-
-            matched_evidence: Optional[HopEvidence] = None
-            matched_source = ""
-            matched_ref = ""
-            matched_country_code = ""
-            matched_city = ""
-            local_checked_unmatched: set[tuple[str, str, str]] = set()
-            for evidence in ranked_hops:
-                _hop_unknown, hop_country, hop_city, _hop_geo_status = geo_city_status(
-                    hop_geo_reader, evidence.hop_ip
-                )
-                if hop_city:
-                    evidence.ptr = ptr_lookup(evidence.hop_ip)
-                    matched_evidence = evidence
-                    matched_source = "mmdb"
-                    matched_ref = "mmdb_hop_city"
-                    matched_country_code = normalize_country_code(hop_country)
-                    matched_city = hop_city
-                    break
-
-                ptr = ptr_lookup(evidence.hop_ip)
-                evidence.ptr = ptr
-                normalized_hostname = normalize_ptr_hostname(ptr)
-                hostname = normalized_hostname or "-"
-                rule = match_ptr(ptr, rules)
-                if rule:
-                    matched_evidence = evidence
-                    matched_source = "rules"
-                    matched_ref = rule.name
-                    matched_country_code = normalize_country_code(rule.country)
-                    matched_city = rule.city
-                    break
-                local_checked_unmatched.add((candidate.ip, evidence.hop_ip, hostname))
-                if normalized_hostname:
-                    unmatched_entries.add((candidate.ip, normalized_hostname))
-
-            if not matched_source or not matched_evidence:
-                unmatched += 1
-                eprint("  result=unmatched_mmdb_and_ptr_rules")
-                if not local_checked_unmatched:
-                    triple = (candidate.ip, "-", "-")
-                    local_checked_unmatched.add(triple)
-                for dest_ip, hop_ip, hostname in sorted(local_checked_unmatched):
-                    print(f"UNMATCHED dst_ip={dest_ip} hop_ip={hop_ip} hostname={hostname}")
-                continue
-            if local_checked_unmatched:
-                eprint(f"  non_matching_checked_before_match={len(local_checked_unmatched)}")
-            eprint(
-                "  hop_match="
-                f"source={matched_source} match={matched_ref} "
-                f"country={matched_country_code or '-'} city={matched_city} "
-                f"evidence_hop={matched_evidence.hop_ip} evidence_ptr={matched_evidence.ptr or '-'}"
-            )
-
-            asn, prefix, cymru_country = team_cymru_origin(candidate.ip)
-            if not asn or not prefix:
-                cymru_missing += 1
-                eprint("  result=cymru_miss")
-                continue
-            cymru_country_code = normalize_country_code(cymru_country)
-            inferred_country_code = matched_country_code
-            if (
-                cymru_country_code
-                and inferred_country_code
-                and inferred_country_code != cymru_country_code
-            ):
-                country_conflicts += 1
+                ranked_hops, total_hops, tail_hops_count = mtr_last_hops(candidate.ip)
+                if not ranked_hops:
+                    skipped_no_hops += 1
+                    eprint("  result=no_hops")
+                    continue
                 eprint(
-                    "  result=country_conflict "
-                    f"inferred_country={inferred_country_code} "
-                    f"cymru_country={cymru_country_code} "
-                    f"ip={candidate.ip} "
-                    f"prefix={prefix} "
-                    f"asn={asn} "
-                    f"ptr={matched_evidence.ptr or '-'} "
+                    "  "
+                    f"hops_total={total_hops} "
+                    f"hops_tail25_count={tail_hops_count} "
+                    f"hops_tail25_ip_count={len(ranked_hops)} "
+                    f"hops_tail25={','.join(entry.hop_ip for entry in ranked_hops)}"
+                )
+
+                matched_evidence: Optional[HopEvidence] = None
+                matched_source = ""
+                matched_ref = ""
+                matched_country_code = ""
+                matched_city = ""
+                local_checked_unmatched: set[tuple[str, str, str]] = set()
+                for evidence in ranked_hops:
+                    _hop_unknown, hop_country, hop_city, _hop_geo_status = geo_city_status(
+                        hop_geo_reader, evidence.hop_ip
+                    )
+                    if hop_city:
+                        evidence.ptr = ptr_lookup(evidence.hop_ip)
+                        matched_evidence = evidence
+                        matched_source = "mmdb"
+                        matched_ref = "mmdb_hop_city"
+                        matched_country_code = normalize_country_code(hop_country)
+                        matched_city = hop_city
+                        break
+
+                    ptr = ptr_lookup(evidence.hop_ip)
+                    evidence.ptr = ptr
+                    normalized_hostname = normalize_ptr_hostname(ptr)
+                    hostname = normalized_hostname or "-"
+                    rule = match_ptr(ptr, rules)
+                    if rule:
+                        matched_evidence = evidence
+                        matched_source = "rules"
+                        matched_ref = rule.name
+                        matched_country_code = normalize_country_code(rule.country)
+                        matched_city = rule.city
+                        break
+                    local_checked_unmatched.add((candidate.ip, evidence.hop_ip, hostname))
+                    if normalized_hostname:
+                        unmatched_entries.add((candidate.ip, normalized_hostname))
+
+                if not matched_source or not matched_evidence:
+                    unmatched += 1
+                    eprint("  result=unmatched_mmdb_and_ptr_rules")
+                    if not local_checked_unmatched:
+                        triple = (candidate.ip, "-", "-")
+                        local_checked_unmatched.add(triple)
+                    for dest_ip, hop_ip, hostname in sorted(local_checked_unmatched):
+                        line = f"UNMATCHED dst_ip={dest_ip} hop_ip={hop_ip} hostname={hostname}"
+                        if _log_sink is None:
+                            print(line)
+                        else:
+                            eprint(line)
+                    continue
+                if local_checked_unmatched:
+                    eprint(f"  non_matching_checked_before_match={len(local_checked_unmatched)}")
+                eprint(
+                    "  hop_match="
+                    f"source={matched_source} match={matched_ref} "
+                    f"country={matched_country_code or '-'} city={matched_city} "
+                    f"evidence_hop={matched_evidence.hop_ip} evidence_ptr={matched_evidence.ptr or '-'}"
+                )
+
+                asn, prefix, cymru_country = team_cymru_origin(candidate.ip)
+                if not asn or not prefix:
+                    cymru_missing += 1
+                    eprint("  result=cymru_miss")
+                    continue
+                cymru_country_code = normalize_country_code(cymru_country)
+                inferred_country_code = matched_country_code
+                if (
+                    cymru_country_code
+                    and inferred_country_code
+                    and inferred_country_code != cymru_country_code
+                ):
+                    country_conflicts += 1
+                    eprint(
+                        "  result=country_conflict "
+                        f"inferred_country={inferred_country_code} "
+                        f"cymru_country={cymru_country_code} "
+                        f"ip={candidate.ip} "
+                        f"prefix={prefix} "
+                        f"asn={asn} "
+                        f"ptr={matched_evidence.ptr or '-'} "
+                        f"source={matched_source} match={matched_ref}"
+                    )
+                    continue
+
+                final_country_code = inferred_country_code or cymru_country_code
+                if not final_country_code:
+                    country_missing += 1
+                    eprint(
+                        "  result=missing_country "
+                        f"ip={candidate.ip} ptr={matched_evidence.ptr or '-'} "
+                        f"source={matched_source} match={matched_ref}"
+                    )
+                    continue
+                if not inferred_country_code and cymru_country_code:
+                    eprint(
+                        "  country_fallback=using_cymru "
+                        f"cymru_country={cymru_country_code} "
+                        f"source={matched_source} match={matched_ref}"
+                    )
+
+                hint = Hint(
+                    prefix=prefix,
+                    country=final_country_code,
+                    city=matched_city,
+                    destination_ip=candidate.ip,
+                    total_hops=total_hops,
+                    cymru_asn=asn,
+                    cymru_country=cymru_country or "",
+                    match_source=matched_source,
+                    matched_rule=matched_ref,
+                    evidence=matched_evidence,
+                )
+                current = hints_by_prefix.get(prefix)
+                hints_by_prefix[prefix] = hint if current is None else better_hint(current, hint)
+                matched += 1
+                if matched_source == "mmdb":
+                    matched_via_mmdb += 1
+                else:
+                    matched_via_rules += 1
+                eprint(
+                    f"  result=matched prefix={prefix} asn={asn} "
+                    f"cymru_country={cymru_country or '-'} "
                     f"source={matched_source} match={matched_ref}"
                 )
-                continue
 
-            final_country_code = inferred_country_code or cymru_country_code
-            if not final_country_code:
-                country_missing += 1
-                eprint(
-                    "  result=missing_country "
-                    f"ip={candidate.ip} ptr={matched_evidence.ptr or '-'} "
-                    f"source={matched_source} match={matched_ref}"
-                )
-                continue
-            if not inferred_country_code and cymru_country_code:
-                eprint(
-                    "  country_fallback=using_cymru "
-                    f"cymru_country={cymru_country_code} "
-                    f"source={matched_source} match={matched_ref}"
-                )
-
-            hint = Hint(
-                prefix=prefix,
-                country=final_country_code,
-                city=matched_city,
-                destination_ip=candidate.ip,
-                total_hops=total_hops,
-                cymru_asn=asn,
-                cymru_country=cymru_country or "",
-                match_source=matched_source,
-                matched_rule=matched_ref,
-                evidence=matched_evidence,
-            )
-            current = hints_by_prefix.get(prefix)
-            hints_by_prefix[prefix] = hint if current is None else better_hint(current, hint)
-            matched += 1
-            if matched_source == "mmdb":
-                matched_via_mmdb += 1
-            else:
-                matched_via_rules += 1
-            eprint(
-                f"  result=matched prefix={prefix} asn={asn} "
-                f"cymru_country={cymru_country or '-'} "
-                f"source={matched_source} match={matched_ref}"
-            )
-
-    entries_for_dump = unmatched_entries
-    pgsql_tracked_hosts = 0
-    pgsql_existing_hosts = 0
-    pgsql_new_hosts = 0
-    pgsql_inserted_hosts = 0
-    if pgsql_dsn and pgsql_table_ref is not None:
-        try:
+        entries_for_dump = unmatched_entries
+        pgsql_tracked_hosts = 0
+        pgsql_existing_hosts = 0
+        pgsql_new_hosts = 0
+        pgsql_inserted_hosts = 0
+        if pgsql_dsn and pgsql_table_ref is not None:
             host_records = build_unmatched_host_records(unmatched_entries)
             pgsql_tracked_hosts = len(host_records)
             hostnames = [record.hostname for record in host_records]
@@ -1311,41 +1352,67 @@ def main() -> int:
             finally:
                 if pg_conn is not None:
                     pg_conn.close()
-            if args.unmatched_zones:
+            if unmatched_zones:
                 entries_for_dump = filter_unmatched_entries_by_hostname(
                     unmatched_entries,
                     {record.hostname for record in new_host_records},
                 )
-        except Exception as exc:
-            eprint(f"postgres_tracking_error: {exc}")
-            return 2
 
-    write_geofeed(args.output, hints_by_prefix)
-    if args.unmatched_zones:
-        write_unmatched_entries(args.unmatched_zones, entries_for_dump)
+        write_geofeed(output, hints_by_prefix)
+        if unmatched_zones:
+            write_unmatched_entries(unmatched_zones, entries_for_dump)
 
-    eprint(
-        "DONE:",
-        f"processed={processed}",
-        f"matched={matched}",
-        f"matched_mmdb={matched_via_mmdb}",
-        f"matched_rules={matched_via_rules}",
-        f"unmatched={unmatched}",
-        f"cymru_missing={cymru_missing}",
-        f"country_conflicts={country_conflicts}",
-        f"country_missing={country_missing}",
-        f"no_hops={skipped_no_hops}",
-        f"prefixes={len(hints_by_prefix)}",
-        f"unmatched_ptr_entries={len(unmatched_entries)}",
-        f"unmatched_dump_entries={len(entries_for_dump)}",
-        f"pgsql_tracked_hosts={pgsql_tracked_hosts}",
-        f"pgsql_existing_hosts={pgsql_existing_hosts}",
-        f"pgsql_new_hosts={pgsql_new_hosts}",
-        f"pgsql_inserted_hosts={pgsql_inserted_hosts}",
-    )
-    eprint(f"Checked {processed} ips, Found new entries: {len(hints_by_prefix)}")
+        done_metrics = {
+            "processed": processed,
+            "matched": matched,
+            "matched_mmdb": matched_via_mmdb,
+            "matched_rules": matched_via_rules,
+            "unmatched": unmatched,
+            "cymru_missing": cymru_missing,
+            "country_conflicts": country_conflicts,
+            "country_missing": country_missing,
+            "no_hops": skipped_no_hops,
+            "prefixes": len(hints_by_prefix),
+            "unmatched_ptr_entries": len(unmatched_entries),
+            "unmatched_dump_entries": len(entries_for_dump),
+            "pgsql_tracked_hosts": pgsql_tracked_hosts,
+            "pgsql_existing_hosts": pgsql_existing_hosts,
+            "pgsql_new_hosts": pgsql_new_hosts,
+            "pgsql_inserted_hosts": pgsql_inserted_hosts,
+        }
+        eprint(
+            "DONE:",
+            *(f"{key}={value}" for key, value in done_metrics.items()),
+        )
+        eprint(f"Checked {processed} ips, Found new entries: {len(hints_by_prefix)}")
+        return done_metrics
+    finally:
+        _log_sink = previous_log_sink
+
+
+def main() -> int:
+    parser = _build_arg_parser()
+    args = parser.parse_args()
+    try:
+        run_rdns_geo_pipeline(
+            unknown_ips_url=args.unknown_ips,
+            mmdb_path=args.mmdb,
+            output_path=args.output,
+            rules_url=args.rules_url,
+            unmatched_zones_path=args.unmatched_zones,
+            test_ip=args.test_ip,
+            pgsql=args.pgsql,
+            pgsql_table=args.pgsql_table,
+        )
+    except Exception as exc:
+        eprint(str(exc))
+        return 2
     return 0
 
 
+def run_main() -> int:
+    return main()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run_main())
