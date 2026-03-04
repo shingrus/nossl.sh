@@ -12,6 +12,8 @@ local `ip2geo`/`ip2asn` MMDB and `asn.sqlite3` updated from S3.
   and `asn.sqlite3`
 - Downloads and validates minimum size
 - Atomically replaces the target file
+- Calls `POST /api/reload` after `asn.sqlite3` is replaced (default URL:
+  `http://127.0.0.1:8080/api/reload`)
 
 ## Files
 

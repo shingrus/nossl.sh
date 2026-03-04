@@ -10,6 +10,7 @@ Selection logic:
    and/or `asn.sqlite3`.
 4) Download each only when target file size differs, then atomically replace target.
 5) With --dry-run, run the same logic, but skip install after successful download+validate.
+6) After successful asn.sqlite3 install, POST /api/reload.
 """
 
 from __future__ import annotations
@@ -23,12 +24,15 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
+from urllib import request as urllib_request
 
 DATE_FOLDER_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MIN_MMDB_SIZE_BYTES = 1024 * 1024
 MIN_ASN_SQLITE_SIZE_BYTES = 40 * 1024 * 1024
 INSTALL_MODE = 0o644
 SUPPORTED_DATASETS = ("ip2geo", "ip2asn", "asn-sqlite")
+RELOAD_URL = "http://127.0.0.1:8080/api/reload"
+RELOAD_TIMEOUT_SECONDS = 5.0
 
 
 @dataclass(frozen=True)
@@ -178,7 +182,7 @@ def sync_dataset_to_target(
     latest_folder: str,
     target: PullTarget,
     dry_run: bool,
-) -> None:
+) -> bool:
     expected_key = build_expected_key(latest_folder, target.dataset)
     selected = get_required_object(client=client, bucket=bucket, key=expected_key)
     log(
@@ -190,7 +194,7 @@ def sync_dataset_to_target(
             f"[{target.dataset}] skip download: target already has matching size "
             f"({selected.size} bytes): {target.target_path}"
         )
-        return
+        return False
 
     cleanup_stale_temp_files(target.target_path.parent, target.dataset)
     temp_file = download_object_to_temp(
@@ -211,12 +215,31 @@ def sync_dataset_to_target(
                 f"[{target.dataset}] dry-run: validated download and "
                 f"skipped install: {target.target_path}"
             )
-            return
+            return False
 
         install_atomically(temp_file, target.target_path)
         log(f"[{target.dataset}] installed: {target.target_path}")
+        return True
     finally:
         temp_file.unlink(missing_ok=True)
+
+
+def post_reload() -> None:
+    request = urllib_request.Request(
+        url=RELOAD_URL,
+        data=b"",
+        method="POST",
+    )
+    try:
+        with urllib_request.urlopen(request, timeout=RELOAD_TIMEOUT_SECONDS) as response:
+            response_code = response.getcode()
+    except Exception as exc:
+        raise RuntimeError(f"Failed to call reload API at {RELOAD_URL}: {exc}") from exc
+
+    if response_code < 200 or response_code >= 300:
+        raise RuntimeError(f"Reload API failed with HTTP {response_code}")
+
+    log(f"[reload] success: {RELOAD_URL}")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -255,6 +278,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
+
     geo_target_arg = args.geo_target or args.target
     targets: list[PullTarget] = []
 
@@ -301,14 +325,21 @@ def main(argv: list[str]) -> int:
     log(f"latest date folder: {latest_folder}")
 
     try:
+        installed_by_dataset: dict[str, bool] = {}
         for target in targets:
-            sync_dataset_to_target(
+            installed = sync_dataset_to_target(
                 client=client,
                 bucket=args.bucket,
                 latest_folder=latest_folder,
                 target=target,
                 dry_run=args.dry_run,
             )
+            installed_by_dataset[target.dataset] = (
+                installed_by_dataset.get(target.dataset, False) or installed
+            )
+
+        if not args.dry_run and installed_by_dataset.get("asn-sqlite", False):
+            post_reload()
         return 0
     except RuntimeError as exc:
         eprint(str(exc))
