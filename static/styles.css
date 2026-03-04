@@ -468,6 +468,21 @@ a:focus-visible {
   word-break: break-word;
 }
 
+.stat-value--db-date {
+  margin-top: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  word-break: normal;
+}
+
+.stat-value--db-time {
+  margin-top: 2px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--muted);
+  word-break: normal;
+}
+
 .geo-semaphore {
   display: inline-flex;
   align-items: center;

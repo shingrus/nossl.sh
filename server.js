@@ -138,21 +138,40 @@ const getRenderMeta = (res) => {
 };
 
 const loadGeoReader = async (geoDb) => {
+    const readerState = {
+        reader: null,
+        lastUpdate: null,
+        get: (ip) => {
+            if (!readerState.reader) {
+                return null;
+            }
+            return readerState.reader.get(ip);
+        },
+        isLoaded: () => Boolean(readerState.reader),
+        getLastUpdate: () => readerState.lastUpdate,
+    };
+
+    const markUpdated = () => {
+        readerState.lastUpdate = new Date();
+    };
 
     try {
-        return await maxmind.open(geoDb, {
+        readerState.reader = await maxmind.open(geoDb, {
             watchForUpdates: true,
             watchForUpdatesNonPersistent: true,
             watchForUpdatesHook: () => {
+                markUpdated();
                 // eslint-disable-next-line no-console
                 console.log(`Reloaded MMDB: ${geoDb}`);
             },
         });
+        markUpdated();
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error(`Failed to load MMDB database`, error);
-        return null;
     }
+
+    return readerState;
 };
 
 const geoReader = await loadGeoReader(geoDbPath);
@@ -218,7 +237,7 @@ const isPrivateIp = (ip) => {
 
 export const lookupGeo = (ip) => {
 
-    if (!geoReader || isPrivateIp(ip)) {
+    if (!geoReader.isLoaded() || isPrivateIp(ip)) {
         return null;
     }
     try {
@@ -226,7 +245,7 @@ export const lookupGeo = (ip) => {
         if (!record) {
             return null;
         }
-        const asnRecord = asnReader?  asnReader.get(ip) : null;
+        const asnRecord = asnReader.get(ip);
         if (isDev) {
             console.log("Geo record" , record);
             if (asnRecord  ) {
@@ -415,7 +434,7 @@ const trimString = (value) => (typeof value === 'string' ? value.trim() : '');
 
 const getResolverAsnDetails = (ip) => {
     const resolverIp = trimString(ip);
-    if (!resolverIp || !asnReader || isPrivateIp(resolverIp)) {
+    if (!resolverIp || !asnReader.isLoaded() || isPrivateIp(resolverIp)) {
         return {
             resolver_org: '',
             resolver_name: '',
@@ -1269,6 +1288,11 @@ app.get('/ss', (req, res) => {
     const baseData = getBaseRequestData(req, res);
     const {generatedAt, generationTimeMs, counters, totalRequests} = baseData;
     const geoIpCoverage = getGeoIpCoverageStats();
+    const dbVersions = {
+        ip2geo: geoReader.getLastUpdate(),
+        ip2asn: asnReader.getLastUpdate(),
+        asnDb: null,
+    };
 
     setNoCacheHeaders(res, {includeLegacy: true});
     res.render('service-status', {
@@ -1277,6 +1301,7 @@ app.get('/ss', (req, res) => {
         counters,
         totalRequests,
         geoIpCoverage,
+        dbVersions,
     });
 });
 

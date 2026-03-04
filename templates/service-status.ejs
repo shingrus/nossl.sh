@@ -59,6 +59,22 @@
         : '0 %';
       const geoCoverageSemaphoreLevel = geoIpCoverage?.semaphore?.level || 'none';
       const geoCoverageSemaphoreLabel = geoIpCoverage?.semaphore?.label || 'No data';
+      const splitDbTimestamp = (value) => {
+        const formatted = value ? (formatTimestamp(value) || 'n/a') : 'n/a';
+        if (formatted === 'n/a') {
+          return {date: 'n/a', time: ''};
+        }
+        const firstSpace = formatted.indexOf(' ');
+        if (firstSpace === -1) {
+          return {date: formatted, time: ''};
+        }
+        return {
+          date: formatted.slice(0, firstSpace),
+          time: formatted.slice(firstSpace + 1),
+        };
+      };
+      const ip2GeoLastUpdate = splitDbTimestamp(dbVersions?.ip2geo);
+      const ip2AsnLastUpdate = splitDbTimestamp(dbVersions?.ip2asn);
       const statItems = [
         {label: 'Root requests', value: totalRequests},
         {label: 'API requests', value: counters.apiCount},
@@ -104,6 +120,20 @@
               <span class="stat-value mono"><%= geoCoveragePercentLabel %></span>
             </div>
           </div>
+          <div class="stat">
+            <span class="stat-label">ip2geo</span>
+            <span class="stat-value mono stat-value--db-date"><%= ip2GeoLastUpdate.date %></span>
+            <% if (ip2GeoLastUpdate.time) { %>
+              <span class="stat-value mono stat-value--db-time"><%= ip2GeoLastUpdate.time %></span>
+            <% } %>
+          </div>
+          <div class="stat">
+            <span class="stat-label">ip2asn</span>
+            <span class="stat-value mono stat-value--db-date"><%= ip2AsnLastUpdate.date %></span>
+            <% if (ip2AsnLastUpdate.time) { %>
+              <span class="stat-value mono stat-value--db-time"><%= ip2AsnLastUpdate.time %></span>
+            <% } %>
+          </div>
         </div>
       </section>
 
@@ -139,6 +169,6 @@
       </section>
     </main>
 
-    <%- include('partials/footer', {generationTimeMs, footerLines, generatedAt}) %>
+    <%- include('partials/footer', {generationTimeMs, footerLines}) %>
   </body>
 </html>
