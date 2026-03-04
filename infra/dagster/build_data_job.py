@@ -5,6 +5,11 @@ import re
 import subprocess
 from pathlib import Path
 
+from infra.dagster.concurrency_tags import (
+    GEO_GUARD_GEOFEED_TAG_KEY,
+    GEO_GUARD_PDB_TAG_KEY,
+    GEO_GUARD_TAG_VALUE,
+)
 from infra.dagster.utils import get_work_and_bin_dirs
 
 
@@ -95,11 +100,17 @@ def pdb_asn_geo(context):
     subprocess.run(cmd, cwd=str(work_dir), check=True)
 
 
-@job(executor_def=in_process_executor)
+@job(
+    executor_def=in_process_executor,
+    tags={GEO_GUARD_GEOFEED_TAG_KEY: GEO_GUARD_TAG_VALUE},
+)
 def geofeed_finder_job():
     geofeed_finder()
 
 
-@job(executor_def=in_process_executor)
+@job(
+    executor_def=in_process_executor,
+    tags={GEO_GUARD_PDB_TAG_KEY: GEO_GUARD_TAG_VALUE},
+)
 def pdb_asn_geo_job():
     pdb_asn_geo()
