@@ -1,3 +1,4 @@
+import fs from 'fs';
 import Database from 'better-sqlite3';
 import {normalizeOrgSlug} from './org-slug.js';
 
@@ -77,12 +78,28 @@ const createEmptyStore = () => ({
     findOrgByPrefix: () => null,
 });
 
-export const createAsnInfoStore = (dbPath) => {
+const getDbMtime = (dbPath) => {
     if (!dbPath) {
-        return createEmptyStore();
+        return null;
     }
     try {
-        const db = new Database(dbPath, {readonly: true, fileMustExist: true});
+        const stats = fs.statSync(dbPath);
+        return stats?.mtime instanceof Date ? stats.mtime : null;
+    } catch (error) {
+        return null;
+    }
+};
+
+const createAsnInfoStoreInstance = (dbPath) => {
+    if (!dbPath) {
+        return {
+            store: createEmptyStore(),
+            close: () => {},
+        };
+    }
+    let db = null;
+    try {
+        db = new Database(dbPath, {readonly: true, fileMustExist: true});
         const selectAsnInfoStmt = db.prepare(`
             SELECT json,
                    CAST(ipv4_amount AS TEXT) AS ipv4_amount,
@@ -544,24 +561,123 @@ export const createAsnInfoStore = (dbPath) => {
         };
 
         return {
-            isAvailable: () => true,
-            parseAsnNumber,
-            getAsnInfo,
-            getTopAsnsByIpv4,
-            getTopAsnsByIpv6,
-            getTopOrganizationsByIpv4,
-            getTopCountriesByIpv4,
-            getAsnsByCountry,
-            getCountryAsnCount,
-            getCountryList,
-            getAsnsForOrg,
-            getOrgSummaryBySlug,
-            getAsnsByOrgSlug,
-            findOrgByPrefix,
+            store: {
+                isAvailable: () => true,
+                parseAsnNumber,
+                getAsnInfo,
+                getTopAsnsByIpv4,
+                getTopAsnsByIpv6,
+                getTopOrganizationsByIpv4,
+                getTopCountriesByIpv4,
+                getAsnsByCountry,
+                getCountryAsnCount,
+                getCountryList,
+                getAsnsForOrg,
+                getOrgSummaryBySlug,
+                getAsnsByOrgSlug,
+                findOrgByPrefix,
+            },
+            close: () => {
+                try {
+                    db.close();
+                } catch (error) {
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to close ASN info database', error);
+                }
+            },
         };
     } catch (error) {
+        if (db) {
+            try {
+                db.close();
+            } catch (closeError) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to close ASN info database after load error', closeError);
+            }
+        }
         // eslint-disable-next-line no-console
         console.error('Failed to load ASN info database', error);
-        return createEmptyStore();
+        return {
+            store: createEmptyStore(),
+            close: () => {},
+        };
     }
+};
+
+const STORE_METHOD_NAMES = Object.freeze([
+    'isAvailable',
+    'parseAsnNumber',
+    'getAsnInfo',
+    'getTopAsnsByIpv4',
+    'getTopAsnsByIpv6',
+    'getTopOrganizationsByIpv4',
+    'getTopCountriesByIpv4',
+    'getAsnsByCountry',
+    'getCountryAsnCount',
+    'getCountryList',
+    'getAsnsForOrg',
+    'getOrgSummaryBySlug',
+    'getAsnsByOrgSlug',
+    'findOrgByPrefix',
+]);
+
+export const createAsnInfoStore = (dbPath) => {
+    const emptyStore = createEmptyStore();
+    let active = createAsnInfoStoreInstance(dbPath);
+    let lastUpdate = active.store.isAvailable() ? (getDbMtime(dbPath) || new Date()) : null;
+
+    const safeClose = (instance) => {
+        if (!instance || typeof instance.close !== 'function') {
+            return;
+        }
+        instance.close();
+    };
+
+    const swapInstance = (nextInstance) => {
+        const previous = active;
+        active = nextInstance;
+        safeClose(previous);
+    };
+
+    const proxyStore = {
+        reload: () => {
+            if (!dbPath) {
+                return {ok: false, reason: 'not_configured'};
+            }
+            const dbMtime = getDbMtime(dbPath);
+            if (lastUpdate && dbMtime && dbMtime.getTime() <= lastUpdate.getTime()) {
+                return {ok: true, skipped: true, reason: 'not_modified', lastUpdate};
+            }
+            const nextInstance = createAsnInfoStoreInstance(dbPath);
+            if (!nextInstance.store.isAvailable()) {
+                safeClose(nextInstance);
+                return {ok: false, reason: 'load_failed'};
+            }
+            swapInstance(nextInstance);
+            lastUpdate = dbMtime || new Date();
+            return {ok: true, skipped: false, lastUpdate};
+        },
+        getLastUpdate: () => lastUpdate,
+        close: () => {
+            const previous = active;
+            active = {
+                store: emptyStore,
+                close: () => {},
+            };
+            safeClose(previous);
+            lastUpdate = null;
+        },
+    };
+
+    STORE_METHOD_NAMES.forEach((methodName) => {
+        proxyStore[methodName] = (...args) => {
+            const method = active.store?.[methodName];
+            if (typeof method === 'function') {
+                return method(...args);
+            }
+            return emptyStore[methodName](...args);
+        };
+    });
+
+    return proxyStore;
 };

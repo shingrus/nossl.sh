@@ -134,8 +134,13 @@ const normalizeCountryValue = (value) => {
 
 const createCountrySlugIndex = (asnInfoStore) => {
     let cachedIndex = null;
+    let cachedVersion = null;
     return () => {
-        if (cachedIndex) {
+        const versionDate = typeof asnInfoStore.getLastUpdate === 'function'
+            ? asnInfoStore.getLastUpdate()
+            : null;
+        const currentVersion = versionDate instanceof Date ? versionDate.getTime() : null;
+        if (cachedIndex && cachedVersion === currentVersion) {
             return cachedIndex;
         }
         const index = new Map();
@@ -162,6 +167,7 @@ const createCountrySlugIndex = (asnInfoStore) => {
             }
         });
         cachedIndex = index;
+        cachedVersion = currentVersion;
         return index;
     };
 };

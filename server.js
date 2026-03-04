@@ -688,6 +688,25 @@ const isMaintenanceTokenAuthorized = (req) => {
     return typeof token === 'string' && token.trim() === MAINTENANCE_TOKEN;
 };
 
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+const hasProxyHeaders = (req) => {
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const realIp = req.headers['x-real-ip'];
+    const forwarded = req.headers.forwarded;
+    return Boolean(forwardedFor || realIp || forwarded);
+};
+
+const isLocalReloadRequest = (req) => {
+    if (hasProxyHeaders(req)) {
+        return false;
+    }
+    const remoteAddress = typeof req.socket?.remoteAddress === 'string'
+        ? req.socket.remoteAddress.trim()
+        : '';
+    return LOOPBACK_ADDRESSES.has(remoteAddress);
+};
+
 const recordEndpointIp = (endpoint, clientIp) => {
     try {
         ipRecordService.addIpRecord(endpoint, clientIp);
@@ -1037,6 +1056,29 @@ app.get('/api/unknown', (req, res) => {
     res.json(getUnknownIpRows());
 });
 
+app.post('/api/reload', (req, res) => {
+    setNoCacheHeaders(res);
+    if (!isLocalReloadRequest(req)) {
+        res.sendStatus(404);
+        return;
+    }
+
+    const reloadResult = asnInfoStore.reload?.();
+    if (!reloadResult?.ok) {
+        res.status(503).json({
+            ok: false,
+            error: reloadResult?.reason || 'reload_failed',
+        });
+        return;
+    }
+
+    res.json({
+        ok: true,
+        reloaded: !reloadResult.skipped,
+        asnDbLastUpdate: asnInfoStore.getLastUpdate?.()?.toISOString() || null,
+    });
+});
+
 app.get('/api/request-info', async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -1291,7 +1333,7 @@ app.get('/ss', (req, res) => {
     const dbVersions = {
         ip2geo: geoReader.getLastUpdate(),
         ip2asn: asnReader.getLastUpdate(),
-        asnDb: null,
+        asnDb: asnInfoStore.getLastUpdate?.(),
     };
 
     setNoCacheHeaders(res, {includeLegacy: true});
