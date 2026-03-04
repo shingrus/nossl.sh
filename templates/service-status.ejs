@@ -70,7 +70,7 @@
         }
         return {
           date: formatted.slice(0, firstSpace),
-          time: formatted.slice(firstSpace + 1),
+          time: formatted.slice(firstSpace + 1)
         };
       };
       const ip2GeoLastUpdate = splitDbTimestamp(dbVersions?.ip2geo);
@@ -136,7 +136,7 @@
             <% } %>
           </div>
           <div class="stat">
-            <span class="stat-label">asn.sqlite</span>
+            <span class="stat-label">ASN DB</span>
             <span class="stat-value mono stat-value--db-date"><%= asnSqliteLastUpdate.date %></span>
             <% if (asnSqliteLastUpdate.time) { %>
               <span class="stat-value mono stat-value--db-time"><%= asnSqliteLastUpdate.time %></span>
