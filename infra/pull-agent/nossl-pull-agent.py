@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Pull the latest MMDB artifacts from S3 and install them atomically.
+Pull the latest artifacts from S3 and install them atomically.
 
 Selection logic:
 1) List top-level date folders matching YYYY-MM-DD.
 2) Pick the latest date folder.
 3) Build expected filenames from the latest folder date:
-   `ip2geo-nossl-sh-<YYYYMMDD>.mmdb` and/or `ip2asn-nossl-sh-<YYYYMMDD>.mmdb`.
+   `ip2geo-nossl-sh-<YYYYMMDD>.mmdb`, `ip2asn-nossl-sh-<YYYYMMDD>.mmdb`,
+   and/or `asn.sqlite3`.
 4) Download each only when target file size differs, then atomically replace target.
 5) With --dry-run, run the same logic, but skip install after successful download+validate.
 """
@@ -24,10 +25,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 DATE_FOLDER_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-MIN_SIZE_BYTES = 1024 * 1024
+MIN_MMDB_SIZE_BYTES = 1024 * 1024
+MIN_ASN_SQLITE_SIZE_BYTES = 40 * 1024 * 1024
 INSTALL_MODE = 0o644
-TEMP_SUFFIX = ".mmdb"
-SUPPORTED_DATASETS = ("ip2geo", "ip2asn")
+SUPPORTED_DATASETS = ("ip2geo", "ip2asn", "asn-sqlite")
 
 
 @dataclass(frozen=True)
@@ -74,13 +75,17 @@ def list_date_folders(client: Any, bucket: str) -> list[str]:
 
 
 def build_expected_key(latest_folder: str, dataset: str) -> str:
-    if dataset not in SUPPORTED_DATASETS:
-        raise RuntimeError(f"Unsupported dataset: {dataset!r}")
-    folder_date = parse_date_folder(latest_folder)
-    if folder_date is None:
-        raise RuntimeError(f"Invalid latest date folder: {latest_folder!r}")
-    date_tag = folder_date.strftime("%Y%m%d")
-    return f"{latest_folder}/{dataset}-nossl-sh-{date_tag}.mmdb"
+    if dataset == "asn-sqlite":
+        return f"{latest_folder}/asn.sqlite3"
+
+    if dataset in ("ip2geo", "ip2asn"):
+        folder_date = parse_date_folder(latest_folder)
+        if folder_date is None:
+            raise RuntimeError(f"Invalid latest date folder: {latest_folder!r}")
+        date_tag = folder_date.strftime("%Y%m%d")
+        return f"{latest_folder}/{dataset}-nossl-sh-{date_tag}.mmdb"
+
+    raise RuntimeError(f"Unsupported dataset: {dataset!r}")
 
 
 def get_required_object(client: Any, bucket: str, key: str) -> S3Object:
@@ -98,12 +103,28 @@ def temp_prefix_for(dataset: str) -> str:
     return f".{dataset}-pull-"
 
 
+def temp_suffix_for(dataset: str) -> str:
+    if dataset in ("ip2geo", "ip2asn"):
+        return ".mmdb"
+    if dataset == "asn-sqlite":
+        return ".sqlite3"
+    raise RuntimeError(f"Unsupported dataset: {dataset!r}")
+
+
+def min_size_bytes_for(dataset: str) -> int:
+    if dataset in ("ip2geo", "ip2asn"):
+        return MIN_MMDB_SIZE_BYTES
+    if dataset == "asn-sqlite":
+        return MIN_ASN_SQLITE_SIZE_BYTES
+    raise RuntimeError(f"Unsupported dataset: {dataset!r}")
+
+
 def download_object_to_temp(
     client: Any, bucket: str, key: str, temp_dir: Path, dataset: str
 ) -> Path:
     fd, temp_path = tempfile.mkstemp(
         prefix=temp_prefix_for(dataset),
-        suffix=TEMP_SUFFIX,
+        suffix=temp_suffix_for(dataset),
         dir=str(temp_dir),
     )
     os.close(fd)
@@ -140,7 +161,8 @@ def install_atomically(source_path: Path, target_path: Path) -> None:
 
 def cleanup_stale_temp_files(temp_dir: Path, dataset: str) -> None:
     temp_prefix = temp_prefix_for(dataset)
-    for path in temp_dir.glob(f"{temp_prefix}*{TEMP_SUFFIX}"):
+    temp_suffix = temp_suffix_for(dataset)
+    for path in temp_dir.glob(f"{temp_prefix}*{temp_suffix}"):
         if path.is_file():
             path.unlink(missing_ok=True)
 
@@ -181,7 +203,7 @@ def sync_dataset_to_target(
     try:
         validate_download(
             path=temp_file,
-            min_size_bytes=MIN_SIZE_BYTES,
+            min_size_bytes=min_size_bytes_for(target.dataset),
             expected_size=selected.size,
         )
         if dry_run:
@@ -200,8 +222,8 @@ def sync_dataset_to_target(
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Download latest ip2geo/ip2asn MMDB files from S3 date folders "
-            "and install them atomically."
+            "Download latest ip2geo/ip2asn MMDB files and asn.sqlite3 from "
+            "S3 date folders and install them atomically."
         )
     )
     parser.add_argument(
@@ -217,6 +239,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--target", help="Backward-compatible alias for --geo-target")
     parser.add_argument("--geo-target", help="Target MMDB file path for ip2geo")
     parser.add_argument("--asn-target", help="Target MMDB file path for ip2asn")
+    parser.add_argument(
+        "--asn-sqlite-target",
+        help="Target SQLite file path for asn.sqlite3",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -238,8 +264,14 @@ def main(argv: list[str]) -> int:
     if args.asn_target:
         asn_target = Path(args.asn_target).expanduser().resolve()
         targets.append(PullTarget(dataset="ip2asn", target_path=asn_target))
+    if args.asn_sqlite_target:
+        asn_sqlite_target = Path(args.asn_sqlite_target).expanduser().resolve()
+        targets.append(PullTarget(dataset="asn-sqlite", target_path=asn_sqlite_target))
     if not targets:
-        eprint("At least one target is required: --geo-target/--target and/or --asn-target")
+        eprint(
+            "At least one target is required: --geo-target/--target, "
+            "--asn-target, and/or --asn-sqlite-target"
+        )
         return 2
 
     try:
