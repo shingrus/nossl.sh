@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 from infra.dagster.common_ops import build_date_tag, upload_file_to_s3
+from infra.dagster.concurrency_tags import GEO_GUARD_PDB_TAG_KEY, GEO_GUARD_TAG_VALUE
 from infra.dagster.utils import (
     get_work_and_bin_dirs,
     get_work_dir,
@@ -124,7 +125,11 @@ def cleanup_asn_temp_dir(context, _asn_latest_link_path: str):
     context.log.info(f"cleaned ASN temp dir: {temp_dir}")
 
 
-@job(executor_def=in_process_executor, hooks={cleanup_asn_temp_on_failure})
+@job(
+    executor_def=in_process_executor,
+    hooks={cleanup_asn_temp_on_failure},
+    tags={GEO_GUARD_PDB_TAG_KEY: GEO_GUARD_TAG_VALUE},
+)
 def build_asn_data_job():
     date_tag = build_date_tag()
     asn_repo = clone_asn_repo()

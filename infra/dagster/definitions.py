@@ -5,8 +5,11 @@ from infra.dagster.build_asn_data_job import build_asn_data_job
 from infra.dagster.build_geo_database_job import build_geo_database_job
 from infra.dagster.create_new_rdns_rules_job import create_new_rdns_rules_job
 from infra.dagster.schedules import (
+    build_geo_database_twice_daily_schedule,
     build_asn_data_hourly_schedule,
     create_new_rdns_rules_hourly_schedule,
+    geofeed_finder_daily_schedule,
+    pdb_asn_geo_twice_daily_schedule,
 )
 
 
@@ -20,6 +23,9 @@ defs = Definitions(
     ],
     resources={"paths": paths},
     schedules=[
+        geofeed_finder_daily_schedule,
+        pdb_asn_geo_twice_daily_schedule,
+        build_geo_database_twice_daily_schedule,
         build_asn_data_hourly_schedule,
         create_new_rdns_rules_hourly_schedule,
     ],
