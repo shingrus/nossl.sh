@@ -50,7 +50,7 @@ def pdb_asn_geo_twice_daily_schedule():
 
 
 @schedule(
-    cron_schedule="30 1,13 * * *",
+    cron_schedule="30 3,16 * * *",
     execution_timezone="America/Los_Angeles",
     job=build_geo_database_job,
 )
