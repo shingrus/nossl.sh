@@ -2,7 +2,11 @@ from dagster import op, job, in_process_executor
 import subprocess
 from pathlib import Path
 
-from infra.dagster.common_ops import build_date_tag, upload_file_to_s3
+from infra.dagster.common_ops import (
+    build_date_tag,
+    upload_file_to_github_release,
+    upload_file_to_s3,
+)
 from infra.dagster.concurrency_tags import GEO_GUARD_PDB_TAG_KEY, GEO_GUARD_TAG_VALUE
 from infra.dagster.utils import (
     get_work_and_bin_dirs,
@@ -137,6 +141,8 @@ def build_asn_data_job():
     asn_sqlite_with_domains = populate_asn_domains(asn_sqlite)
     upload_file_to_s3.alias("upload_asn_sqlite_to_s3")(asn_sqlite_with_domains, date_tag)
     asn_mmdb = build_asn_mmdb(asn_repo, asn_sqlite_with_domains, date_tag)
+    #why not to use only the github repo?
     upload_file_to_s3.alias("upload_asn_mmdb_to_s3")(asn_mmdb, date_tag)
+    upload_file_to_github_release.alias("upload_asn_mmdb_to_github_release")(asn_mmdb, date_tag)
     asn_latest = update_asn_latest_symlink(asn_mmdb)
     cleanup_asn_temp_dir(asn_latest)
