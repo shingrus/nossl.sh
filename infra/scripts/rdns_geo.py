@@ -29,12 +29,14 @@ import ipaddress
 import json
 import math
 import os
+import random
 import re
 import shutil
 import socket
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 from urllib.error import URLError, HTTPError
@@ -45,17 +47,21 @@ try:
     from .pgsql_hostname_reviews import (
         PgTableRef,
         ensure_hostname_reviews_table,
+        ensure_ptr_cache_table,
         open_postgres_connection,
         parse_pg_table_ref,
         validate_hostname_reviews_table,
+        validate_ptr_cache_table,
     )
 except ImportError:
     from pgsql_hostname_reviews import (
         PgTableRef,
         ensure_hostname_reviews_table,
+        ensure_ptr_cache_table,
         open_postgres_connection,
         parse_pg_table_ref,
         validate_hostname_reviews_table,
+        validate_ptr_cache_table,
     )
 
 try:
@@ -78,11 +84,16 @@ DEFAULT_RULES_URL = (
     Path(__file__).resolve().parents[1] / "configs" / "rdns_geo_rules.json"
 ).resolve().as_uri()
 DEFAULT_PGSQL_TABLE = "hostname_reviews"
+DEFAULT_PGSQL_PTR_CACHE_TABLE = "rdns_ptr_cache"
 DEFAULT_PGSQL_RULES_TABLE = "generated_rules"
 DEFAULT_DOH_URL = "https://cloudflare-dns.com/dns-query"
 DIG_ERROR_LOG_LIMIT = 10
 DOH_ERROR_LOG_LIMIT = 3
 DOH_FAILURE_DISABLE_AFTER = 5
+PTR_CACHE_STATUS_OK = "ok"
+PTR_CACHE_STATUS_NOT_FOUND = "not_found"
+PTR_CACHE_SUCCESS_TTL_SECONDS = (7 * 24 * 60 * 60, 10 * 24 * 60 * 60)
+PTR_CACHE_NEGATIVE_TTL_SECONDS = (1 * 24 * 60 * 60, 7 * 24 * 60 * 60)
 
 
 dig_cmd_available = True
@@ -148,6 +159,23 @@ class HopEvidence:
     ptr: str
     priority: int  # 1 == closest hop to destination
     distance: int  # 0 == closest, then -1, -2...
+
+
+@dataclass(frozen=True)
+class PtrLookupResult:
+    ptr: str
+    status: str
+    source: str
+
+
+@dataclass
+class PostgresPtrCache:
+    conn: Any
+    table_ref: PgTableRef
+    hits: int = 0
+    misses: int = 0
+    writes: int = 0
+    expired_deleted: int = 0
 
 
 @dataclass
@@ -683,16 +711,100 @@ def mtr_last_hops(dest_ip: str) -> tuple[list[HopEvidence], int, int]:
     return ranked, len(hops), tail_count
 
 
-def ptr_lookup(ip: str) -> str:
+def random_ptr_cache_ttl_seconds(status: str) -> int:
+    min_seconds, max_seconds = (
+        PTR_CACHE_SUCCESS_TTL_SECONDS
+        if status == PTR_CACHE_STATUS_OK
+        else PTR_CACHE_NEGATIVE_TTL_SECONDS
+    )
+    return random.randint(min_seconds, max_seconds)
+
+
+def fetch_postgres_ptr_cache_entry(
+    ptr_cache: PostgresPtrCache,
+    ip: str,
+) -> Optional[PtrLookupResult]:
+    with ptr_cache.conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT ptr, status, source
+            FROM {ptr_cache.table_ref.quoted}
+            WHERE ip = %s AND expires_at > CURRENT_TIMESTAMP
+            """,
+            (ip,),
+        )
+        row = cur.fetchone()
+
+    if not row or len(row) < 3:
+        return None
+
+    ptr_raw, status_raw, source_raw = row[0], row[1], row[2]
+    status = str(status_raw or "").strip()
+    source = str(source_raw or "").strip()
+    ptr = normalize_ptr_hostname(ptr_raw) if isinstance(ptr_raw, str) else ""
+
+    if status == PTR_CACHE_STATUS_OK:
+        if not ptr:
+            return None
+        return PtrLookupResult(ptr=ptr, status=status, source=source or "cache")
+    if status == PTR_CACHE_STATUS_NOT_FOUND:
+        return PtrLookupResult(ptr="", status=status, source=source or "cache")
+    return None
+
+
+def cleanup_expired_postgres_ptr_cache(ptr_cache: PostgresPtrCache) -> int:
+    with ptr_cache.conn.cursor() as cur:
+        cur.execute(
+            f"DELETE FROM {ptr_cache.table_ref.quoted} WHERE expires_at <= CURRENT_TIMESTAMP"
+        )
+        deleted = max(0, int(cur.rowcount or 0))
+    ptr_cache.conn.commit()
+    return deleted
+
+
+def store_postgres_ptr_cache_entry(
+    ptr_cache: PostgresPtrCache,
+    ip: str,
+    result: PtrLookupResult,
+) -> None:
+    checked_at = datetime.now(timezone.utc)
+    expires_at = checked_at + timedelta(seconds=random_ptr_cache_ttl_seconds(result.status))
+    stored_ptr = result.ptr or None
+
+    with ptr_cache.conn.cursor() as cur:
+        cur.execute(
+            f"""
+            INSERT INTO {ptr_cache.table_ref.quoted} (
+                ip,
+                ptr,
+                status,
+                source,
+                checked_at,
+                expires_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT(ip) DO UPDATE SET
+                ptr = EXCLUDED.ptr,
+                status = EXCLUDED.status,
+                source = EXCLUDED.source,
+                checked_at = EXCLUDED.checked_at,
+                expires_at = EXCLUDED.expires_at
+            """,
+            (ip, stored_ptr, result.status, result.source, checked_at, expires_at),
+        )
+    ptr_cache.conn.commit()
+
+
+def ptr_lookup_uncached(ip: str) -> PtrLookupResult:
     if dig_cmd_available:
         short_cmd = ["dig", "+time=2", "+tries=1", "+short", "-x", ip]
         code, out, err = run_cmd(short_cmd, timeout=DIG_TIMEOUT_SECONDS)
         maybe_log_dig_error("ptr_short", short_cmd, code, err)
         if code == 0:
             for line in out.splitlines():
-                ptr = line.strip().strip('"').rstrip(".")
+                ptr = normalize_ptr_hostname(line.strip().strip('"').rstrip("."))
                 if ptr and not ptr.startswith(";"):
-                    return ptr
+                    return PtrLookupResult(ptr=ptr, status=PTR_CACHE_STATUS_OK, source="dig_short")
 
         answer_cmd = ["dig", "+time=2", "+tries=1", "+noall", "+answer", "-x", ip]
         code, out, err = run_cmd(answer_cmd, timeout=DIG_TIMEOUT_SECONDS)
@@ -704,7 +816,13 @@ def ptr_lookup(ip: str) -> str:
                     continue
                 match = re.search(r"\bPTR\s+(\S+)\.?$", text, flags=re.IGNORECASE)
                 if match:
-                    return match.group(1).strip().rstrip(".")
+                    ptr = normalize_ptr_hostname(match.group(1).strip().rstrip("."))
+                    if ptr:
+                        return PtrLookupResult(
+                            ptr=ptr,
+                            status=PTR_CACHE_STATUS_OK,
+                            source="dig_answer",
+                        )
 
     # Reaching this point means dig did not produce a usable PTR answer.
     # Fall back to DoH/system resolver even when dig exited with code 0.
@@ -714,14 +832,29 @@ def ptr_lookup(ip: str) -> str:
         qname = ""
     if qname:
         for value in doh_lookup(qname, "PTR"):
-            ptr = value.strip().strip('"').rstrip(".")
+            ptr = normalize_ptr_hostname(value.strip().strip('"').rstrip("."))
             if ptr and not ptr.startswith(";"):
-                return ptr
+                return PtrLookupResult(ptr=ptr, status=PTR_CACHE_STATUS_OK, source="doh")
 
     ptr = ptr_lookup_resolver(ip)
     if ptr:
-        return ptr
-    return ""
+        return PtrLookupResult(ptr=ptr, status=PTR_CACHE_STATUS_OK, source="resolver")
+    return PtrLookupResult(ptr="", status=PTR_CACHE_STATUS_NOT_FOUND, source="none")
+
+
+def ptr_lookup(ip: str, ptr_cache: Optional[PostgresPtrCache] = None) -> PtrLookupResult:
+    if ptr_cache is not None:
+        cached = fetch_postgres_ptr_cache_entry(ptr_cache, ip)
+        if cached is not None:
+            ptr_cache.hits += 1
+            return cached
+        ptr_cache.misses += 1
+
+    result = ptr_lookup_uncached(ip)
+    if ptr_cache is not None:
+        store_postgres_ptr_cache_entry(ptr_cache, ip, result)
+        ptr_cache.writes += 1
+    return result
 
 
 def normalize_ptr_hostname(ptr: str) -> Optional[str]:
@@ -787,6 +920,19 @@ def ensure_postgres_unmatched_table(conn: Any, table_ref: PgTableRef) -> None:
 
 def validate_postgres_unmatched_table(conn: Any, table_ref: PgTableRef) -> None:
     validate_hostname_reviews_table(conn, table_ref)
+
+
+def preflight_postgres_ptr_cache(pgsql_dsn: str, table_name: str) -> PgTableRef:
+    table_ref = parse_pg_table_ref(table_name)
+    conn: Any = None
+    try:
+        conn = open_postgres_connection(pgsql_dsn)
+        ensure_ptr_cache_table(conn, table_ref)
+        validate_ptr_cache_table(conn, table_ref)
+    finally:
+        if conn is not None:
+            conn.close()
+    return table_ref
 
 
 def fetch_existing_postgres_hostnames(
@@ -1050,7 +1196,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help=(
-            "Optional PostgreSQL DSN for unmatched hostname tracking. "
+            "Optional PostgreSQL DSN for unmatched hostname tracking and PTR cache. "
             "Disabled by default. Pass an explicit empty value (--pgsql \"\") "
             "to use PGSQL env var."
         ),
@@ -1060,6 +1206,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         default=DEFAULT_PGSQL_TABLE,
         help=f"PostgreSQL table for unmatched hostnames (default: {DEFAULT_PGSQL_TABLE})",
+    )
+    parser.add_argument(
+        "--pgsql-ptr-cache-table",
+        type=str,
+        default=DEFAULT_PGSQL_PTR_CACHE_TABLE,
+        help=f"PostgreSQL table for PTR cache (default: {DEFAULT_PGSQL_PTR_CACHE_TABLE})",
     )
     return parser
 
@@ -1074,6 +1226,7 @@ def run_rdns_geo_pipeline(
     test_ip: Optional[str] = None,
     pgsql: Optional[str] = None,
     pgsql_table: str = DEFAULT_PGSQL_TABLE,
+    pgsql_ptr_cache_table: str = DEFAULT_PGSQL_PTR_CACHE_TABLE,
     maintenance_token: Optional[str] = None,
     log_sink: Optional[Callable[[str], None]] = None,
 ) -> dict[str, int | float]:
@@ -1092,6 +1245,8 @@ def run_rdns_geo_pipeline(
     ).strip()
     pgsql_table_ref: Optional[PgTableRef] = None
     pgsql_rules_table_ref: Optional[PgTableRef] = None
+    pgsql_ptr_cache_table_ref: Optional[PgTableRef] = None
+    ptr_cache: Optional[PostgresPtrCache] = None
 
     previous_log_sink = _log_sink
     _log_sink = log_sink
@@ -1117,6 +1272,15 @@ def run_rdns_geo_pipeline(
         pgsql_rules_skipped = 0
         if pgsql_dsn:
             pgsql_table_ref = preflight_postgres_tracking(pgsql_dsn, pgsql_table)
+            pgsql_ptr_cache_table_ref = preflight_postgres_ptr_cache(
+                pgsql_dsn,
+                pgsql_ptr_cache_table,
+            )
+            ptr_cache = PostgresPtrCache(
+                conn=open_postgres_connection(pgsql_dsn),
+                table_ref=pgsql_ptr_cache_table_ref,
+            )
+            ptr_cache.expired_deleted = cleanup_expired_postgres_ptr_cache(ptr_cache)
             pgsql_rules_table_ref = parse_pg_table_ref(DEFAULT_PGSQL_RULES_TABLE)
             pgsql_rule_entries, pgsql_rules_skipped = load_rule_entries_from_postgres(
                 pgsql_dsn,
@@ -1138,6 +1302,12 @@ def run_rdns_geo_pipeline(
                 f"table={pgsql_rules_table_ref.schema}.{pgsql_rules_table_ref.table} "
                 f"replaced={merged_rules_replaced} appended={merged_rules_appended} "
                 f"skipped={pgsql_rules_skipped}"
+            )
+        if ptr_cache is not None and pgsql_ptr_cache_table_ref is not None:
+            eprint(
+                "pgsql_ptr_cache "
+                f"table={pgsql_ptr_cache_table_ref.schema}.{pgsql_ptr_cache_table_ref.table} "
+                f"expired_deleted={ptr_cache.expired_deleted}"
             )
 
         hints_by_prefix: dict[str, Hint] = {}
@@ -1215,7 +1385,6 @@ def run_rdns_geo_pipeline(
                         hop_geo_reader, evidence.hop_ip
                     )
                     if hop_city:
-                        evidence.ptr = ptr_lookup(evidence.hop_ip)
                         matched_evidence = evidence
                         matched_source = "mmdb"
                         matched_ref = "mmdb_hop_city"
@@ -1223,7 +1392,8 @@ def run_rdns_geo_pipeline(
                         matched_city = hop_city
                         break
 
-                    ptr = ptr_lookup(evidence.hop_ip)
+                    ptr_result = ptr_lookup(evidence.hop_ip, ptr_cache=ptr_cache)
+                    ptr = ptr_result.ptr
                     evidence.ptr = ptr
                     normalized_hostname = normalize_ptr_hostname(ptr)
                     hostname = normalized_hostname or "-"
@@ -1392,6 +1562,12 @@ def run_rdns_geo_pipeline(
             "pgsql_existing_hosts": pgsql_existing_hosts,
             "pgsql_new_hosts": pgsql_new_hosts,
             "pgsql_inserted_hosts": pgsql_inserted_hosts,
+            "pgsql_ptr_cache_hits": ptr_cache.hits if ptr_cache is not None else 0,
+            "pgsql_ptr_cache_misses": ptr_cache.misses if ptr_cache is not None else 0,
+            "pgsql_ptr_cache_writes": ptr_cache.writes if ptr_cache is not None else 0,
+            "pgsql_ptr_cache_expired_deleted": (
+                ptr_cache.expired_deleted if ptr_cache is not None else 0
+            ),
             "known_city_percent_begin": round(start_known_pct, 1),
             "known_city_percent_end": round(end_known_pct, 1),
         }
@@ -1402,6 +1578,8 @@ def run_rdns_geo_pipeline(
         eprint(f"Checked {processed} ips, Found new entries: {len(hints_by_prefix)}")
         return done_metrics
     finally:
+        if ptr_cache is not None:
+            ptr_cache.conn.close()
         _log_sink = previous_log_sink
 
 
@@ -1418,6 +1596,7 @@ def main() -> int:
             test_ip=args.test_ip,
             pgsql=args.pgsql,
             pgsql_table=args.pgsql_table,
+            pgsql_ptr_cache_table=args.pgsql_ptr_cache_table,
         )
     except Exception as exc:
         eprint(str(exc))
