@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import express from 'express';
+import fs from 'fs';
 import http from 'http';
 import maxmind from 'maxmind';
 import net from 'net';
@@ -137,6 +138,19 @@ const getRenderMeta = (res) => {
     return {generatedAt, generationTimeMs};
 };
 
+const getFileMtime = (filePath) => {
+    if (!filePath) {
+        return null;
+    }
+
+    try {
+        const stats = fs.statSync(filePath);
+        return stats?.mtime instanceof Date ? stats.mtime : null;
+    } catch (error) {
+        return null;
+    }
+};
+
 const loadGeoReader = async (geoDb) => {
     const readerState = {
         reader: null,
@@ -152,7 +166,7 @@ const loadGeoReader = async (geoDb) => {
     };
 
     const markUpdated = () => {
-        readerState.lastUpdate = new Date();
+        readerState.lastUpdate = getFileMtime(geoDb) || new Date();
     };
 
     try {
@@ -177,6 +191,8 @@ const loadGeoReader = async (geoDb) => {
 const geoReader = await loadGeoReader(geoDbPath);
 const asnReader = await loadGeoReader(asnDbPath);
 const asnInfoStore = createAsnInfoStore(asnInfoDbPath);
+
+app.locals.getGeoUpdatedAt = () => geoReader.getLastUpdate();
 
 
 const isPrivateIpv4 = (ip) => {

@@ -1,13 +1,14 @@
 <%
-  const footerTimestamp = typeof formattedGeneratedAt === 'string' && formattedGeneratedAt.length
-    ? formattedGeneratedAt
-    : formatTimestamp(generatedAt);
+  const rawFooterGeoUpdatedAt = typeof getGeoUpdatedAt === 'function' ? getGeoUpdatedAt() : geoUpdatedAt;
+  const footerGeoUpdatedAt = typeof formattedGeoUpdatedAt === 'string' && formattedGeoUpdatedAt.length
+    ? formattedGeoUpdatedAt
+    : (rawFooterGeoUpdatedAt ? formatTimestamp(rawFooterGeoUpdatedAt) : '');
   const footerRenderTime = typeof generationTimeMs === 'number' ? `${generationTimeMs.toFixed(2)} ms` : 'N/A';
   const extraLines = Array.isArray(footerLines) ? footerLines : [];
 %>
 <footer class="footer">
   <div class="container footer__inner">
-    <p>Page generated at <span class="mono"><%= footerTimestamp %></span> · Render time: <%= footerRenderTime %></p>
+    <p>Geo updated: <span class="mono"><%= footerGeoUpdatedAt || 'n/a' %></span> · Render time: <%= footerRenderTime %></p>
     <% extraLines.forEach((line) => { %>
       <p><%- line %></p>
     <% }) %>

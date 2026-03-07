@@ -26,3 +26,5 @@ https://geofeed.cogentco.com/geofeed.csv
 https://raw.githubusercontent.com/forcepoint/geofeed/main/rfc-8805.csv
 https://raw.githubusercontent.com/Viasat/geofeed/main/geofeed.csv
 https://raw.githubusercontent.com/Netflix/nflx-geofeed/main/geofeed.csv
+
+https://opengeofeed.org/feed/public.csv
