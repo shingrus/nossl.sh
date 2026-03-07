@@ -3,7 +3,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from infra.dagster.common_ops import build_date_tag, upload_file_to_s3
+from infra.dagster.common_ops import build_date_tag, upload_file_to_s3, upload_file_to_github_release
 from infra.dagster.concurrency_tags import (
     GEO_GUARD_GEOFEED_TAG_KEY,
     GEO_GUARD_PDB_TAG_KEY,
@@ -226,4 +226,5 @@ def build_geo_database_job():
     patched_geo_mmdb = patch_geo_mmdb_with_rdns(rdns_geo_result)
     geo_latest = update_geo_latest_symlink(patched_geo_mmdb)
     upload_file_to_s3.alias("upload_geo_mmdb_to_s3")(patched_geo_mmdb, date_tag)
+    upload_file_to_github_release.alias("upload_geo_mmdb_to_github_release")(patched_geo_mmdb, date_tag)
     cleanup_geo_temp_dir(geo_latest)

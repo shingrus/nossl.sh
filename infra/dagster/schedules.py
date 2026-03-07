@@ -68,6 +68,14 @@ def build_geo_database_twice_daily_schedule():
                     "enabled": True,
                 }
             },
+            "upload_geo_mmdb_to_github_release": {
+                "config": {
+                    "enabled": True,
+                    "owner": "shingrus",
+                    "repo": "nossl.sh",
+                    "asset_name": "ip2geo-nossl-sh.mmdb"
+                }
+            },
         },
         "resources": {
             "paths": {
