@@ -47,9 +47,11 @@ try:
     from .pgsql_hostname_reviews import (
         PgTableRef,
         ensure_hostname_reviews_table,
+        ensure_mtr_cache_table,
         ensure_ptr_cache_table,
         open_postgres_connection,
         parse_pg_table_ref,
+        validate_mtr_cache_table,
         validate_hostname_reviews_table,
         validate_ptr_cache_table,
     )
@@ -57,9 +59,11 @@ except ImportError:
     from pgsql_hostname_reviews import (
         PgTableRef,
         ensure_hostname_reviews_table,
+        ensure_mtr_cache_table,
         ensure_ptr_cache_table,
         open_postgres_connection,
         parse_pg_table_ref,
+        validate_mtr_cache_table,
         validate_hostname_reviews_table,
         validate_ptr_cache_table,
     )
@@ -84,6 +88,7 @@ DEFAULT_RULES_URL = (
     Path(__file__).resolve().parents[1] / "configs" / "rdns_geo_rules.json"
 ).resolve().as_uri()
 DEFAULT_PGSQL_TABLE = "hostname_reviews"
+DEFAULT_PGSQL_MTR_CACHE_TABLE = "rdns_mtr_cache"
 DEFAULT_PGSQL_PTR_CACHE_TABLE = "rdns_ptr_cache"
 DEFAULT_PGSQL_RULES_TABLE = "generated_rules"
 DEFAULT_DOH_URL = "https://cloudflare-dns.com/dns-query"
@@ -94,6 +99,9 @@ PTR_CACHE_STATUS_OK = "ok"
 PTR_CACHE_STATUS_NOT_FOUND = "not_found"
 PTR_CACHE_SUCCESS_TTL_SECONDS = (7 * 24 * 60 * 60, 10 * 24 * 60 * 60)
 PTR_CACHE_NEGATIVE_TTL_SECONDS = (1 * 24 * 60 * 60, 7 * 24 * 60 * 60)
+MTR_CACHE_STATUS_OK = "ok"
+MTR_CACHE_STATUS_NO_HOPS = "no_hops"
+MTR_CACHE_TTL_SECONDS = (24 * 60 * 60, 7 * 24 * 60 * 60)
 
 
 dig_cmd_available = True
@@ -170,6 +178,23 @@ class PtrLookupResult:
 
 @dataclass
 class PostgresPtrCache:
+    conn: Any
+    table_ref: PgTableRef
+    hits: int = 0
+    misses: int = 0
+    writes: int = 0
+    expired_deleted: int = 0
+
+
+@dataclass(frozen=True)
+class MtrLookupResult:
+    hops: list[Optional[str]]
+    status: str
+    source: str
+
+
+@dataclass
+class PostgresMtrCache:
     conn: Any
     table_ref: PgTableRef
     hits: int = 0
@@ -687,7 +712,106 @@ def build_ranked_tail_hops(hops: list[Optional[str]]) -> tuple[list[HopEvidence]
     return ranked, len(tail_hops)
 
 
-def mtr_last_hops(dest_ip: str) -> tuple[list[HopEvidence], int, int]:
+def random_mtr_cache_ttl_seconds() -> int:
+    return random.randint(*MTR_CACHE_TTL_SECONDS)
+
+
+def normalize_cached_hops(raw: Any) -> Optional[list[Optional[str]]]:
+    payload = raw
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(payload, list):
+        return None
+
+    hops: list[Optional[str]] = []
+    for item in payload:
+        if item is None:
+            hops.append(None)
+            continue
+        if not isinstance(item, str):
+            return None
+        normalized = normalize_ip(item)
+        hops.append(normalized if normalized else None)
+    return hops
+
+
+def fetch_postgres_mtr_cache_entry(
+    mtr_cache: PostgresMtrCache,
+    ip: str,
+) -> Optional[MtrLookupResult]:
+    with mtr_cache.conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT hops_json, status, source
+            FROM {mtr_cache.table_ref.quoted}
+            WHERE ip = %s AND expires_at > CURRENT_TIMESTAMP
+            """,
+            (ip,),
+        )
+        row = cur.fetchone()
+
+    if not row or len(row) < 3:
+        return None
+
+    hops_raw, status_raw, source_raw = row[0], row[1], row[2]
+    status = str(status_raw or "").strip()
+    source = str(source_raw or "").strip()
+    hops = normalize_cached_hops(hops_raw)
+
+    if status == MTR_CACHE_STATUS_OK and hops:
+        return MtrLookupResult(hops=hops, status=status, source=source or "cache")
+    if status == MTR_CACHE_STATUS_NO_HOPS:
+        return MtrLookupResult(hops=hops or [], status=status, source=source or "cache")
+    return None
+
+
+def cleanup_expired_postgres_mtr_cache(mtr_cache: PostgresMtrCache) -> int:
+    with mtr_cache.conn.cursor() as cur:
+        cur.execute(
+            f"DELETE FROM {mtr_cache.table_ref.quoted} WHERE expires_at <= CURRENT_TIMESTAMP"
+        )
+        deleted = max(0, int(cur.rowcount or 0))
+    mtr_cache.conn.commit()
+    return deleted
+
+
+def store_postgres_mtr_cache_entry(
+    mtr_cache: PostgresMtrCache,
+    ip: str,
+    result: MtrLookupResult,
+) -> None:
+    checked_at = datetime.now(timezone.utc)
+    expires_at = checked_at + timedelta(seconds=random_mtr_cache_ttl_seconds())
+    hops_payload = json.dumps(result.hops)
+
+    with mtr_cache.conn.cursor() as cur:
+        cur.execute(
+            f"""
+            INSERT INTO {mtr_cache.table_ref.quoted} (
+                ip,
+                hops_json,
+                status,
+                source,
+                checked_at,
+                expires_at
+            )
+            VALUES (%s, %s::jsonb, %s, %s, %s, %s)
+            ON CONFLICT(ip) DO UPDATE SET
+                hops_json = EXCLUDED.hops_json,
+                status = EXCLUDED.status,
+                source = EXCLUDED.source,
+                checked_at = EXCLUDED.checked_at,
+                expires_at = EXCLUDED.expires_at
+            """,
+            (ip, hops_payload, result.status, result.source, checked_at, expires_at),
+        )
+    mtr_cache.conn.commit()
+
+
+def mtr_last_hops_uncached(dest_ip: str) -> MtrLookupResult:
     common = [
         "mtr",
         "--report",
@@ -700,13 +824,38 @@ def mtr_last_hops(dest_ip: str) -> tuple[list[HopEvidence], int, int]:
     if code == 0:
         hops = parse_hops_from_mtr_text(out)
         if hops:
-            ranked, tail_count = build_ranked_tail_hops(hops)
-            return ranked, len(hops), tail_count
+            return MtrLookupResult(hops=hops, status=MTR_CACHE_STATUS_OK, source="mtr_text")
 
     code, out, _err = run_cmd(common + ["--json", dest_ip], timeout=MTR_TIMEOUT_SECONDS)
     if code != 0:
-        return [], 0, 0
+        return MtrLookupResult(hops=[], status=MTR_CACHE_STATUS_NO_HOPS, source="mtr_json_error")
     hops = parse_hops_from_mtr_json(out)
+    if not hops:
+        return MtrLookupResult(hops=[], status=MTR_CACHE_STATUS_NO_HOPS, source="mtr_json")
+    return MtrLookupResult(hops=hops, status=MTR_CACHE_STATUS_OK, source="mtr_json")
+
+
+def mtr_last_hops(
+    dest_ip: str,
+    mtr_cache: Optional[PostgresMtrCache] = None,
+) -> tuple[list[HopEvidence], int, int]:
+    if mtr_cache is not None:
+        cached = fetch_postgres_mtr_cache_entry(mtr_cache, dest_ip)
+        if cached is not None:
+            mtr_cache.hits += 1
+            ranked, tail_count = build_ranked_tail_hops(cached.hops)
+            return ranked, len(cached.hops), tail_count
+        mtr_cache.misses += 1
+
+    result = mtr_last_hops_uncached(dest_ip)
+    if mtr_cache is not None:
+        store_postgres_mtr_cache_entry(mtr_cache, dest_ip, result)
+        mtr_cache.writes += 1
+
+    if result.status != MTR_CACHE_STATUS_OK:
+        return [], 0, 0
+
+    hops = result.hops
     ranked, tail_count = build_ranked_tail_hops(hops)
     return ranked, len(hops), tail_count
 
@@ -929,6 +1078,19 @@ def preflight_postgres_ptr_cache(pgsql_dsn: str, table_name: str) -> PgTableRef:
         conn = open_postgres_connection(pgsql_dsn)
         ensure_ptr_cache_table(conn, table_ref)
         validate_ptr_cache_table(conn, table_ref)
+    finally:
+        if conn is not None:
+            conn.close()
+    return table_ref
+
+
+def preflight_postgres_mtr_cache(pgsql_dsn: str, table_name: str) -> PgTableRef:
+    table_ref = parse_pg_table_ref(table_name)
+    conn: Any = None
+    try:
+        conn = open_postgres_connection(pgsql_dsn)
+        ensure_mtr_cache_table(conn, table_ref)
+        validate_mtr_cache_table(conn, table_ref)
     finally:
         if conn is not None:
             conn.close()
@@ -1208,6 +1370,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=f"PostgreSQL table for unmatched hostnames (default: {DEFAULT_PGSQL_TABLE})",
     )
     parser.add_argument(
+        "--pgsql-mtr-cache-table",
+        type=str,
+        default=DEFAULT_PGSQL_MTR_CACHE_TABLE,
+        help=f"PostgreSQL table for MTR cache (default: {DEFAULT_PGSQL_MTR_CACHE_TABLE})",
+    )
+    parser.add_argument(
         "--pgsql-ptr-cache-table",
         type=str,
         default=DEFAULT_PGSQL_PTR_CACHE_TABLE,
@@ -1226,6 +1394,7 @@ def run_rdns_geo_pipeline(
     test_ip: Optional[str] = None,
     pgsql: Optional[str] = None,
     pgsql_table: str = DEFAULT_PGSQL_TABLE,
+    pgsql_mtr_cache_table: str = DEFAULT_PGSQL_MTR_CACHE_TABLE,
     pgsql_ptr_cache_table: str = DEFAULT_PGSQL_PTR_CACHE_TABLE,
     maintenance_token: Optional[str] = None,
     log_sink: Optional[Callable[[str], None]] = None,
@@ -1245,7 +1414,9 @@ def run_rdns_geo_pipeline(
     ).strip()
     pgsql_table_ref: Optional[PgTableRef] = None
     pgsql_rules_table_ref: Optional[PgTableRef] = None
+    pgsql_mtr_cache_table_ref: Optional[PgTableRef] = None
     pgsql_ptr_cache_table_ref: Optional[PgTableRef] = None
+    mtr_cache: Optional[PostgresMtrCache] = None
     ptr_cache: Optional[PostgresPtrCache] = None
 
     previous_log_sink = _log_sink
@@ -1272,6 +1443,15 @@ def run_rdns_geo_pipeline(
         pgsql_rules_skipped = 0
         if pgsql_dsn:
             pgsql_table_ref = preflight_postgres_tracking(pgsql_dsn, pgsql_table)
+            pgsql_mtr_cache_table_ref = preflight_postgres_mtr_cache(
+                pgsql_dsn,
+                pgsql_mtr_cache_table,
+            )
+            mtr_cache = PostgresMtrCache(
+                conn=open_postgres_connection(pgsql_dsn),
+                table_ref=pgsql_mtr_cache_table_ref,
+            )
+            mtr_cache.expired_deleted = cleanup_expired_postgres_mtr_cache(mtr_cache)
             pgsql_ptr_cache_table_ref = preflight_postgres_ptr_cache(
                 pgsql_dsn,
                 pgsql_ptr_cache_table,
@@ -1302,6 +1482,12 @@ def run_rdns_geo_pipeline(
                 f"table={pgsql_rules_table_ref.schema}.{pgsql_rules_table_ref.table} "
                 f"replaced={merged_rules_replaced} appended={merged_rules_appended} "
                 f"skipped={pgsql_rules_skipped}"
+            )
+        if mtr_cache is not None and pgsql_mtr_cache_table_ref is not None:
+            eprint(
+                "pgsql_mtr_cache "
+                f"table={pgsql_mtr_cache_table_ref.schema}.{pgsql_mtr_cache_table_ref.table} "
+                f"expired_deleted={mtr_cache.expired_deleted}"
             )
         if ptr_cache is not None and pgsql_ptr_cache_table_ref is not None:
             eprint(
@@ -1361,7 +1547,10 @@ def run_rdns_geo_pipeline(
                 processed += 1
                 eprint(f"[{processed}/{len(unknown_candidates)}] checking_ip={candidate.ip}")
 
-                ranked_hops, total_hops, tail_hops_count = mtr_last_hops(candidate.ip)
+                ranked_hops, total_hops, tail_hops_count = mtr_last_hops(
+                    candidate.ip,
+                    mtr_cache=mtr_cache,
+                )
                 if not ranked_hops:
                     skipped_no_hops += 1
                     eprint("  result=no_hops")
@@ -1562,6 +1751,12 @@ def run_rdns_geo_pipeline(
             "pgsql_existing_hosts": pgsql_existing_hosts,
             "pgsql_new_hosts": pgsql_new_hosts,
             "pgsql_inserted_hosts": pgsql_inserted_hosts,
+            "pgsql_mtr_cache_hits": mtr_cache.hits if mtr_cache is not None else 0,
+            "pgsql_mtr_cache_misses": mtr_cache.misses if mtr_cache is not None else 0,
+            "pgsql_mtr_cache_writes": mtr_cache.writes if mtr_cache is not None else 0,
+            "pgsql_mtr_cache_expired_deleted": (
+                mtr_cache.expired_deleted if mtr_cache is not None else 0
+            ),
             "pgsql_ptr_cache_hits": ptr_cache.hits if ptr_cache is not None else 0,
             "pgsql_ptr_cache_misses": ptr_cache.misses if ptr_cache is not None else 0,
             "pgsql_ptr_cache_writes": ptr_cache.writes if ptr_cache is not None else 0,
@@ -1578,6 +1773,8 @@ def run_rdns_geo_pipeline(
         eprint(f"Checked {processed} ips, Found new entries: {len(hints_by_prefix)}")
         return done_metrics
     finally:
+        if mtr_cache is not None:
+            mtr_cache.conn.close()
         if ptr_cache is not None:
             ptr_cache.conn.close()
         _log_sink = previous_log_sink
@@ -1596,6 +1793,7 @@ def main() -> int:
             test_ip=args.test_ip,
             pgsql=args.pgsql,
             pgsql_table=args.pgsql_table,
+            pgsql_mtr_cache_table=args.pgsql_mtr_cache_table,
             pgsql_ptr_cache_table=args.pgsql_ptr_cache_table,
         )
     except Exception as exc:

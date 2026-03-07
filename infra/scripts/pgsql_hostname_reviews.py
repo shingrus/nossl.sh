@@ -96,6 +96,30 @@ def ensure_ptr_cache_table(conn: Any, table_ref: PgTableRef) -> None:
     conn.commit()
 
 
+def ensure_mtr_cache_table(conn: Any, table_ref: PgTableRef) -> None:
+    with conn.cursor() as cur:
+        cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{table_ref.schema}"')
+        cur.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {table_ref.quoted} (
+                ip INET PRIMARY KEY,
+                hops_json JSONB DEFAULT NULL,
+                status TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT '',
+                checked_at TIMESTAMPTZ NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL
+            )
+            """
+        )
+        cur.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS "{table_ref.table}_expires_at_idx"
+            ON {table_ref.quoted} (expires_at)
+            """
+        )
+    conn.commit()
+
+
 def validate_hostname_reviews_table(conn: Any, table_ref: PgTableRef) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -159,6 +183,41 @@ def validate_ptr_cache_table(conn: Any, table_ref: PgTableRef) -> None:
 
     by_name = {str(name): str(nullable) for name, nullable in rows}
     required = ("ip", "ptr", "status", "source", "checked_at", "expires_at")
+    missing = [name for name in required if name not in by_name]
+    if missing:
+        raise RuntimeError(
+            f"PostgreSQL table {table_ref.schema}.{table_ref.table} missing columns: "
+            + ",".join(missing)
+        )
+
+    required_not_null = ("ip", "status", "source", "checked_at", "expires_at")
+    nullable_required = [name for name in required_not_null if by_name[name] == "YES"]
+    if nullable_required:
+        raise RuntimeError(
+            f"PostgreSQL table {table_ref.schema}.{table_ref.table} requires NOT NULL for columns: "
+            + ",".join(nullable_required)
+        )
+
+
+def validate_mtr_cache_table(conn: Any, table_ref: PgTableRef) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT column_name, is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            """,
+            (table_ref.schema, table_ref.table),
+        )
+        rows = cur.fetchall()
+
+    if not rows:
+        raise RuntimeError(
+            f"PostgreSQL table {table_ref.schema}.{table_ref.table} not found after creation"
+        )
+
+    by_name = {str(name): str(nullable) for name, nullable in rows}
+    required = ("ip", "hops_json", "status", "source", "checked_at", "expires_at")
     missing = [name for name in required if name not in by_name]
     if missing:
         raise RuntimeError(

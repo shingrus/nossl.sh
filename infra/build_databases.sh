@@ -24,7 +24,7 @@ Options:
                       If omitted, rdns geo step is skipped.
 Environment:
   PGSQL               Optional PostgreSQL DSN for rdns_geo.py unmatched-host
-                      tracking and PTR cache (passed as --pgsql when set).
+                      tracking, PTR cache, and MTR cache (passed as --pgsql when set).
   MAINTENANCE_TOKEN   Required when --ips-url is set (consumed by rdns_geo.py).
   -h, --help          Show this help message.
 EOF

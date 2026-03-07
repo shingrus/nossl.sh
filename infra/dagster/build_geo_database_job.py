@@ -151,6 +151,10 @@ def run_rdns_geo(context, geo_mmdb_path: str):
                 "unmatched",
                 "cymru_missing",
                 "country_conflicts",
+                "pgsql_mtr_cache_hits",
+                "pgsql_mtr_cache_misses",
+                "pgsql_ptr_cache_hits",
+                "pgsql_ptr_cache_misses",
                 "known_city_percent_begin",
                 "known_city_percent_end",
             )
