@@ -99,7 +99,15 @@ def build_asn_data_hourly_schedule():
                     "enabled": True,
                 }
             },
-        },
+            "upload_asn_mmdb_to_github_release": {
+                "config": {
+                    "enabled": True,
+                    "owner": "shingrus",
+                     "repo": "nossl.sh",
+                     "asset_name": "ip2asn-nossl-sh.mmdb"
+                     }
+            },
+    },
         "resources": {
             "paths": {
                 "config": {
