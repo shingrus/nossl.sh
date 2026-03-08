@@ -75,6 +75,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `geofeed_finder` executes `geofeed-finder-linux-x64`, parses `[stats] ... total=<n>` from output, and fails if:
   missing stats line, `geofeed_limit < 0`, or `total < geofeed_limit`.
 - `geofeed_limit` is optional op config with default `5000`.
+- `enable_pgsql` is optional op config with default `false`; when enabled it appends `--pgsql` to `geofeed-finder`.
 - On success, `geofeed_finder` emits output and metadata with `total` and `min_total` for observability.
 - `pdb_asn_geo` executes `./bin/pdb_asn_geo.py --api-key <PDB_KEY> --clean --asn-db asn.sqlite3 --limit 500 --dump-geofeed .cache/pdbdump.txt`.
 - `pdb_asn_geo` requires environment variable `PDB_KEY`; it fails fast if missing.

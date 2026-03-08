@@ -29,7 +29,13 @@ def paths(context):
             default_value=5000,
             is_required=False,
             description="Minimum allowed geofeeds total from geofeed-finder stats.",
-        )
+        ),
+        "enable_pgsql": Field(
+            bool,
+            default_value=False,
+            is_required=False,
+            description="Append --pgsql to geofeed-finder to enable PostgreSQL-backed storage.",
+        ),
     },
 )
 def geofeed_finder(context):
@@ -37,7 +43,7 @@ def geofeed_finder(context):
     work_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=False, exist_ok=True)
     binary = bin_dir / "geofeed-finder-linux-x64"
-    
+
     cmd = [
         str(binary),
         "-x",
@@ -45,6 +51,8 @@ def geofeed_finder(context):
         "-y", "30000",
         "-f", "/opt/nossl/repo/infra/geofeeds.txt",
     ]
+    if context.op_config["enable_pgsql"]:
+        cmd.append("--pgsql")
 
     result = subprocess.run(
         cmd,
