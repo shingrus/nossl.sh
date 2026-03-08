@@ -16,6 +16,7 @@ def geofeed_finder_daily_schedule():
         "ops": {
             "geofeed_finder": {
                 "config": {
+                    "enable_insecure": True,
                     "enable_pgsql": True,
                     "geofeed_limit": 5000,
                 }

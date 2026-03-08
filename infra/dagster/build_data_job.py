@@ -36,6 +36,12 @@ def paths(context):
             is_required=False,
             description="Append --pgsql to geofeed-finder to enable PostgreSQL-backed storage.",
         ),
+        "enable_insecure": Field(
+            bool,
+            default_value=False,
+            is_required=False,
+            description="Append --insecure to geofeed-finder.",
+        ),
     },
 )
 def geofeed_finder(context):
@@ -53,6 +59,8 @@ def geofeed_finder(context):
     ]
     if context.op_config["enable_pgsql"]:
         cmd.append("--pgsql")
+    if context.op_config["enable_insecure"]:
+        cmd.append("--insecure")
 
     result = subprocess.run(
         cmd,
