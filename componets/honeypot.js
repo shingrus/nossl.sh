@@ -425,7 +425,7 @@ export const createHoneypotService = (db, { getClientIp, maxRecords: maxRecordsO
 
   const envConfiguredMax = Number.parseInt(process.env.MAX_HONEYPOT ?? '', 10);
   const defaultMaxRecords =
-    Number.isFinite(envConfiguredMax) && envConfiguredMax > 0 ? envConfiguredMax : 1024;
+    Number.isFinite(envConfiguredMax) && envConfiguredMax > 0 ? envConfiguredMax : 2048;
   const maxRecords =
     Number.isFinite(maxRecordsOverride) && maxRecordsOverride > 0
       ? maxRecordsOverride
