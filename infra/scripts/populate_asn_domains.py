@@ -177,12 +177,23 @@ def load_postgres_columns(connection, schema: str, table: str):
         return {str(row[0]) for row in cursor.fetchall()}
 
 
-def ensure_postgres_asn_domain_table(connection):
+def log_postgres_setup_step(message: str, log_sink=None):
+    if log_sink is not None:
+        log_sink(message)
+        return
+    print(message, file=sys.stderr)
+
+
+def ensure_postgres_asn_domain_table(connection, log_sink=None):
     required_columns = (
         ("asn", "asn BIGINT"),
         ("domain", "domain TEXT"),
     )
 
+    log_postgres_setup_step(
+        "postgres_setup asn_domain create_schema_and_table_start",
+        log_sink=log_sink,
+    )
     with connection.cursor() as cursor:
         cursor.execute(f'CREATE SCHEMA IF NOT EXISTS "{PG_ASN_DOMAIN_SCHEMA}"')
         cursor.execute(
@@ -194,29 +205,73 @@ def ensure_postgres_asn_domain_table(connection):
             """
         )
     connection.commit()
+    log_postgres_setup_step(
+        "postgres_setup asn_domain create_schema_and_table_done",
+        log_sink=log_sink,
+    )
 
+    log_postgres_setup_step(
+        "postgres_setup asn_domain load_columns_before_alter_start",
+        log_sink=log_sink,
+    )
     existing_columns = load_postgres_columns(
         connection,
         PG_ASN_DOMAIN_SCHEMA,
         PG_ASN_DOMAIN_TABLE,
     )
+    log_postgres_setup_step(
+        "postgres_setup asn_domain load_columns_before_alter_done "
+        f"columns={','.join(sorted(existing_columns))}",
+        log_sink=log_sink,
+    )
     with connection.cursor() as cursor:
         for column_name, ddl in required_columns:
             if column_name in existing_columns:
                 continue
+            log_postgres_setup_step(
+                f"postgres_setup asn_domain add_column_start column={column_name}",
+                log_sink=log_sink,
+            )
             cursor.execute(f"ALTER TABLE {PG_ASN_DOMAIN_QUOTED} ADD COLUMN {ddl}")
+            log_postgres_setup_step(
+                f"postgres_setup asn_domain add_column_done column={column_name}",
+                log_sink=log_sink,
+            )
+        log_postgres_setup_step(
+            "postgres_setup asn_domain create_unique_index_start "
+            "index=idx_asn_domain_pg_asn",
+            log_sink=log_sink,
+        )
         cursor.execute(
             f"""
             CREATE UNIQUE INDEX IF NOT EXISTS "idx_asn_domain_pg_asn"
             ON {PG_ASN_DOMAIN_QUOTED} (asn)
             """
         )
+        log_postgres_setup_step(
+            "postgres_setup asn_domain create_unique_index_done "
+            "index=idx_asn_domain_pg_asn",
+            log_sink=log_sink,
+        )
     connection.commit()
+    log_postgres_setup_step(
+        "postgres_setup asn_domain alter_and_index_commit_done",
+        log_sink=log_sink,
+    )
 
+    log_postgres_setup_step(
+        "postgres_setup asn_domain load_columns_after_setup_start",
+        log_sink=log_sink,
+    )
     existing_columns = load_postgres_columns(
         connection,
         PG_ASN_DOMAIN_SCHEMA,
         PG_ASN_DOMAIN_TABLE,
+    )
+    log_postgres_setup_step(
+        "postgres_setup asn_domain load_columns_after_setup_done "
+        f"columns={','.join(sorted(existing_columns))}",
+        log_sink=log_sink,
     )
     missing_columns = [
         column_name
