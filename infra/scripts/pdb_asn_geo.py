@@ -40,7 +40,15 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
 
+try:
+    from infra.scripts.aggregate_asns import get_required_pgsql_dsn, open_postgres_connection
+except ImportError:
+    from aggregate_asns import get_required_pgsql_dsn, open_postgres_connection
+
 BASE = "https://www.peeringdb.com/api"
+PG_ASN_GEO_PDB_SCHEMA = "public"
+PG_ASN_GEO_PDB_TABLE = "asn_geo_pdb"
+PG_ASN_GEO_PDB_QUOTED = f'"{PG_ASN_GEO_PDB_SCHEMA}"."{PG_ASN_GEO_PDB_TABLE}"'
 
 
 # --------------------------
@@ -632,6 +640,78 @@ def ensure_table(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+def load_postgres_columns(connection: Any, schema: str, table: str) -> set[str]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            """,
+            (schema, table),
+        )
+        return {str(row[0]) for row in cursor.fetchall()}
+
+
+def ensure_postgres_asn_geo_pdb_table(connection: Any) -> None:
+    required_columns = (
+        ("asn", "asn BIGINT"),
+        ("country", "country TEXT"),
+        ("city", "city TEXT"),
+        ("dominance", "dominance DOUBLE PRECISION"),
+        ("domain", "domain TEXT"),
+    )
+
+    with connection.cursor() as cursor:
+        cursor.execute(f'CREATE SCHEMA IF NOT EXISTS "{PG_ASN_GEO_PDB_SCHEMA}"')
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {PG_ASN_GEO_PDB_QUOTED} (
+                asn BIGINT PRIMARY KEY,
+                country TEXT,
+                city TEXT,
+                dominance DOUBLE PRECISION,
+                domain TEXT
+            )
+            """
+        )
+    connection.commit()
+
+    existing_columns = load_postgres_columns(
+        connection,
+        PG_ASN_GEO_PDB_SCHEMA,
+        PG_ASN_GEO_PDB_TABLE,
+    )
+    with connection.cursor() as cursor:
+        for column_name, ddl in required_columns:
+            if column_name in existing_columns:
+                continue
+            cursor.execute(f"ALTER TABLE {PG_ASN_GEO_PDB_QUOTED} ADD COLUMN {ddl}")
+        cursor.execute(
+            f"""
+            CREATE UNIQUE INDEX IF NOT EXISTS "idx_asn_geo_pdb_pg_asn"
+            ON {PG_ASN_GEO_PDB_QUOTED} (asn)
+            """
+        )
+    connection.commit()
+
+    existing_columns = load_postgres_columns(
+        connection,
+        PG_ASN_GEO_PDB_SCHEMA,
+        PG_ASN_GEO_PDB_TABLE,
+    )
+    missing_columns = [
+        column_name
+        for column_name, _ in required_columns
+        if column_name not in existing_columns
+    ]
+    if missing_columns:
+        raise RuntimeError(
+            "PostgreSQL table public.asn_geo_pdb missing columns after setup: "
+            + ",".join(missing_columns)
+        )
+
+
 def upsert_rows(
     conn: sqlite3.Connection,
     rows: Iterable[Tuple[int, Optional[str], Optional[str], float, Optional[str]]],
@@ -661,6 +741,38 @@ def upsert_rows(
         conn.commit()
         n += len(batch)
     log.info("Upsert complete: %d rows", n)
+
+
+def upsert_postgres_rows(
+    conn: Any,
+    rows: Iterable[Tuple[int, Optional[str], Optional[str], float, Optional[str]]],
+    log: logging.Logger,
+) -> None:
+    sql = (
+        f"INSERT INTO {PG_ASN_GEO_PDB_QUOTED} (asn, country, city, dominance, domain) "
+        "VALUES (%s, %s, %s, %s, %s) "
+        "ON CONFLICT (asn) DO UPDATE SET "
+        "country=excluded.country, "
+        "city=excluded.city, "
+        "dominance=excluded.dominance, "
+        "domain=excluded.domain"
+    )
+    batch: List[Tuple[int, Optional[str], Optional[str], float, Optional[str]]] = []
+    n = 0
+    with conn.cursor() as cursor:
+        for row in rows:
+            batch.append(row)
+            if len(batch) >= 10_000:
+                cursor.executemany(sql, batch)
+                conn.commit()
+                n += len(batch)
+                log.info("Upserted %d PostgreSQL rows...", n)
+                batch.clear()
+        if batch:
+            cursor.executemany(sql, batch)
+            conn.commit()
+            n += len(batch)
+    log.info("PostgreSQL upsert complete: %d rows", n)
 
 
 # --------------------------
@@ -893,6 +1005,16 @@ def main() -> int:
             debug_asn_from_cache(cache, debug_asn, threshold=args.threshold, log=log)
 
     if args.asn_db:
+        pg_conn = None
+        try:
+            pgsql_dsn = get_required_pgsql_dsn()
+            pg_conn = open_postgres_connection(pgsql_dsn)
+            ensure_postgres_asn_geo_pdb_table(pg_conn)
+            log.info("PostgreSQL public.asn_geo_pdb is ready")
+        except Exception as exc:
+            log.error("PostgreSQL setup failed: %s", exc)
+            return 1
+
         db_path = Path(args.asn_db).expanduser().resolve()
         log.info("Opening SQLite DB: %s", db_path)
         conn = sqlite3.connect(str(db_path))
@@ -910,11 +1032,18 @@ def main() -> int:
             geo = build_asn_geo_from_cache(cache, threshold=args.threshold, log=log)
             log.info("Upserting ASN geo rows into SQLite...")
 
-            rows = (
+            sqlite_rows = (
                 (asn, country, city, float(dom), domain)
                 for asn, (country, city, dom, domain) in geo.items()
             )
-            upsert_rows(conn, rows, log)
+            upsert_rows(conn, sqlite_rows, log)
+            if pg_conn is not None:
+                log.info("Upserting ASN geo rows into PostgreSQL...")
+                postgres_rows = (
+                    (asn, country, city, float(dom), domain)
+                    for asn, (country, city, dom, domain) in geo.items()
+                )
+                upsert_postgres_rows(pg_conn, postgres_rows, log)
 
             if args.dump_geofeed:
                 dump_path = Path(args.dump_geofeed).expanduser().resolve()
@@ -922,6 +1051,9 @@ def main() -> int:
         finally:
             conn.close()
             log.info("SQLite closed")
+            if pg_conn is not None:
+                pg_conn.close()
+                log.info("PostgreSQL closed")
 
     log.info("Done.")
     return 0
