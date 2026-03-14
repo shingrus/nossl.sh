@@ -2,6 +2,7 @@
 import argparse
 import ipaddress
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -10,6 +11,21 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+
+try:
+    import psycopg
+except ImportError:  # pragma: no cover - runtime guard
+    psycopg = None
+
+try:
+    import psycopg2
+except ImportError:  # pragma: no cover - runtime guard
+    psycopg2 = None
+
+
+PG_ASN_SCHEMA = "public"
+PG_ASN_TABLE = "asn"
+PG_ASN_QUOTED = f'"{PG_ASN_SCHEMA}"."{PG_ASN_TABLE}"'
 
 
 def load_json(path: Path):
@@ -484,6 +500,172 @@ def format_ipv6_amount_millions(value):
     return f"{whole}.{rounded:02d}"
 
 
+def get_required_pgsql_dsn():
+    dsn = (os.getenv("PGSQL") or "").strip()
+    if not dsn:
+        raise RuntimeError("Missing PGSQL environment variable")
+    return dsn
+
+
+def open_postgres_connection(dsn: str):
+    if psycopg is not None:
+        return psycopg.connect(dsn)
+    if psycopg2 is not None:
+        return psycopg2.connect(dsn)
+    raise RuntimeError(
+        "PostgreSQL support requires 'psycopg' or 'psycopg2'. "
+        "Install one of them before using PGSQL."
+    )
+
+
+def load_postgres_columns(connection, schema: str, table: str):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            """,
+            (schema, table),
+        )
+        return {str(row[0]) for row in cursor.fetchall()}
+
+
+def ensure_postgres_asn_table(connection):
+    required_columns = (
+        ("asn", "asn BIGINT"),
+        ("handle", "handle TEXT"),
+        ("organization", "organization TEXT"),
+        ("organization_slug", "organization_slug TEXT"),
+        ("country", "country TEXT"),
+        ("ip_amount", "ip_amount NUMERIC"),
+        ("ipv4_amount", "ipv4_amount NUMERIC"),
+        ("ipv6_amount", "ipv6_amount NUMERIC"),
+        ("json", "json TEXT NOT NULL DEFAULT ''"),
+    )
+
+    with connection.cursor() as cursor:
+        cursor.execute(f'CREATE SCHEMA IF NOT EXISTS "{PG_ASN_SCHEMA}"')
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {PG_ASN_QUOTED} (
+                asn BIGINT PRIMARY KEY,
+                handle TEXT,
+                organization TEXT,
+                organization_slug TEXT,
+                country TEXT,
+                ip_amount NUMERIC,
+                ipv4_amount NUMERIC,
+                ipv6_amount NUMERIC,
+                json TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+    connection.commit()
+
+    existing_columns = load_postgres_columns(connection, PG_ASN_SCHEMA, PG_ASN_TABLE)
+    with connection.cursor() as cursor:
+        for column_name, ddl in required_columns:
+            if column_name in existing_columns:
+                continue
+            cursor.execute(f"ALTER TABLE {PG_ASN_QUOTED} ADD COLUMN {ddl}")
+        cursor.execute(
+            f"""
+            CREATE UNIQUE INDEX IF NOT EXISTS "idx_asn_pg_asn"
+            ON {PG_ASN_QUOTED} (asn)
+            """
+        )
+        cursor.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS "idx_asn_ipv4_amount"
+            ON {PG_ASN_QUOTED} (ipv4_amount)
+            """
+        )
+        cursor.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS "idx_asn_ipv6_amount"
+            ON {PG_ASN_QUOTED} (ipv6_amount)
+            """
+        )
+        cursor.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS "idx_asn_org_trim"
+            ON {PG_ASN_QUOTED} (TRIM(organization))
+            """
+        )
+        cursor.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS "idx_asn_org_slug"
+            ON {PG_ASN_QUOTED} (organization_slug)
+            """
+        )
+        cursor.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS "idx_asn_country_trim"
+            ON {PG_ASN_QUOTED} (TRIM(country))
+            """
+        )
+    connection.commit()
+
+    existing_columns = load_postgres_columns(connection, PG_ASN_SCHEMA, PG_ASN_TABLE)
+    missing_columns = [
+        column_name
+        for column_name, _ in required_columns
+        if column_name not in existing_columns
+    ]
+    if missing_columns:
+        raise RuntimeError(
+            "PostgreSQL table public.asn missing columns after setup: "
+            + ",".join(missing_columns)
+        )
+
+
+def write_postgres(entries, connection):
+    def build_row(asn, data, ip_amount, ipv4_amount, ipv6_amount):
+        organization = extract_organization(data)
+        return (
+            asn,
+            extract_handle(data),
+            organization,
+            slugify_organization(organization),
+            extract_country(data),
+            format_ip_amount(ip_amount),
+            format_ip_amount(ipv4_amount),
+            format_ipv6_amount_millions(ipv6_amount),
+            json.dumps(data, ensure_ascii=True),
+        )
+
+    sql = (
+        f"INSERT INTO {PG_ASN_QUOTED} "
+        "(asn, handle, organization, organization_slug, country, ip_amount, ipv4_amount, ipv6_amount, json) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+        "ON CONFLICT (asn) DO UPDATE SET "
+        "handle=excluded.handle, "
+        "organization=excluded.organization, "
+        "organization_slug=excluded.organization_slug, "
+        "country=excluded.country, "
+        "ip_amount=excluded.ip_amount, "
+        "ipv4_amount=excluded.ipv4_amount, "
+        "ipv6_amount=excluded.ipv6_amount, "
+        "json=excluded.json"
+    )
+
+    synced = 0
+    batch = []
+    with connection.cursor() as cursor:
+        for entry in entries:
+            batch.append(build_row(*entry))
+            if len(batch) >= 1000:
+                cursor.executemany(sql, batch)
+                synced += len(batch)
+                batch.clear()
+        if batch:
+            cursor.executemany(sql, batch)
+            synced += len(batch)
+    connection.commit()
+    return synced
+
+
 def write_sqlite(entries, output_path: Path):
     connection = sqlite3.connect(output_path)
     try:
@@ -574,16 +756,27 @@ def main():
 
     args = parser.parse_args()
 
+    try:
+        pgsql_dsn = get_required_pgsql_dsn()
+        postgres_connection = open_postgres_connection(pgsql_dsn)
+        ensure_postgres_asn_table(postgres_connection)
+    except Exception as exc:
+        print(f"error: PostgreSQL setup failed: {exc}", file=sys.stderr)
+        return 2
+
     as_dir = Path(args.as_dir)
     if not as_dir.is_dir():
+        postgres_connection.close()
         print(f"error: ASN directory not found: {as_dir}", file=sys.stderr)
         return 2
 
     try:
         entries, skipped = iter_aggregated(as_dir)
     except IntegrityError:
+        postgres_connection.close()
         return 3
     if not entries:
+        postgres_connection.close()
         if skipped:
             print(
                 "error: no valid aggregated.json entries found",
@@ -597,9 +790,17 @@ def main():
 
 
     output_path = Path(args.output)
-    write_sqlite(entries, output_path)
+    try:
+        write_sqlite(entries, output_path)
+        synced = write_postgres(entries, postgres_connection)
+    except Exception as exc:
+        postgres_connection.close()
+        print(f"error: failed to sync PostgreSQL ASN data: {exc}", file=sys.stderr)
+        return 4
+    postgres_connection.close()
 
     print(f"wrote {output_path} ({len(entries)} ASN entries)")
+    print(f"synced PostgreSQL public.asn ({synced} ASN entries)")
     return 0
 
 

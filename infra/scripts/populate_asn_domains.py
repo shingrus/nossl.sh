@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -9,8 +10,21 @@ import urllib.request
 from email.utils import parseaddr
 from pathlib import Path
 
+try:
+    import psycopg
+except ImportError:  # pragma: no cover - runtime guard
+    psycopg = None
+
+try:
+    import psycopg2
+except ImportError:  # pragma: no cover - runtime guard
+    psycopg2 = None
+
 
 DEFAULT_USER_AGENT = "asn-ip-domain-loader/1.0"
+PG_ASN_DOMAIN_SCHEMA = "public"
+PG_ASN_DOMAIN_TABLE = "asn_domain"
+PG_ASN_DOMAIN_QUOTED = f'"{PG_ASN_DOMAIN_SCHEMA}"."{PG_ASN_DOMAIN_TABLE}"'
 
 
 def normalize_domain(value: str):
@@ -132,6 +146,90 @@ def ensure_tables(connection):
         )
 
 
+def get_required_pgsql_dsn():
+    dsn = (os.getenv("PGSQL") or "").strip()
+    if not dsn:
+        raise RuntimeError("Missing PGSQL environment variable")
+    return dsn
+
+
+def open_postgres_connection(dsn: str):
+    if psycopg is not None:
+        return psycopg.connect(dsn)
+    if psycopg2 is not None:
+        return psycopg2.connect(dsn)
+    raise RuntimeError(
+        "PostgreSQL support requires 'psycopg' or 'psycopg2'. "
+        "Install one of them before using PGSQL."
+    )
+
+
+def load_postgres_columns(connection, schema: str, table: str):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            """,
+            (schema, table),
+        )
+        return {str(row[0]) for row in cursor.fetchall()}
+
+
+def ensure_postgres_asn_domain_table(connection):
+    required_columns = (
+        ("asn", "asn BIGINT"),
+        ("domain", "domain TEXT"),
+    )
+
+    with connection.cursor() as cursor:
+        cursor.execute(f'CREATE SCHEMA IF NOT EXISTS "{PG_ASN_DOMAIN_SCHEMA}"')
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {PG_ASN_DOMAIN_QUOTED} (
+                asn BIGINT PRIMARY KEY,
+                domain TEXT
+            )
+            """
+        )
+    connection.commit()
+
+    existing_columns = load_postgres_columns(
+        connection,
+        PG_ASN_DOMAIN_SCHEMA,
+        PG_ASN_DOMAIN_TABLE,
+    )
+    with connection.cursor() as cursor:
+        for column_name, ddl in required_columns:
+            if column_name in existing_columns:
+                continue
+            cursor.execute(f"ALTER TABLE {PG_ASN_DOMAIN_QUOTED} ADD COLUMN {ddl}")
+        cursor.execute(
+            f"""
+            CREATE UNIQUE INDEX IF NOT EXISTS "idx_asn_domain_pg_asn"
+            ON {PG_ASN_DOMAIN_QUOTED} (asn)
+            """
+        )
+    connection.commit()
+
+    existing_columns = load_postgres_columns(
+        connection,
+        PG_ASN_DOMAIN_SCHEMA,
+        PG_ASN_DOMAIN_TABLE,
+    )
+    missing_columns = [
+        column_name
+        for column_name, _ in required_columns
+        if column_name not in existing_columns
+    ]
+    if missing_columns:
+        raise RuntimeError(
+            "PostgreSQL table public.asn_domain missing columns after setup: "
+            + ",".join(missing_columns)
+        )
+
+
 def has_asn_geo_pdb_table(connection):
     row = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='asn_geo_pdb'"
@@ -176,6 +274,32 @@ def count_pending_asns(connection):
     )
     row = connection.execute(query).fetchone()
     return row[0] if row else 0
+
+
+def sync_postgres_asn_domain(sqlite_connection, postgres_connection):
+    sql = (
+        f"INSERT INTO {PG_ASN_DOMAIN_QUOTED} (asn, domain) "
+        "VALUES (%s, %s) "
+        "ON CONFLICT (asn) DO UPDATE SET domain=excluded.domain"
+    )
+
+    synced = 0
+    batch = []
+    cursor = sqlite_connection.execute(
+        "SELECT asn, domain FROM asn_domain ORDER BY asn"
+    )
+    with postgres_connection.cursor() as pg_cursor:
+        for asn, domain in cursor:
+            batch.append((int(asn), domain))
+            if len(batch) >= 1000:
+                pg_cursor.executemany(sql, batch)
+                synced += len(batch)
+                batch.clear()
+        if batch:
+            pg_cursor.executemany(sql, batch)
+            synced += len(batch)
+    postgres_connection.commit()
+    return synced
 
 
 def main():
@@ -224,8 +348,17 @@ def main():
 
     args = parser.parse_args()
 
+    try:
+        pgsql_dsn = get_required_pgsql_dsn()
+        postgres_connection = open_postgres_connection(pgsql_dsn)
+        ensure_postgres_asn_domain_table(postgres_connection)
+    except Exception as exc:
+        print(f"error: PostgreSQL setup failed: {exc}", file=sys.stderr)
+        return 2
+
     db_path = Path(args.database)
     if not db_path.exists():
+        postgres_connection.close()
         print(f"error: database not found: {db_path}", file=sys.stderr)
         return 2
 
@@ -298,9 +431,13 @@ def main():
             "done: processed "
             f"{total} ASN entries, updated {updated}, missing {missing}"
         )
+        if not args.dry_run:
+            synced = sync_postgres_asn_domain(connection, postgres_connection)
+            print(f"synced PostgreSQL public.asn_domain ({synced} rows)")
         return 0
     finally:
         connection.close()
+        postgres_connection.close()
 
 
 if __name__ == "__main__":
