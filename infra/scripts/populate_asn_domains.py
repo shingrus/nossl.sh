@@ -27,6 +27,62 @@ PG_ASN_DOMAIN_TABLE = "asn_domain"
 PG_ASN_DOMAIN_QUOTED = f'"{PG_ASN_DOMAIN_SCHEMA}"."{PG_ASN_DOMAIN_TABLE}"'
 
 
+def format_sql_for_log(sql: str) -> str:
+    return " ".join(str(sql).split())
+
+
+def log_sql_query(
+    *,
+    engine: str,
+    sql: str,
+    params=None,
+    batch_count=None,
+    log_sink=None,
+):
+    parts = [
+        f"sql_query engine={engine}",
+        f'sql="{format_sql_for_log(sql)}"',
+    ]
+    if params is not None:
+        parts.append(f"params={params!r}")
+    if batch_count is not None:
+        parts.append(f"batch_count={batch_count}")
+    message = " ".join(parts)
+    if log_sink is not None:
+        log_sink(message)
+        return
+    print(message, file=sys.stderr)
+
+
+def execute_logged_sql(target, sql: str, params=None, *, engine: str, log_sink=None):
+    log_sql_query(
+        engine=engine,
+        sql=sql,
+        params=params,
+        log_sink=log_sink,
+    )
+    if params is None:
+        return target.execute(sql)
+    return target.execute(sql, params)
+
+
+def executemany_logged_sql(
+    target,
+    sql: str,
+    batch,
+    *,
+    engine: str,
+    log_sink=None,
+):
+    log_sql_query(
+        engine=engine,
+        sql=sql,
+        batch_count=len(batch),
+        log_sink=log_sink,
+    )
+    return target.executemany(sql, batch)
+
+
 def normalize_domain(value: str):
     if not value:
         return None
@@ -138,11 +194,13 @@ def rdap_lookup_domain(
 
 def ensure_tables(connection):
     with connection:
-        connection.execute(
+        execute_logged_sql(
+            connection,
             "CREATE TABLE IF NOT EXISTS asn_domain ("
             "asn INTEGER PRIMARY KEY, "
             "domain TEXT"
-            ")"
+            ")",
+            engine="sqlite",
         )
 
 
@@ -164,15 +222,18 @@ def open_postgres_connection(dsn: str):
     )
 
 
-def load_postgres_columns(connection, schema: str, table: str):
+def load_postgres_columns(connection, schema: str, table: str, log_sink=None):
     with connection.cursor() as cursor:
-        cursor.execute(
+        execute_logged_sql(
+            cursor,
             """
             SELECT column_name
             FROM information_schema.columns
             WHERE table_schema = %s AND table_name = %s
             """,
             (schema, table),
+            engine="postgresql",
+            log_sink=log_sink,
         )
         return {str(row[0]) for row in cursor.fetchall()}
 
@@ -195,14 +256,22 @@ def ensure_postgres_asn_domain_table(connection, log_sink=None):
         log_sink=log_sink,
     )
     with connection.cursor() as cursor:
-        cursor.execute(f'CREATE SCHEMA IF NOT EXISTS "{PG_ASN_DOMAIN_SCHEMA}"')
-        cursor.execute(
+        execute_logged_sql(
+            cursor,
+            f'CREATE SCHEMA IF NOT EXISTS "{PG_ASN_DOMAIN_SCHEMA}"',
+            engine="postgresql",
+            log_sink=log_sink,
+        )
+        execute_logged_sql(
+            cursor,
             f"""
             CREATE TABLE IF NOT EXISTS {PG_ASN_DOMAIN_QUOTED} (
                 asn BIGINT PRIMARY KEY,
                 domain TEXT
             )
-            """
+            """,
+            engine="postgresql",
+            log_sink=log_sink,
         )
     connection.commit()
     log_postgres_setup_step(
@@ -218,6 +287,7 @@ def ensure_postgres_asn_domain_table(connection, log_sink=None):
         connection,
         PG_ASN_DOMAIN_SCHEMA,
         PG_ASN_DOMAIN_TABLE,
+        log_sink=log_sink,
     )
     log_postgres_setup_step(
         "postgres_setup asn_domain load_columns_before_alter_done "
@@ -232,7 +302,12 @@ def ensure_postgres_asn_domain_table(connection, log_sink=None):
                 f"postgres_setup asn_domain add_column_start column={column_name}",
                 log_sink=log_sink,
             )
-            cursor.execute(f"ALTER TABLE {PG_ASN_DOMAIN_QUOTED} ADD COLUMN {ddl}")
+            execute_logged_sql(
+                cursor,
+                f"ALTER TABLE {PG_ASN_DOMAIN_QUOTED} ADD COLUMN {ddl}",
+                engine="postgresql",
+                log_sink=log_sink,
+            )
             log_postgres_setup_step(
                 f"postgres_setup asn_domain add_column_done column={column_name}",
                 log_sink=log_sink,
@@ -242,11 +317,14 @@ def ensure_postgres_asn_domain_table(connection, log_sink=None):
             "index=idx_asn_domain_pg_asn",
             log_sink=log_sink,
         )
-        cursor.execute(
+        execute_logged_sql(
+            cursor,
             f"""
             CREATE UNIQUE INDEX IF NOT EXISTS "idx_asn_domain_pg_asn"
             ON {PG_ASN_DOMAIN_QUOTED} (asn)
-            """
+            """,
+            engine="postgresql",
+            log_sink=log_sink,
         )
         log_postgres_setup_step(
             "postgres_setup asn_domain create_unique_index_done "
@@ -267,6 +345,7 @@ def ensure_postgres_asn_domain_table(connection, log_sink=None):
         connection,
         PG_ASN_DOMAIN_SCHEMA,
         PG_ASN_DOMAIN_TABLE,
+        log_sink=log_sink,
     )
     log_postgres_setup_step(
         "postgres_setup asn_domain load_columns_after_setup_done "
@@ -286,17 +365,21 @@ def ensure_postgres_asn_domain_table(connection, log_sink=None):
 
 
 def has_asn_geo_pdb_table(connection):
-    row = connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='asn_geo_pdb'"
+    row = execute_logged_sql(
+        connection,
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='asn_geo_pdb'",
+        engine="sqlite",
     ).fetchone()
     return row is not None
 
 
 def domain_from_asn_geo_pdb(connection, asn: int):
-    row = connection.execute(
+    row = execute_logged_sql(
+        connection,
         "SELECT domain FROM asn_geo_pdb "
         "WHERE asn = ? AND domain IS NOT NULL AND TRIM(domain) != ''",
         (asn,),
+        engine="sqlite",
     ).fetchone()
     if not row:
         return None
@@ -315,7 +398,12 @@ def iter_pending_asns(connection, limit):
     if limit is not None:
         query = f"{query} LIMIT ?"
         params = (limit,)
-    cursor = connection.execute(query, params)
+    cursor = execute_logged_sql(
+        connection,
+        query,
+        params,
+        engine="sqlite",
+    )
     for row in cursor:
         yield row[0]
 
@@ -327,7 +415,11 @@ def count_pending_asns(connection):
         "LEFT JOIN asn_domain d ON a.asn = d.asn "
         "WHERE d.asn IS NULL OR d.domain IS NULL OR d.domain = ''"
     )
-    row = connection.execute(query).fetchone()
+    row = execute_logged_sql(
+        connection,
+        query,
+        engine="sqlite",
+    ).fetchone()
     return row[0] if row else 0
 
 
@@ -340,18 +432,30 @@ def sync_postgres_asn_domain(sqlite_connection, postgres_connection):
 
     synced = 0
     batch = []
-    cursor = sqlite_connection.execute(
-        "SELECT asn, domain FROM asn_domain ORDER BY asn"
+    cursor = execute_logged_sql(
+        sqlite_connection,
+        "SELECT asn, domain FROM asn_domain ORDER BY asn",
+        engine="sqlite",
     )
     with postgres_connection.cursor() as pg_cursor:
         for asn, domain in cursor:
             batch.append((int(asn), domain))
             if len(batch) >= 1000:
-                pg_cursor.executemany(sql, batch)
+                executemany_logged_sql(
+                    pg_cursor,
+                    sql,
+                    batch,
+                    engine="postgresql",
+                )
                 synced += len(batch)
                 batch.clear()
         if batch:
-            pg_cursor.executemany(sql, batch)
+            executemany_logged_sql(
+                pg_cursor,
+                sql,
+                batch,
+                engine="postgresql",
+            )
             synced += len(batch)
     postgres_connection.commit()
     return synced
@@ -420,8 +524,10 @@ def main():
     connection = sqlite3.connect(db_path)
     try:
         ensure_tables(connection)
-        table_check = connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='asn'"
+        table_check = execute_logged_sql(
+            connection,
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='asn'",
+            engine="sqlite",
         ).fetchone()
         if not table_check:
             print("error: missing table 'asn' in database", file=sys.stderr)
@@ -470,11 +576,13 @@ def main():
                     print(f"AS{asn} -> {domain}")
                 else:
                     with connection:
-                        connection.execute(
+                        execute_logged_sql(
+                            connection,
                             "INSERT INTO asn_domain (asn, domain) "
                             "VALUES (?, ?) "
                             "ON CONFLICT(asn) DO UPDATE SET domain=excluded.domain",
                             (asn, domain),
+                            engine="sqlite",
                         )
                 updated += 1
             else:
