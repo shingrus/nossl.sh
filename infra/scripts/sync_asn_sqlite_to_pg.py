@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import logging
 import sqlite3
 import sys
 from pathlib import Path
@@ -26,6 +27,16 @@ PG_ASN_DOMAIN_QUOTED = '"public"."asn_domain"'
 PG_ASN_GEO_PDB_QUOTED = '"public"."asn_geo_pdb"'
 
 
+def setup_logger(level: str) -> logging.Logger:
+    log = logging.getLogger("sync-asn-sqlite-to-pg")
+    log.setLevel(level)
+    if not log.handlers:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        log.addHandler(handler)
+    return log
+
+
 def sqlite_table_exists(connection, table_name: str) -> bool:
     row = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
@@ -34,7 +45,12 @@ def sqlite_table_exists(connection, table_name: str) -> bool:
     return row is not None
 
 
-def sync_asn_table(sqlite_connection, postgres_connection) -> int:
+def count_sqlite_rows(connection, table_name: str) -> int:
+    row = connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
+def sync_asn_table(sqlite_connection, postgres_connection, log: logging.Logger) -> int:
     sql = (
         f"INSERT INTO {PG_ASN_QUOTED} "
         "(asn, handle, organization, organization_slug, country, ip_amount, ipv4_amount, ipv6_amount, json) "
@@ -89,6 +105,8 @@ def sync_asn_table(sqlite_connection, postgres_connection) -> int:
             if len(batch) >= 1000:
                 pg_cursor.executemany(sql, batch)
                 synced += len(batch)
+                if synced % 10_000 == 0:
+                    log.info("public.asn sync progress: %d rows", synced)
                 batch.clear()
         if batch:
             pg_cursor.executemany(sql, batch)
@@ -97,7 +115,7 @@ def sync_asn_table(sqlite_connection, postgres_connection) -> int:
     return synced
 
 
-def sync_asn_domain_table(sqlite_connection, postgres_connection) -> int:
+def sync_asn_domain_table(sqlite_connection, postgres_connection, log: logging.Logger) -> int:
     sql = (
         f"INSERT INTO {PG_ASN_DOMAIN_QUOTED} (asn, domain) "
         "VALUES (%s, %s) "
@@ -115,6 +133,8 @@ def sync_asn_domain_table(sqlite_connection, postgres_connection) -> int:
             if len(batch) >= 1000:
                 pg_cursor.executemany(sql, batch)
                 synced += len(batch)
+                if synced % 10_000 == 0:
+                    log.info("public.asn_domain sync progress: %d rows", synced)
                 batch.clear()
         if batch:
             pg_cursor.executemany(sql, batch)
@@ -187,7 +207,7 @@ def ensure_postgres_asn_geo_pdb_table(postgres_connection) -> None:
         )
 
 
-def sync_asn_geo_pdb_table(sqlite_connection, postgres_connection) -> int:
+def sync_asn_geo_pdb_table(sqlite_connection, postgres_connection, log: logging.Logger) -> int:
     sql = (
         f"INSERT INTO {PG_ASN_GEO_PDB_QUOTED} (asn, country, city, dominance, domain) "
         "VALUES (%s, %s, %s, %s, %s) "
@@ -209,6 +229,8 @@ def sync_asn_geo_pdb_table(sqlite_connection, postgres_connection) -> int:
             if len(batch) >= 1000:
                 pg_cursor.executemany(sql, batch)
                 synced += len(batch)
+                if synced % 10_000 == 0:
+                    log.info("public.asn_geo_pdb sync progress: %d rows", synced)
                 batch.clear()
         if batch:
             pg_cursor.executemany(sql, batch)
@@ -226,47 +248,67 @@ def main():
         default="asn.sqlite3",
         help="SQLite database path (default: asn.sqlite3)",
     )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Log level (default: INFO)",
+    )
     args = parser.parse_args()
+    log = setup_logger(args.log_level)
 
     db_path = Path(args.database)
     if not db_path.exists():
-        print(f"error: database not found: {db_path}", file=sys.stderr)
+        log.error("database not found: %s", db_path)
         return 2
 
     try:
+        log.info("Opening PostgreSQL connection")
         pgsql_dsn = get_required_pgsql_dsn()
         postgres_connection = open_postgres_connection(pgsql_dsn)
+        log.info("Ensuring PostgreSQL table public.asn")
         ensure_postgres_asn_table(postgres_connection)
+        log.info("Ensuring PostgreSQL table public.asn_domain")
         ensure_postgres_asn_domain_table(postgres_connection)
+        log.info("Ensuring PostgreSQL table public.asn_geo_pdb")
         ensure_postgres_asn_geo_pdb_table(postgres_connection)
     except Exception as exc:
-        print(f"error: PostgreSQL setup failed: {exc}", file=sys.stderr)
+        log.error("PostgreSQL setup failed: %s", exc)
         return 2
 
+    log.info("Opening SQLite database: %s", db_path)
     sqlite_connection = sqlite3.connect(db_path)
     try:
         if not sqlite_table_exists(sqlite_connection, "asn"):
-            print("error: missing table 'asn' in database", file=sys.stderr)
+            log.error("missing table 'asn' in database")
             return 2
 
-        asn_rows = sync_asn_table(sqlite_connection, postgres_connection)
-        print(f"synced PostgreSQL public.asn ({asn_rows} rows)")
+        asn_total = count_sqlite_rows(sqlite_connection, "asn")
+        log.info("Starting public.asn sync (%d rows planned)", asn_total)
+        asn_rows = sync_asn_table(sqlite_connection, postgres_connection, log)
+        log.info("Finished public.asn sync (%d rows)", asn_rows)
 
         if sqlite_table_exists(sqlite_connection, "asn_domain"):
-            asn_domain_rows = sync_asn_domain_table(sqlite_connection, postgres_connection)
-            print(f"synced PostgreSQL public.asn_domain ({asn_domain_rows} rows)")
+            asn_domain_total = count_sqlite_rows(sqlite_connection, "asn_domain")
+            log.info("Starting public.asn_domain sync (%d rows planned)", asn_domain_total)
+            asn_domain_rows = sync_asn_domain_table(sqlite_connection, postgres_connection, log)
+            log.info("Finished public.asn_domain sync (%d rows)", asn_domain_rows)
         else:
-            print("skipped PostgreSQL public.asn_domain sync: SQLite table missing")
+            log.info("Skipped public.asn_domain sync: SQLite table missing")
 
         if sqlite_table_exists(sqlite_connection, "asn_geo_pdb"):
-            asn_geo_pdb_rows = sync_asn_geo_pdb_table(sqlite_connection, postgres_connection)
-            print(f"synced PostgreSQL public.asn_geo_pdb ({asn_geo_pdb_rows} rows)")
+            asn_geo_pdb_total = count_sqlite_rows(sqlite_connection, "asn_geo_pdb")
+            log.info("Starting public.asn_geo_pdb sync (%d rows planned)", asn_geo_pdb_total)
+            asn_geo_pdb_rows = sync_asn_geo_pdb_table(sqlite_connection, postgres_connection, log)
+            log.info("Finished public.asn_geo_pdb sync (%d rows)", asn_geo_pdb_rows)
         else:
-            print("skipped PostgreSQL public.asn_geo_pdb sync: SQLite table missing")
+            log.info("Skipped public.asn_geo_pdb sync: SQLite table missing")
+        log.info("Sync completed successfully")
         return 0
     finally:
         sqlite_connection.close()
         postgres_connection.close()
+        log.info("Closed SQLite and PostgreSQL connections")
 
 
 if __name__ == "__main__":
