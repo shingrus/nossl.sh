@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+### BEGIN INIT INFO
+# Provides:          dagster-cloud-agent
+# Required-Start:    $remote_fs $syslog $network
+# Required-Stop:     $remote_fs $syslog $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Dagster Cloud Agent (nossl)
+# Description:       Runs the Dagster Cloud agent for the nossl deployment.
+### END INIT INFO
+
+set -euo pipefail
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+NAME="dagster-cloud-agent"
+DESC="Dagster Cloud Agent (nossl)"
+RUN_AS="${RUN_AS:-nossl}"
+RUN_GROUP="${RUN_GROUP:-nossl}"
+WORKDIR="${WORKDIR:-/opt/nossl/repo}"
+ENV_FILE="${ENV_FILE:-/etc/dagster-agent.env}"
+PIDFILE="${PIDFILE:-/run/${NAME}.pid}"
+DAGSTER_HOME="${DAGSTER_HOME:-/opt/nossl/dagster_home}"
+DAEMON="${DAEMON:-/opt/nossl/dagster-venv/bin/dagster-cloud}"
+DAEMON_ARGS=(agent run)
+
+. /lib/lsb/init-functions
+
+load_env() {
+    export DAGSTER_HOME
+    if [[ -r "$ENV_FILE" ]]; then
+        set -a
+        # shellcheck disable=SC1090
+        . "$ENV_FILE"
+        set +a
+    fi
+}
+
+do_start() {
+    load_env
+    if [[ ! -x "$DAEMON" ]]; then
+        log_failure_msg "missing executable: $DAEMON"
+        return 1
+    fi
+    start-stop-daemon \
+        --start \
+        --quiet \
+        --background \
+        --make-pidfile \
+        --pidfile "$PIDFILE" \
+        --chuid "$RUN_AS:$RUN_GROUP" \
+        --chdir "$WORKDIR" \
+        --exec "$DAEMON" \
+        -- "${DAEMON_ARGS[@]}"
+}
+
+do_stop() {
+    start-stop-daemon \
+        --stop \
+        --quiet \
+        --retry=TERM/30/KILL/5 \
+        --pidfile "$PIDFILE"
+}
+
+case "${1:-}" in
+    start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+        if do_start; then
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+    stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        if do_stop; then
+            rm -f "$PIDFILE"
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+    restart|force-reload)
+        "$0" stop || true
+        sleep 1
+        "$0" start
+        ;;
+    status)
+        status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME"
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+        exit 3
+        ;;
+esac

@@ -17,3 +17,5 @@ build_mmdb
 .pdbcache/
 
 infra/beacon/beacon
+
+.claude
