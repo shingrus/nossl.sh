@@ -1,0 +1,22 @@
+[Unit]
+Description=Dagster Cloud Agent (nossl)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=nossl
+Group=nossl
+Environment="DAGSTER_HOME=/opt/nossl/dagster_home"
+EnvironmentFile=/etc/dagster-agent.env
+WorkingDirectory=/opt/nossl/repo
+ExecStart=/opt/nossl/dagster-venv/bin/dagster-cloud agent run
+Restart=always
+RestartSec=5
+NoNewPrivileges=no
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

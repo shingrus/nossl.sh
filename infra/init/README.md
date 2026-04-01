@@ -1,7 +1,7 @@
 # Dagster Agent Provisioning
 
 This directory includes a simple Ubuntu 24.04 bootstrap path for the
-Dagster Cloud agent using a SysV init script.
+Dagster Cloud agent using a native `systemd` service.
 
 ## What it installs
 
@@ -10,7 +10,7 @@ Dagster Cloud agent using a SysV init script.
   - `/opt/nossl/bin`
   - `/opt/nossl/dagster_home`
   - `/var/lib/nossl`
-- Init script: `/etc/init.d/dagster-cloud-agent`
+- Systemd unit: `/etc/systemd/system/dagster-cloud-agent.service`
 - Env file template: `/etc/dagster-agent.env`
 - Dagster config template: `/opt/nossl/dagster_home/dagster.yaml`
 
@@ -34,12 +34,13 @@ Then fill in:
 Start and inspect the service:
 
 ```bash
-sudo service dagster-cloud-agent start
-sudo service dagster-cloud-agent status
+sudo systemctl start dagster-cloud-agent
+sudo systemctl status dagster-cloud-agent
+sudo journalctl -u dagster-cloud-agent -n 50 --no-pager
 ```
 
 ## Scope
 
 The provisioner does not install OS packages, build binaries, or create the
 Dagster virtualenv. It only creates the expected filesystem layout, copies the
-repo, installs the init.d wrapper, and drops config templates.
+repo, installs the systemd unit, and drops config templates.

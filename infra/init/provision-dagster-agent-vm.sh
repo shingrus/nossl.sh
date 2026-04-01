@@ -11,7 +11,7 @@ DAGSTER_HOME="${DAGSTER_HOME:-$APP_ROOT/dagster_home}"
 VENV_DIR="${VENV_DIR:-$APP_ROOT/dagster-venv}"
 WORK_DIR="${WORK_DIR:-/var/lib/nossl}"
 ENV_FILE="${ENV_FILE:-/etc/dagster-agent.env}"
-INITD_PATH="${INITD_PATH:-/etc/init.d/$SERVICE_NAME}"
+SYSTEMD_UNIT_PATH="${SYSTEMD_UNIT_PATH:-/etc/systemd/system/$SERVICE_NAME.service}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -110,20 +110,20 @@ install_config_templates() {
     fi
 }
 
-install_initd() {
-    log "installing init.d wrapper: $INITD_PATH"
-    install -m 0755 -o root -g root \
-        "$REPO_DIR/infra/init/dagster-cloud-agent.initd" \
-        "$INITD_PATH"
-    update-rc.d "$SERVICE_NAME" defaults >/dev/null
+install_systemd_unit() {
+    log "installing systemd unit: $SYSTEMD_UNIT_PATH"
+    install -m 0644 -o root -g root \
+        "$REPO_DIR/infra/init/dagster-cloud-agent.service" \
+        "$SYSTEMD_UNIT_PATH"
+    systemctl daemon-reload
+    systemctl enable "$SERVICE_NAME" >/dev/null
 }
 
 main() {
     require_root
     require_cmd tar
     require_cmd install
-    require_cmd update-rc.d
-    require_cmd start-stop-daemon
+    require_cmd systemctl
 
     ensure_group
     ensure_user
@@ -131,13 +131,13 @@ main() {
     copy_repo
     install_bin_tools
     install_config_templates
-    install_initd
+    install_systemd_unit
 
     log "provisioning complete"
     log "next steps:"
     log "  1. Edit $DAGSTER_HOME/dagster.yaml"
     log "  2. Edit $ENV_FILE"
-    log "  3. Start the service: service $SERVICE_NAME start"
+    log "  3. Start the service: systemctl start $SERVICE_NAME"
 }
 
 main "$@"
