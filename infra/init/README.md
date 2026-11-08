@@ -1,70 +1,51 @@
 # VM init
 
-`init-hatchet-runner-vm.sh` bootstraps the VM that runs the nossl Hatchet
-worker (`infra/hatchet`). Hatchet Cloud holds schedules, run history, and the
-dashboard; the worker on this VM does the work and keeps the long-lived caches
-on local disk.
+`init-hatchet-runner-vm.sh` sets up everything the VM needs to run the nossl
+Hatchet worker (`infra/hatchet`): packages, the `nossl` user, directories, the
+worker binary (built from this checkout), the env file, and the systemd unit.
+Hatchet Cloud holds schedules, run history, and the dashboard.
 
 ## Requirements
 
-- Fresh Ubuntu 24.04, x86_64
-- Root SSH access
-- Outbound internet; no inbound ports are needed beyond SSH
+- Ubuntu, x86_64, with outbound IPv4 (GitHub and the Supabase pooler are IPv4-only)
+- A checkout of this repo on the VM and a user with `sudo`
+- No inbound ports beyond SSH
 
 ## Run
 
-From a checkout on your machine:
-
 ```bash
-scp -r infra/init root@<vm>:/root/init
-ssh root@<vm> bash /root/init/init-hatchet-runner-vm.sh
-```
-
-Then fill in the secrets and start the worker once its binary is installed:
-
-```bash
+git clone https://github.com/shingrus/nossl.sh
+sudo bash nossl.sh/infra/init/init-hatchet-runner-vm.sh
 sudoedit /etc/nossl/worker.env
-systemctl restart nossl-worker
+sudo systemctl restart nossl-worker
 journalctl -u nossl-worker -f
 ```
 
-The script is idempotent: re-run it to update packages, the repo checkout,
-and the systemd unit. It never overwrites an existing `/etc/nossl/worker.env`.
+To deploy a new version, `git pull` and re-run the script: it rebuilds and
+reinstalls the worker and restarts the service. It never overwrites an existing
+`/etc/nossl/worker.env`.
 
 ## What it sets up
 
 | Path | Owner | Purpose |
 |---|---|---|
-| `/opt/nossl/bin/` | root | `nossl-worker` (built from `infra/hatchet`, deployed separately) |
-| `/opt/nossl/repo/` | root | shallow checkout of this repo (Python job scripts, `infra/geofeeds.txt`) |
-| `/etc/nossl/worker.env` | root:nossl `0640` | secrets and config, loaded by systemd |
-| `/var/lib/nossl/` | nossl | persistent state; never wiped between runs |
-| `/var/lib/nossl/geofeed-cache/` | nossl | geofeed-finder cache (deleting it risks RIR blocks) |
-| `/var/lib/nossl/repos/` | nossl | ipverse clones, updated in place (cache; safe to delete) |
-| `/var/lib/nossl/pdbcache/` | nossl | PeeringDB cache |
-| `/var/lib/nossl/out/` | nossl | last few builds of the MMDBs and `asn.sqlite3` (Postgres is the source of truth) |
+| `/opt/nossl/bin/nossl-worker` | root | worker binary, built from `infra/hatchet` |
+| `/etc/nossl/worker.env` | root:nossl `0640` | secrets and config (template: `nossl-worker.env.example`) |
+| `/var/lib/nossl/` | nossl | worker state: source clones and the last few builds (Postgres is the source of truth) |
+| `/etc/systemd/system/nossl-worker.service` | root | runs the worker as `nossl`; starts once `HATCHET_CLIENT_TOKEN` is set |
 
-Also:
+Packages: `ca-certificates`, `curl`, `git`. The build downloads Go
+(`GO_VERSION`, checked against `GO_SHA256`) into a temp directory and deletes it
+afterwards, so no toolchain stays on the VM.
 
-- Packages: `git`, `mtr-tiny`, `dnsutils`, `sqlite3`, `postgresql-client`, and
-  `python3` with `psycopg`/`maxminddb`. The Python bits run the job scripts that
-  haven't been ported to the worker yet.
-- `cap_net_raw` on `mtr-packet` so the unprivileged worker can run `mtr`.
-- A 2G swapfile if the VM has no swap (`SWAP_SIZE=0` skips it).
-- `nossl-worker.service`, enabled. It starts only once the binary exists and
-  `HATCHET_CLIENT_TOKEN` is set.
-- Smoke checks: `mtr` and the Team Cymru DNS lookup. Failures are warnings,
-  not errors.
-- Not yet: geofeed-finder. It will be built from the `shingrus/geofeed-finder`
-  main branch when the geofeed job moves to the worker.
+More packages and directories get added as each job moves to the worker.
 
 ## Overrides
 
 Set as environment variables when running the script, for example
-`REPO_REF=my-branch bash init-hatchet-runner-vm.sh`:
+`sudo GO_VERSION=1.27.4 GO_SHA256=<sha> bash init-hatchet-runner-vm.sh`:
 
-- `REPO_REF` (default `main`): branch or tag of this repo to check out
-- `SWAP_SIZE` (default `2G`, `0` to skip)
+- `GO_VERSION`, `GO_SHA256`: Go toolchain for the build (checksums at `https://go.dev/dl/?mode=json`)
 - `RUN_AS`, `APP_ROOT`, `DATA_DIR`, `ETC_DIR`, `SERVICE_NAME`
 
 ## Secrets

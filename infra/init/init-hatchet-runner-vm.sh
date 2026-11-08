@@ -1,29 +1,30 @@
 #!/usr/bin/env bash
-# Prepare a fresh Ubuntu 24.04 (x86_64) VM to run the nossl Hatchet worker.
-# Idempotent: safe to re-run; never overwrites an existing env file.
+# Prepare an Ubuntu (x86_64) VM to run the nossl Hatchet worker, and build and
+# install the worker from this checkout.
+# Run from a checkout of this repo: sudo bash infra/init/init-hatchet-runner-vm.sh
+# Idempotent: re-run after `git pull` to redeploy; never overwrites an existing env file.
 set -euo pipefail
 
 RUN_AS="${RUN_AS:-nossl}"
 APP_ROOT="${APP_ROOT:-/opt/nossl}"
 BIN_DIR="${BIN_DIR:-$APP_ROOT/bin}"
-REPO_DIR="${REPO_DIR:-$APP_ROOT/repo}"
-REPO_URL="${REPO_URL:-https://github.com/shingrus/nossl.sh}"
-REPO_REF="${REPO_REF:-main}"
 DATA_DIR="${DATA_DIR:-/var/lib/nossl}"
 ETC_DIR="${ETC_DIR:-/etc/nossl}"
 ENV_FILE="${ENV_FILE:-$ETC_DIR/worker.env}"
 SERVICE_NAME="${SERVICE_NAME:-nossl-worker}"
 WORKER_BIN="${WORKER_BIN:-$BIN_DIR/nossl-worker}"
-SWAP_SIZE="${SWAP_SIZE:-2G}" # set to 0 to skip swap creation
+
+# Go toolchain used only for the build, in a temp dir that is removed afterwards.
+GO_VERSION="${GO_VERSION:-1.27.3}"
+GO_SHA256="${GO_SHA256:-65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKER_SRC="$(cd "$SCRIPT_DIR/../hatchet" && pwd)"
+BUILD_TMP=""
+trap '[[ -n "$BUILD_TMP" ]] && rm -rf "$BUILD_TMP"' EXIT
 
 log() {
     printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"
-}
-
-warn() {
-    log "warning: $*"
 }
 
 fail() {
@@ -49,20 +50,8 @@ install_packages() {
     log "installing OS packages"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -q
-    # python3-* packages serve the not-yet-ported Python job scripts; drop them once
-    # every job runs natively in the worker.
-    apt-get install -y -q --no-install-recommends \
-        ca-certificates \
-        curl \
-        git \
-        mtr-tiny \
-        dnsutils \
-        libcap2-bin \
-        sqlite3 \
-        postgresql-client \
-        python3 \
-        python3-psycopg \
-        python3-maxminddb
+    # git: the worker clones ipverse/asn-ip into the data dir. curl: Go download.
+    apt-get install -y -q --no-install-recommends ca-certificates curl git
 }
 
 ensure_user() {
@@ -80,50 +69,27 @@ install_layout() {
     log "creating directories"
     install -d -m 0755 -o root -g root "$APP_ROOT" "$BIN_DIR"
     install -d -m 0750 -o root -g "$RUN_AS" "$ETC_DIR"
-    # Persistent state: never wiped between runs (geofeed-finder's cache must survive).
-    install -d -m 0750 -o "$RUN_AS" -g "$RUN_AS" \
-        "$DATA_DIR" \
-        "$DATA_DIR/geofeed-cache" \
-        "$DATA_DIR/repos" \
-        "$DATA_DIR/pdbcache" \
-        "$DATA_DIR/out"
+    # Worker state (source clones, build outputs); the worker creates its subdirectories.
+    install -d -m 0750 -o "$RUN_AS" -g "$RUN_AS" "$DATA_DIR"
 }
 
-ensure_mtr_raw_socket() {
-    local mtr_packet
-    mtr_packet="$(command -v mtr-packet || true)"
-    [[ -n "$mtr_packet" ]] || fail "mtr-packet not found after installing mtr-tiny"
-    if [[ -u "$mtr_packet" ]] || getcap "$mtr_packet" | grep -q cap_net_raw; then
-        return
-    fi
-    log "granting cap_net_raw to $mtr_packet"
-    setcap cap_net_raw+ep "$mtr_packet"
-}
+build_worker() {
+    BUILD_TMP="$(mktemp -d)"
+    local tmp="$BUILD_TMP"
 
-sync_repo() {
-    if [[ -d "$REPO_DIR/.git" ]]; then
-        log "updating repo $REPO_DIR to $REPO_REF"
-        git -C "$REPO_DIR" fetch --depth 1 origin "$REPO_REF"
-        git -C "$REPO_DIR" reset --hard FETCH_HEAD
-    else
-        log "cloning $REPO_URL ($REPO_REF) into $REPO_DIR"
-        git clone --depth 1 --branch "$REPO_REF" "$REPO_URL" "$REPO_DIR"
-    fi
-}
+    log "downloading Go $GO_VERSION"
+    curl -fsSL --retry 3 -o "$tmp/go.tar.gz" "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+    echo "$GO_SHA256  $tmp/go.tar.gz" | sha256sum --check --status || fail "Go download checksum mismatch"
+    tar -C "$tmp" -xzf "$tmp/go.tar.gz"
 
-ensure_swap() {
-    if [[ "$SWAP_SIZE" == "0" ]]; then
-        return
-    fi
-    if [[ -n "$(swapon --show --noheadings)" ]]; then
-        return
-    fi
-    log "creating ${SWAP_SIZE} swapfile"
-    fallocate -l "$SWAP_SIZE" /swapfile
-    chmod 0600 /swapfile
-    mkswap /swapfile >/dev/null
-    swapon /swapfile
-    grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    log "building nossl-worker from $WORKER_SRC"
+    (
+        cd "$WORKER_SRC"
+        GOTOOLCHAIN=local GOPATH="$tmp/gopath" GOCACHE="$tmp/cache" CGO_ENABLED=0 \
+            "$tmp/go/bin/go" build -buildvcs=false -trimpath -ldflags "-s -w" -o "$tmp/nossl-worker" ./cmd/nossl-worker
+    )
+    install -m 0755 -o root -g root "$tmp/nossl-worker" "$WORKER_BIN"
+    log "installed $WORKER_BIN"
 }
 
 install_env_file() {
@@ -149,26 +115,12 @@ env_has_token() {
 }
 
 maybe_start_service() {
-    if [[ ! -x "$WORKER_BIN" ]]; then
-        log "worker binary not installed yet ($WORKER_BIN); service enabled but not started"
-        return
-    fi
     if ! env_has_token; then
         log "HATCHET_CLIENT_TOKEN is empty in $ENV_FILE; service enabled but not started"
         return
     fi
     log "restarting $SERVICE_NAME"
     systemctl restart "$SERVICE_NAME"
-}
-
-smoke_checks() {
-    log "running smoke checks as $RUN_AS"
-    if ! runuser -u "$RUN_AS" -- mtr -n -r -c 1 1.1.1.1 >/dev/null 2>&1; then
-        warn "mtr probe failed for $RUN_AS (check provider ICMP filtering and mtr-packet capability)"
-    fi
-    if [[ -z "$(dig +short +time=3 TXT 1.1.1.1.origin.asn.cymru.com)" ]]; then
-        warn "Team Cymru DNS lookup returned nothing"
-    fi
 }
 
 main() {
@@ -178,19 +130,15 @@ main() {
     install_packages
     ensure_user
     install_layout
-    ensure_mtr_raw_socket
-    sync_repo
-    ensure_swap
+    build_worker
     install_env_file
     install_service
     maybe_start_service
-    smoke_checks
 
     log "provisioning complete"
     log "next steps:"
     log "  1. Fill in secrets: sudoedit $ENV_FILE"
-    log "  2. Install the worker binary at $WORKER_BIN"
-    log "  3. Start it: systemctl restart $SERVICE_NAME && journalctl -u $SERVICE_NAME -f"
+    log "  2. Start it: systemctl restart $SERVICE_NAME && journalctl -u $SERVICE_NAME -f"
 }
 
 main "$@"

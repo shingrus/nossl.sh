@@ -39,18 +39,20 @@ nossl-worker run-asn -skip-domains -skip-publish
 Trigger a manual Hatchet run from the dashboard; input `{"skip_publish": true}`
 builds everything but uploads nothing.
 
-## Build
+## Build and deploy
 
-The worker is a static binary (pure-Go SQLite driver, no cgo):
+On the VM, `infra/init/init-hatchet-runner-vm.sh` builds the worker from the
+checkout (with a temporary Go toolchain), installs it as
+`/opt/nossl/bin/nossl-worker`, and restarts the service. To deploy: `git pull`
+and re-run it. A restart interrupts running tasks, which Hatchet retries, so
+deploy between runs.
+
+Local build (static binary, pure-Go SQLite driver, no cgo):
 
 ```bash
 cd infra/hatchet
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o nossl-worker ./cmd/nossl-worker
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o nossl-worker ./cmd/nossl-worker
 ```
-
-Install it on the VM as `/opt/nossl/bin/nossl-worker`, then
-`systemctl restart nossl-worker`. Deploy between runs: a restart interrupts
-running tasks, which Hatchet retries.
 
 ## Parity check against the Python scripts
 

@@ -16,7 +16,7 @@ RestartSec=10
 KillMode=mixed
 TimeoutStopSec=60
 LimitNOFILE=65536
-# NoNewPrivileges stays off: mtr-packet needs its cap_net_raw file capability.
+NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
