@@ -1,0 +1,26 @@
+[Unit]
+Description=nossl Hatchet worker (IP database pipelines)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nossl
+Group=nossl
+EnvironmentFile=/etc/nossl/worker.env
+WorkingDirectory=/var/lib/nossl
+ExecStart=/opt/nossl/bin/nossl-worker
+Restart=always
+RestartSec=10
+# Let in-flight tasks stop cleanly on deploys; Hatchet retries interrupted tasks.
+KillMode=mixed
+TimeoutStopSec=60
+LimitNOFILE=65536
+# NoNewPrivileges stays off: mtr-packet needs its cap_net_raw file capability.
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/nossl
+
+[Install]
+WantedBy=multi-user.target

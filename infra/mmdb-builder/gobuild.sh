@@ -8,4 +8,4 @@ cd "$SCRIPT_DIR"
 go build -o "$OUT_PATH" ./build_mmdb.go
 
 # go mod tidy
-#go mod init nossl.sh/buildmmdb
+#go mod init nossl.sh/mmdb-builder

@@ -21,7 +21,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `/` main HTML diagnostics page
 - `/api/request-info` JSON diagnostics
 - `/free-geo-ip` free GeoIP + ASN lookup page
-- `/api/ip` GeoIP + ASN JSON lookup (use `?ip=`)
+- `/api/ip` GeoIP + ASN JSON lookup (pass the IP as a bare query string: `/api/ip?8.8.8.8`)
 - `/api/beacon` beacon payload lookup via `<uniq>.r.nossl.sh` host (Redis)
 - `/healthz` health check
 - `/status/:code` return any HTTP status (optional `?location=`)
@@ -54,10 +54,13 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `infra/dagster/build_geo_database_job.py` Dagster GEO pipeline job (`build_geo_database_job`)
 - `infra/dagster/common_ops.py` shared Dagster ops (for example `build_date_tag`)
 - `infra/dagster/utils.py` shared Dagster helpers and utilities (paths access, guarded temp-dir cleanup, symlink update, and failure-hook factories)
+- `infra/init/` VM bootstrap for the Hatchet worker: `init-hatchet-runner-vm.sh`, `nossl-worker.service`, `nossl-worker.env.example` (see its README)
+- `infra/hatchet/` Go Hatchet worker (`cmd/nossl-worker`); `build-asn-data` workflow in `internal/asn` (see its README)
 - `infra/scripts/` Python data tooling (ASN aggregation, domain population, rDNS pipelines)
-- `infra/configs/` config and rule files (`rdns_geo_rules.json`, `*.conf`, geofeed lists)
+- `infra/configs/` server configs (`nginx.conf`, `knnot.conf`)
+- `infra/rdns_geo_rules.json` rDNS geo matcher rules (fetched by the geo job from its raw GitHub URL), `infra/geofeeds.txt` extra geofeed URLs for geofeed-finder
 - `infra/beacon/` Go service that ingests dnstap and stores `beacon:<uniq>` in Redis
-- `infra/mmdb-builder/` Go toolchain for building the ASN MMDB from per-ASN `aggregated.json` files
+- `infra/mmdb-builder/` Go module `nossl.sh/mmdb-builder`: package `mmdb/` builds the ip2asn and ip2geo MMDBs; `build_mmdb.go` is its CLI
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
 
 ## Dagster build data jobs
@@ -94,8 +97,16 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `cleanup_asn_temp_dir` and `cleanup_geo_temp_dir` remove temp dirs at the end of successful runs.
 - `build_asn_data_job` and `build_geo_database_job` have failure hooks that also remove their temp dirs on failed runs.
 
+## Go worker (Hatchet)
+- Jobs move from Dagster to `infra/hatchet` one at a time; so far only the ASN build (`build-asn-data`).
+- Postgres (`PGSQL`, Supabase session pooler) is the source of truth for `asn`, `asn_domain`, `asn_geo_pdb`;
+  `asn.sqlite3` is an export for the website, published to R2 with the ip2asn MMDB.
+- Keep `asn` row formatting byte-identical to `infra/scripts/aggregate_asns.py` (see `internal/pyjson`);
+  verify changes with the parity check in `infra/hatchet/README.md`.
+- Hatchet stores task inputs, outputs, and log lines: never put secrets or visitor IPs in them.
+
 ## ASN MMDB builder
-- Go entry point: `infra/mmdb-builder/build_mmdb.go`
+- CLI: `infra/mmdb-builder/build_mmdb.go` (flags only). Build logic: package `mmdb` in `infra/mmdb-builder/mmdb/` (`asn.go`, `country.go`, `geofeed.go`, `prefixes.go`, `lookup.go`), also imported by `infra/hatchet`
 - Inputs: `as/<ASN>/aggregated.json` directories (parsed for ASN metadata and IPv4/IPv6 prefixes)
 - Optional country inputs: `<country-dir>/<code>/aggregated.json` directories (parsed for country name/code and IPv4/IPv6 prefixes)
 - Output: ASN MMDB file (`-asn-out`, default `nossl-sh-ip-to-asn.mmdb`)

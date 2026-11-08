@@ -1,12 +1,13 @@
 # Pull Agent (S3 -> local DB artifacts)
 
 This folder contains a small Python pull agent and systemd units to keep a
-local `ip2geo`/`ip2asn` MMDB and `asn.sqlite3` updated from S3.
+local `ip2geo`/`ip2asn` MMDB and `asn.sqlite3` updated from S3 or Cloudflare R2.
 
 ## What it does
 
-- Reads date folders in S3 that match `YYYY-MM-DD`
-- Picks the latest date folder
+- Reads date folders in the bucket that match `YYYY-MM-DD`
+- For each file, picks the latest of the last 14 date folders that contains it,
+  so the ASN files update even while no new geo file is published
 - Builds expected file names from that folder:
   `ip2geo-nossl-sh-YYYYMMDD.mmdb`, `ip2asn-nossl-sh-YYYYMMDD.mmdb`,
   and `asn.sqlite3`
@@ -61,4 +62,20 @@ python3 infra/pull-agent/nossl-pull-agent.py \
   --dry-run
 ```
 
-Environment file should contain only AWS credentials when needed.
+## Cloudflare R2
+
+The Hatchet worker publishes to R2. Point the agent at it with
+`--endpoint-url` and region `auto`, and put a **read-only** R2 API token for
+the bucket into the env file as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`:
+
+```bash
+python3 infra/pull-agent/nossl-pull-agent.py \
+  --bucket nossl-sh-dbs \
+  --region auto \
+  --endpoint-url https://<account-id>.r2.cloudflarestorage.com \
+  --geo-target /opt/nossl/ip2geo-latest.mmdb \
+  --asn-target /opt/nossl/ip2asn-latest.mmdb \
+  --asn-sqlite-target /opt/nossl/asn.sqlite3
+```
+
+Environment file should contain only the bucket credentials when needed.

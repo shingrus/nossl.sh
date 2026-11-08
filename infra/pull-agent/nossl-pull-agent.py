@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Pull the latest artifacts from S3 and install them atomically.
+Pull the latest artifacts from S3 (or Cloudflare R2 via --endpoint-url) and
+install them atomically.
 
 Selection logic:
 1) List top-level date folders matching YYYY-MM-DD.
-2) Pick the latest date folder.
-3) Build expected filenames from the latest folder date:
+2) For each dataset, pick the latest date folder that contains its file, so a
+   dataset published less often never blocks the others.
+3) Expected filenames are built from that folder's date:
    `ip2geo-nossl-sh-<YYYYMMDD>.mmdb`, `ip2asn-nossl-sh-<YYYYMMDD>.mmdb`,
    and/or `asn.sqlite3`.
 4) Download each only when target file size differs, then atomically replace target.
@@ -33,6 +35,7 @@ INSTALL_MODE = 0o644
 SUPPORTED_DATASETS = ("ip2geo", "ip2asn", "asn-sqlite")
 RELOAD_URL = "http://127.0.0.1:8080/api/reload"
 RELOAD_TIMEOUT_SECONDS = 5.0
+MAX_FOLDER_LOOKBACK = 14
 
 
 @dataclass(frozen=True)
@@ -101,6 +104,18 @@ def get_required_object(client: Any, bucket: str, key: str) -> S3Object:
         key=key,
         size=int(response.get("ContentLength") or 0),
     )
+
+
+def find_latest_folder_with(
+    client: Any, bucket: str, folders: list[str], dataset: str
+) -> Optional[str]:
+    for folder in reversed(folders[-MAX_FOLDER_LOOKBACK:]):
+        try:
+            get_required_object(client=client, bucket=bucket, key=build_expected_key(folder, dataset))
+        except RuntimeError:
+            continue
+        return folder
+    return None
 
 
 def temp_prefix_for(dataset: str) -> str:
@@ -257,7 +272,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--region",
         required=True,
-        help="S3 region",
+        help="S3 region (use 'auto' for Cloudflare R2)",
+    )
+    parser.add_argument(
+        "--endpoint-url",
+        default=None,
+        help="S3-compatible endpoint, e.g. https://<account-id>.r2.cloudflarestorage.com",
     )
     parser.add_argument("--target", help="Backward-compatible alias for --geo-target")
     parser.add_argument("--geo-target", help="Target MMDB file path for ip2geo")
@@ -314,6 +334,7 @@ def main(argv: list[str]) -> int:
     client = boto3.client(
         "s3",
         region_name=args.region,
+        endpoint_url=args.endpoint_url or None,
     )
 
     folders = list_date_folders(client, args.bucket)
@@ -321,12 +342,19 @@ def main(argv: list[str]) -> int:
         eprint(f"No YYYY-MM-DD folders found in s3://{args.bucket}/")
         return 1
 
-    latest_folder = folders[-1]
-    log(f"latest date folder: {latest_folder}")
-
-    try:
-        installed_by_dataset: dict[str, bool] = {}
-        for target in targets:
+    failed = False
+    installed_by_dataset: dict[str, bool] = {}
+    for target in targets:
+        latest_folder = find_latest_folder_with(client, args.bucket, folders, target.dataset)
+        if latest_folder is None:
+            eprint(
+                f"[{target.dataset}] no file in the last {MAX_FOLDER_LOOKBACK} date folders "
+                f"of s3://{args.bucket}/"
+            )
+            failed = True
+            continue
+        log(f"[{target.dataset}] latest date folder: {latest_folder}")
+        try:
             installed = sync_dataset_to_target(
                 client=client,
                 bucket=args.bucket,
@@ -334,16 +362,21 @@ def main(argv: list[str]) -> int:
                 target=target,
                 dry_run=args.dry_run,
             )
-            installed_by_dataset[target.dataset] = (
-                installed_by_dataset.get(target.dataset, False) or installed
-            )
+        except RuntimeError as exc:
+            eprint(f"[{target.dataset}] {exc}")
+            failed = True
+            continue
+        installed_by_dataset[target.dataset] = (
+            installed_by_dataset.get(target.dataset, False) or installed
+        )
 
+    try:
         if not args.dry_run and installed_by_dataset.get("asn-sqlite", False):
             post_reload()
-        return 0
     except RuntimeError as exc:
         eprint(str(exc))
         return 1
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

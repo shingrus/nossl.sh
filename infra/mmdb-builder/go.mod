@@ -1,4 +1,4 @@
-module nossl.sh/buildmmdb
+module nossl.sh/mmdb-builder
 
 go 1.25.5
 
