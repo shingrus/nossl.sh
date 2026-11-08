@@ -55,6 +55,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `infra/dagster/common_ops.py` shared Dagster ops (for example `build_date_tag`)
 - `infra/dagster/utils.py` shared Dagster helpers and utilities (paths access, guarded temp-dir cleanup, symlink update, and failure-hook factories)
 - `infra/init/` VM bootstrap for the Hatchet worker: `init-hatchet-runner-vm.sh`, `nossl-worker.service`, `nossl-worker.env.example` (see its README)
+- `infra/pull-agent/` Python pull agent + systemd units that install the MMDBs and `asn.sqlite3` from Cloudflare R2 (see its README)
 - `infra/hatchet/` Go Hatchet worker (`cmd/nossl-worker`); `build-asn-data` workflow in `internal/asn` (see its README)
 - `infra/scripts/` Python data tooling (ASN aggregation, domain population, rDNS pipelines)
 - `infra/configs/` server configs (`nginx.conf`, `knnot.conf`)
