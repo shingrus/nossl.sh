@@ -20,7 +20,38 @@ func main() {
 	testMMDB := flag.String("test-mmdb", "", "mmdb path to test against ips.txt and builtin IPs")
 	testIP := flag.String("ip", "", "single IP to test with -test-mmdb (overrides ips.txt and builtin IPs)")
 	debugMode := flag.Bool("debug", false, "include network (inetnum) in mmdb records")
+	compareOld := flag.String("compare-old", "", "previous ip2geo mmdb for the release gate (use with -compare-new)")
+	compareNew := flag.String("compare-new", "", "new ip2geo mmdb for the release gate (use with -compare-old)")
+	maxChangedShare := flag.Float64("max-changed-share", 0.05, "release gate: max share of previously covered IPv4 space that may change country")
+	maxCoverageDrop := flag.Float64("max-coverage-drop", 0.02, "release gate: max relative loss of covered IPv4 space")
 	flag.Parse()
+
+	if *compareOld != "" || *compareNew != "" {
+		if *compareOld == "" || *compareNew == "" {
+			fmt.Fprintln(os.Stderr, "error: -compare-old and -compare-new must be set together")
+			os.Exit(2)
+		}
+		stats, err := mmdb.CompareGeo(*compareOld, *compareNew)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("[compare] old_covered=%d new_covered=%d changed_country=%d changed_share=%.6f coverage_drop=%.6f\n",
+			stats.OldCovered, stats.NewCovered, stats.ChangedCountry, stats.ChangedShare(), stats.CoverageDrop())
+		failed := false
+		if stats.ChangedShare() > *maxChangedShare {
+			fmt.Fprintf(os.Stderr, "gate failed: changed_share %.6f > max %.6f\n", stats.ChangedShare(), *maxChangedShare)
+			failed = true
+		}
+		if stats.CoverageDrop() > *maxCoverageDrop {
+			fmt.Fprintf(os.Stderr, "gate failed: coverage_drop %.6f > max %.6f\n", stats.CoverageDrop(), *maxCoverageDrop)
+			failed = true
+		}
+		if failed {
+			os.Exit(3)
+		}
+		return
+	}
 
 	if *patchMMDBPath != "" || *patchGeofeedPath != "" {
 		if *patchMMDBPath == "" || *patchGeofeedPath == "" {
