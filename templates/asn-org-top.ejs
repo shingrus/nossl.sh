@@ -15,7 +15,7 @@
     <%
       const headerNote = pageTitle;
       const relatedLinks = Array.isArray(pageLinks)
-        ? pageLinks.filter((link) => !link.active).map((link) => `<a href="${link.path}">${link.label}</a>`)
+        ? pageLinks.filter((link) => !link.active).map((link) => `<a href="https://openipdata.org${link.path}">${link.label}</a>`)
         : [];
       const footerLines = [
         'Return to the <a href="/">main nossl.sh page</a>.',
@@ -38,7 +38,7 @@
               <% if (link.active) { %>
                 <span class="pill"><%= link.label %></span>
               <% } else { %>
-                <a class="pill pill-muted" href="<%= link.path %>"><%= link.label %></a>
+                <a class="pill pill-muted" href="https://openipdata.org<%= link.path %>"><%= link.label %></a>
               <% } %>
             <% }) %>
           </div>
@@ -86,7 +86,7 @@
                       <td class="mono"><%= index + 1 %></td>
                       <td>
                         <% if (entry.orgSlug) { %>
-                          <a href="/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
+                          <a href="https://openipdata.org/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
                         <% } else { %>
                           <%= entry.displayOrganization %>
                         <% } %>
@@ -97,7 +97,7 @@
                         <% if (entry.topAsns.length) { %>
                           <div class="pill-row">
                             <% entry.topAsns.forEach((asnEntry) => { %>
-                              <a class="pill pill-muted" href="/as<%= asnEntry.asn %>">AS<%= asnEntry.asn %></a>
+                              <a class="pill pill-muted" href="https://openipdata.org/as<%= asnEntry.asn %>">AS<%= asnEntry.asn %></a>
                             <% }) %>
                           </div>
                           <% if (entry.topAsnSummary) { %>

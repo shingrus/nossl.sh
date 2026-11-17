@@ -44,7 +44,7 @@
       const hasSecondaryIp = secondaryIp && secondaryIp.trim() && secondaryIp !== mainIp;
       const geo = report?.geo;
       const resolverIp = (report?.resolverIp || report?.resolver_ip || '').trim();
-      const orgLink = geo?.asn ? `/as${geo.asn}` : null;
+      const orgLink = geo?.asn ? `https://openipdata.org/as${geo.asn}` : null;
       const geoLocationLabel = geo?.countryName || geo?.cityName
         ? [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ')
         : null;

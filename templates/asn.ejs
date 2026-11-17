@@ -52,7 +52,7 @@
                 <dt>Organization</dt>
                 <dd>
                   <% if (orgName && orgSlug) { %>
-                    <a href="/asn-<%= orgSlug %>"><%= orgName %></a>
+                    <a href="https://openipdata.org/asn-<%= orgSlug %>"><%= orgName %></a>
                   <% } else { %>
                     <%= orgName || 'N/A' %>
                   <% } %>
@@ -67,7 +67,7 @@
                 <dt>Country</dt>
                 <dd>
                   <% if (countryDisplay && countryPath) { %>
-                    <a href="<%= countryPath %>"><%= countryDisplay %></a>
+                    <a href="https://openipdata.org<%= countryPath %>"><%= countryDisplay %></a>
                   <% } else { %>
                     <%= countryDisplay || 'N/A' %>
                   <% } %>
@@ -118,7 +118,7 @@
                         <tbody>
                             <% relatedAsns.forEach((related) => { %>
                                 <tr>
-                                    <td><a href="/as<%= related.asn %>">AS<%= related.asn %></a></td>
+                                    <td><a href="https://openipdata.org/as<%= related.asn %>">AS<%= related.asn %></a></td>
                                     <td class="mono"><%= related.handle || 'N/A' %></td>
                                     <td class="mono"><%= related.ipv4PrefixCount == null ? 'N/A' : related.ipv4PrefixCount %></td>
                                     <td class="mono"><%= related.ipv6PrefixCount == null ? 'N/A' : related.ipv6PrefixCount %></td>
@@ -192,10 +192,10 @@
           </div>
         </header>
         <div class="pill-row">
-            <a class="pill pill-muted" href="/list-of-countries-by-ipv4-allocation">List of countries by IPv4 allocation</a>
-            <a class="pill pill-muted" href="/top-asn-by-ip-address">Top ASNs by IPv4</a>
-            <a class="pill pill-muted" href="/top-asn-by-ipv6">Top ASNs by IPv6</a>
-            <a class="pill pill-muted" href="/top-organizations-by-ip-address">Top orgs by IPv4</a>
+            <a class="pill pill-muted" href="https://openipdata.org/list-of-countries-by-ipv4-allocation">List of countries by IPv4 allocation</a>
+            <a class="pill pill-muted" href="https://openipdata.org/top-asn-by-ip-address">Top ASNs by IPv4</a>
+            <a class="pill pill-muted" href="https://openipdata.org/top-asn-by-ipv6">Top ASNs by IPv6</a>
+            <a class="pill pill-muted" href="https://openipdata.org/top-organizations-by-ip-address">Top orgs by IPv4</a>
         </div>
       </section>
 

@@ -92,7 +92,7 @@
                 <% } else { %>
                   <% entries.forEach((entry) => { %>
                     <tr>
-                      <td><a href="/as<%= entry.asn %>">AS<%= entry.asn %></a></td>
+                      <td><a href="https://openipdata.org/as<%= entry.asn %>">AS<%= entry.asn %></a></td>
                       <td class="mono"><%= entry.handle || 'N/A' %></td>
                       <td class="mono"><%= entry.ipv4PrefixCount == null ? 'N/A' : entry.ipv4PrefixCount %></td>
                       <td class="mono"><%= entry.ipv6PrefixCount == null ? 'N/A' : entry.ipv6PrefixCount %></td>
@@ -114,10 +114,10 @@
           </div>
         </header>
         <div class="pill-row">
-            <a class="pill pill-muted" href="/list-of-countries-by-ipv4-allocation">List of countries by IPv4 allocation</a>
-            <a class="pill pill-muted" href="/top-asn-by-ip-address">Top ASNs by IPv4</a>
-            <a class="pill pill-muted" href="/top-asn-by-ipv6">Top ASNs by IPv6</a>
-            <a class="pill pill-muted" href="/top-organizations-by-ip-address">Top orgs by IPv4</a>
+            <a class="pill pill-muted" href="https://openipdata.org/list-of-countries-by-ipv4-allocation">List of countries by IPv4 allocation</a>
+            <a class="pill pill-muted" href="https://openipdata.org/top-asn-by-ip-address">Top ASNs by IPv4</a>
+            <a class="pill pill-muted" href="https://openipdata.org/top-asn-by-ipv6">Top ASNs by IPv6</a>
+            <a class="pill pill-muted" href="https://openipdata.org/top-organizations-by-ip-address">Top orgs by IPv4</a>
         </div>
       </section>
 

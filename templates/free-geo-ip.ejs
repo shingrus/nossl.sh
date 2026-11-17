@@ -37,7 +37,7 @@
         ? [geo?.countryName, geo?.cityName].filter(Boolean).join(' - ')
         : null;
       const geoSummary = locationLabel ? [geo?.countryFlag, locationLabel].filter(Boolean).join(' ') : null;
-      const orgLink = geo?.asn ? `/as${geo.asn}` : null;
+      const orgLink = geo?.asn ? `https://openipdata.org/as${geo.asn}` : null;
       const asnLabel = geo?.asn ? `AS${geo.asn}` : null;
     %>
     <%- include('partials/header', {headerNote}) %>
@@ -113,7 +113,7 @@
                   <dt>Country</dt>
                   <dd class="mono">
                     <% if (countryPath && geo.countryCode) { %>
-                      <a href="<%= countryPath %>"><%= geo.countryCode %></a>
+                      <a href="https://openipdata.org<%= countryPath %>"><%= geo.countryCode %></a>
                     <% } else { %>
                       <%= geo.countryCode || 'N/A' %>
                     <% } %>
@@ -123,7 +123,7 @@
                   <dt>Country name</dt>
                   <dd>
                     <% if (countryPath && geo.countryName) { %>
-                      <a href="<%= countryPath %>"><%= geo.countryName %></a>
+                      <a href="https://openipdata.org<%= countryPath %>"><%= geo.countryName %></a>
                     <% } else { %>
                       <%= geo.countryName || 'N/A' %>
                     <% } %>

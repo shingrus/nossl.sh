@@ -28,7 +28,7 @@
       const paginationData = typeof pagination !== 'undefined' ? pagination : null;
       const totalColumnCount = 4 + (showSecondaryAmount ? 1 : 0) + (showRelatedAsnsColumn ? 1 : 0);
       const relatedLinks = Array.isArray(pageLinks)
-        ? pageLinks.filter((link) => !link.active).map((link) => `<a href="${link.path}">${link.label}</a>`)
+        ? pageLinks.filter((link) => !link.active).map((link) => `<a href="https://openipdata.org${link.path}">${link.label}</a>`)
         : [];
       const footerLines = [
         'Return to the <a href="/">main nossl.sh page</a>.',
@@ -52,7 +52,7 @@
               <% if (link.active) { %>
                 <span class="pill"><%= link.label %></span>
               <% } else { %>
-                <a class="pill pill-muted" href="<%= link.path %>"><%= link.label %></a>
+                <a class="pill pill-muted" href="https://openipdata.org<%= link.path %>"><%= link.label %></a>
               <% } %>
             <% }) %>
           </div>
@@ -104,10 +104,10 @@
                     <% const relatedAsns = Array.isArray(entry.relatedAsns) ? entry.relatedAsns : []; %>
                     <tr>
                       <td class="mono"><%= entry.rank ?? index + 1 %></td>
-                      <td><a href="/as<%= entry.asn %>">AS<%= entry.asn %></a></td>
+                      <td><a href="https://openipdata.org/as<%= entry.asn %>">AS<%= entry.asn %></a></td>
                       <td>
                         <% if (entry.orgSlug) { %>
-                          <a href="/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
+                          <a href="https://openipdata.org/asn-<%= entry.orgSlug %>"><%= entry.displayOrganization %></a>
                         <% } else { %>
                           <div><%= entry.displayOrganization %></div>
                         <% } %>
@@ -121,7 +121,7 @@
                           <% if (relatedAsns.length) { %>
                             <div class="pill-row">
                               <% relatedAsns.forEach((related) => { %>
-                                <a class="pill pill-muted" href="/as<%= related.asn %>">AS<%= related.asn %></a>
+                                <a class="pill pill-muted" href="https://openipdata.org/as<%= related.asn %>">AS<%= related.asn %></a>
                               <% }) %>
                             </div>
                           <% } else { %>

@@ -303,8 +303,8 @@
           ? resolverAsnRaw
           : Number.parseInt(String(resolverAsnRaw || '').trim(), 10);
         const resolverLink = resolverOrgSlug
-          ? `/asn-${resolverOrgSlug}`
-          : (Number.isSafeInteger(resolverAsn) && resolverAsn > 0 ? `/as${resolverAsn}` : '');
+          ? `https://openipdata.org/asn-${resolverOrgSlug}`
+          : (Number.isSafeInteger(resolverAsn) && resolverAsn > 0 ? `https://openipdata.org/as${resolverAsn}` : '');
         setBeaconResolver(resolverIp, {
           linkToGeo: Boolean(resolverIp),
           resolverName,
