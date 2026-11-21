@@ -59,7 +59,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `infra/hatchet/` Go Hatchet worker (`cmd/nossl-worker`); `build-asn-data` workflow in `internal/asn` (see its README)
 - `infra/scripts/` Python data tooling (ASN aggregation, domain population, rDNS pipelines)
 - `infra/configs/` server configs (`nginx.conf`, `knnot.conf`)
-- `infra/rdns_geo_rules.json` rDNS geo matcher rules (fetched by the geo job from its raw GitHub URL), `infra/geofeeds.txt` extra geofeed URLs for geofeed-finder
+- `infra/rdns_geo_rules.json` rDNS geo matcher rules (read by the geo job from the deployed checkout), `infra/geofeeds.txt` extra geofeed URLs for geofeed-finder
 - `infra/beacon/` Go service that ingests dnstap and stores `beacon:<uniq>` in Redis
 - `infra/mmdb-builder/` Go module `nossl.sh/mmdb-builder`: package `mmdb/` builds the ip2asn and ip2geo MMDBs; `build_mmdb.go` is its CLI
 - `deploy-nossl.sh` production deployment script (systemd + nginx)
@@ -74,7 +74,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
   - `geofeed_finder_job` runs `geofeed_finder`
   - `pdb_asn_geo_job` runs `pdb_asn_geo`
   - `build_asn_data_job` runs `build_date_tag` -> `clone_asn_repo` -> `aggregate_asn` -> `populate_asn_domains` -> `build_asn_mmdb` -> `update_asn_latest_symlink` -> `cleanup_asn_temp_dir`
-  - `build_geo_database_job` runs `build_date_tag` -> `clone_ip_geo_repo` -> `build_geo_mmdb` -> `run_rdns_geo` -> `patch_geo_mmdb_with_rdns` -> `update_geo_latest_symlink` -> `cleanup_geo_temp_dir`
+  - `build_geo_database_job` runs `build_date_tag` -> `snapshot_previous_geo_mmdb` -> `clone_ip_geo_repo` -> `build_geo_mmdb` -> `run_rdns_geo` -> `patch_geo_mmdb_with_rdns` -> `check_geo_mmdb_release_gate` -> `update_geo_latest_symlink` (+ uploads) -> `cleanup_geo_temp_dir`
 - Resource: `paths` with config keys `work_dir` and `bin_dir`; both directories are created if missing.
 - `geofeed_finder` executes `geofeed-finder-linux-x64`, parses `[stats] ... total=<n>` from output, and fails if:
   missing stats line, `geofeed_limit < 0`, or `total < geofeed_limit`.
@@ -91,7 +91,10 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - `build_date_tag` captures a single `YYYYMMDD` tag per run, used for MMDB output filenames.
 - `build_asn_mmdb` executes `<bin_dir>/build_mmdb --as-dir <asn-repo>/as --asn-out <work_dir>/ip2asn-nossl-sh-<date>.mmdb`, and removes an existing target file first.
 - `build_geo_mmdb` executes `<bin_dir>/build_mmdb --country-dir <country-repo>/country --country-out <work_dir>/ip2geo-nossl-sh-<date>.mmdb --geofeed-dir <work_dir>`, and removes an existing target file first.
-- `run_rdns_geo` runs `<bin_dir>/rdns_geo.py` with `--db <ips_db>` when `ips_db` op config is set; PostgreSQL passthrough is intentionally not used.
+- `run_rdns_geo` calls `run_rdns_geo_pipeline` in-process. Rules come from the deployed checkout's `infra/rdns_geo_rules.json` (plus Postgres generated rules) unless op config `rules_url` is set. Hop cities from the MMDB itself are ignored unless `use_mmdb_hop_city` is true.
+- rDNS hints are written for at most a /24 (IPv4) or /48 (IPv6) around the destination IP, never for its whole BGP prefix.
+- Geofeed precedence in `mmdb-builder`: all geofeed rows are collected first, then inserted by source tier (`pdbdump*` files are derived, lowest) and by prefix length (broadest first), so owner feeds and specific prefixes are never erased by a broader or weaker row.
+- `snapshot_previous_geo_mmdb` copies the current `ip2geo-latest.mmdb` target to `ip2geo-previous.mmdb`; `check_geo_mmdb_release_gate` runs `build_mmdb -compare-old/-compare-new` and fails the run (no symlink update, no uploads) when changed-country IPv4 share > `max_changed_share` (default 0.05) or coverage drop > `max_coverage_drop` (default 0.02).
 - `patch_geo_mmdb_with_rdns` runs `<bin_dir>/build_mmdb --patch-mmdb <geo-mmdb> --patch-geofeed <work_dir>/rdns_geo.csv` when rDNS output is present.
 - `update_asn_latest_symlink` and `update_geo_latest_symlink` update `ip2asn-latest.mmdb` and `ip2geo-latest.mmdb`.
 - `clone_asn_repo` performs a safe cleanup of `<work_dir>/.tmp-ipverse-asn` before cloning; `clone_ip_geo_repo` does the same for `<work_dir>/.tmp-ipverse-geo`.
@@ -112,7 +115,7 @@ and manually verify endpoints relevant to your edit (see "Key routes" below).
 - Optional country inputs: `<country-dir>/<code>/aggregated.json` directories (parsed for country name/code and IPv4/IPv6 prefixes)
 - Output: ASN MMDB file (`-asn-out`, default `nossl-sh-ip-to-asn.mmdb`)
 - Optional output: country MMDB file (`-country-out`, default `nossl-sh-ip-to-country.mmdb`)
-- Flags: `-as-dir` (default `as`), `-asn-out`, `-country-dir`, `-country-out`, and `-test-mmdb`
+- Flags: `-as-dir` (default `as`), `-asn-out`, `-country-dir`, `-country-out`, `-geofeed-dir`, `-patch-mmdb`/`-patch-geofeed`, `-test-mmdb`, and the release gate `-compare-old`/`-compare-new` with `-max-changed-share`/`-max-coverage-drop` (exit code 3 when the gate fails)
 
 ## Conventions and cautions
 - ES modules only (`import`/`export`), no CommonJS.

@@ -80,12 +80,17 @@ MTR_TIMEOUT_SECONDS = 30
 DIG_TIMEOUT_SECONDS = 8
 DOH_TIMEOUT_SECONDS = 8
 CYMRU_MIN_PREFIXLEN_V4 = 16
+# One traceroute speaks for one destination, not for its whole BGP prefix:
+# hints are written for at most a /24 (IPv4) or /48 (IPv6) around it, so they
+# cannot overwrite operator geofeed cities elsewhere in a large announcement.
+RDNS_HINT_MAX_PREFIXLEN_V4 = 24
+RDNS_HINT_MAX_PREFIXLEN_V6 = 48
 
 
 
 RULES_URL_TIMEOUT_SECONDS = 10
 DEFAULT_RULES_URL = (
-    Path(__file__).resolve().parents[1] / "configs" / "rdns_geo_rules.json"
+    Path(__file__).resolve().parents[1] / "rdns_geo_rules.json"
 ).resolve().as_uri()
 DEFAULT_PGSQL_TABLE = "hostname_reviews"
 DEFAULT_PGSQL_MTR_CACHE_TABLE = "rdns_mtr_cache"
@@ -1212,6 +1217,20 @@ def normalize_cymru_prefix(ip: str, prefix: str) -> Optional[str]:
     return str(network)
 
 
+def cap_hint_prefix(ip: str, prefix: str) -> Optional[str]:
+    try:
+        addr = ipaddress.ip_address(ip)
+        network = ipaddress.ip_network(prefix, strict=False)
+    except ValueError:
+        return None
+    if addr.version != network.version or addr not in network:
+        return None
+    max_prefixlen = RDNS_HINT_MAX_PREFIXLEN_V4 if addr.version == 4 else RDNS_HINT_MAX_PREFIXLEN_V6
+    if network.prefixlen < max_prefixlen:
+        return str(ipaddress.ip_network(f"{addr}/{max_prefixlen}", strict=False))
+    return str(network)
+
+
 def team_cymru_origin(ip: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
     qname = cymru_query_name(ip)
     out = ""
@@ -1354,6 +1373,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--use-mmdb-hop-city",
+        action="store_true",
+        help=(
+            "Also accept a hop's city from the input MMDB. Off by default: that MMDB "
+            "already holds earlier rDNS/PeeringDB guesses, so errors would feed back."
+        ),
+    )
+    parser.add_argument(
         "--pgsql",
         type=str,
         default=None,
@@ -1398,6 +1425,7 @@ def run_rdns_geo_pipeline(
     pgsql_ptr_cache_table: str = DEFAULT_PGSQL_PTR_CACHE_TABLE,
     maintenance_token: Optional[str] = None,
     log_sink: Optional[Callable[[str], None]] = None,
+    use_mmdb_hop_city: bool = False,
 ) -> dict[str, int | float]:
     global dig_cmd_available, _log_sink
     _reset_runtime_state()
@@ -1573,7 +1601,7 @@ def run_rdns_geo_pipeline(
                     _hop_unknown, hop_country, hop_city, _hop_geo_status = geo_city_status(
                         hop_geo_reader, evidence.hop_ip
                     )
-                    if hop_city:
+                    if hop_city and use_mmdb_hop_city:
                         matched_evidence = evidence
                         matched_source = "mmdb"
                         matched_ref = "mmdb_hop_city"
@@ -1625,6 +1653,14 @@ def run_rdns_geo_pipeline(
                     cymru_missing += 1
                     eprint("  result=cymru_miss")
                     continue
+                bgp_prefix = prefix
+                prefix = cap_hint_prefix(candidate.ip, bgp_prefix)
+                if not prefix:
+                    cymru_missing += 1
+                    eprint(f"  result=cymru_prefix_mismatch bgp_prefix={bgp_prefix}")
+                    continue
+                if prefix != bgp_prefix:
+                    eprint(f"  hint_prefix_capped bgp_prefix={bgp_prefix} hint_prefix={prefix}")
                 cymru_country_code = normalize_country_code(cymru_country)
                 inferred_country_code = matched_country_code
                 if (
@@ -1795,6 +1831,7 @@ def main() -> int:
             pgsql_table=args.pgsql_table,
             pgsql_mtr_cache_table=args.pgsql_mtr_cache_table,
             pgsql_ptr_cache_table=args.pgsql_ptr_cache_table,
+            use_mmdb_hop_city=args.use_mmdb_hop_city,
         )
     except Exception as exc:
         eprint(str(exc))

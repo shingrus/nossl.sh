@@ -1,5 +1,6 @@
 from dagster import op, job, in_process_executor, Field, Noneable
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -17,11 +18,11 @@ from infra.dagster.utils import (
     safe_remove_dir,
     update_symlink_to_latest,
 )
-from infra.scripts.rdns_geo import run_rdns_geo_pipeline
+from infra.scripts.rdns_geo import DEFAULT_RULES_URL, run_rdns_geo_pipeline
 
 
 GEO_TEMP_DIR_NAME = ".tmp-ipverse-geo"
-RDNS_RULES_URL = "https://raw.githubusercontent.com/shingrus/nossl.sh/refs/heads/main/infra/rdns_geo_rules.json"
+GATE_FAILED_EXIT_CODE = 3
 
 
 def _geo_temp_dir(work_dir: Path) -> Path:
@@ -34,6 +35,7 @@ def _geo_output_paths(work_dir: Path, date_tag: str):
         "geo_latest_link": work_dir / "ip2geo-latest.mmdb",
         "rdns_geofeed_output": work_dir / "rdns_geo.csv",
         "rdns_unmatched_output": work_dir / "unmatched.txt",
+        "previous_geo_mmdb": work_dir / "ip2geo-previous.mmdb",
     }
 
 
@@ -56,7 +58,27 @@ def clone_ip_geo_repo(context):
 
 
 @op(required_resource_keys={"paths"})
-def build_geo_mmdb(context, country_repo_dir: str, date_tag: str):
+def snapshot_previous_geo_mmdb(context):
+    """Copy the currently published build aside before anything is rebuilt.
+
+    A second build on the same day reuses the dated file name, so the release
+    gate needs its own copy of the previous MMDB to compare against.
+    """
+    work_dir = get_work_dir(context)
+    outputs = _geo_output_paths(work_dir, "unused")
+    previous = outputs["previous_geo_mmdb"]
+    latest = outputs["geo_latest_link"]
+    remove_if_exists(previous)
+    if not latest.exists():
+        context.log.warning(f"no previous geo mmdb at {latest}; release gate will be skipped")
+        return ""
+    shutil.copyfile(latest.resolve(), previous)
+    context.log.info(f"saved previous geo mmdb {latest.resolve()} -> {previous}")
+    return str(previous)
+
+
+@op(required_resource_keys={"paths"})
+def build_geo_mmdb(context, country_repo_dir: str, date_tag: str, _previous_geo_mmdb: str):
     work_dir, bin_dir = get_work_and_bin_dirs(context)
     country_dir = Path(country_repo_dir) / "country"
     if not country_dir.is_dir():
@@ -89,6 +111,24 @@ def build_geo_mmdb(context, country_repo_dir: str, date_tag: str):
             str,
             is_required=True,
             description="Required URL for rdns_geo.py unknown IP API (returns JSON array of IPs).",
+        ),
+        "rules_url": Field(
+            str,
+            is_required=False,
+            default_value="",
+            description=(
+                "rDNS rules JSON URL. Empty uses the rdns_geo_rules.json of the deployed "
+                "checkout, so rules change only with a deploy, not with every push to main."
+            ),
+        ),
+        "use_mmdb_hop_city": Field(
+            bool,
+            is_required=False,
+            default_value=False,
+            description=(
+                "Accept a hop's city from the geo MMDB being patched. Off by default: that "
+                "MMDB already holds earlier rDNS/PeeringDB guesses, so errors would feed back."
+            ),
         ),
         "pgsql": Field(
             Noneable(str),
@@ -132,11 +172,12 @@ def run_rdns_geo(context, geo_mmdb_path: str):
         unknown_ips_url=unknown_ips_url,
         mmdb_path=geo_mmdb,
         output_path=rdns_geofeed_output,
-        rules_url=RDNS_RULES_URL,
+        rules_url=(context.op_config.get("rules_url") or "").strip() or DEFAULT_RULES_URL,
         unmatched_zones_path=rdns_unmatched_output,
         pgsql=pgsql,
         maintenance_token=maintenance_token,
         log_sink=context.log.info,
+        use_mmdb_hop_city=bool(context.op_config.get("use_mmdb_hop_city")),
     )
     if done_metrics:
         if hasattr(context, "add_output_metadata"):
@@ -197,6 +238,62 @@ def patch_geo_mmdb_with_rdns(context, rdns_geo_result: dict):
     return str(geo_mmdb)
 
 
+@op(
+    required_resource_keys={"paths"},
+    config_schema={
+        "enabled": Field(bool, is_required=False, default_value=True),
+        "max_changed_share": Field(
+            float,
+            is_required=False,
+            default_value=0.05,
+            description="Max share of previously covered IPv4 space allowed to change country.",
+        ),
+        "max_coverage_drop": Field(
+            float,
+            is_required=False,
+            default_value=0.02,
+            description="Max relative loss of covered IPv4 space.",
+        ),
+    },
+)
+def check_geo_mmdb_release_gate(context, geo_mmdb_path: str, previous_geo_mmdb: str):
+    """Block publishing when the new build differs too much from the previous one."""
+    if not context.op_config["enabled"]:
+        context.log.warning("geo release gate disabled; skipping")
+        return geo_mmdb_path
+    if not previous_geo_mmdb or not Path(previous_geo_mmdb).is_file():
+        context.log.warning("no previous geo mmdb; skipping release gate")
+        return geo_mmdb_path
+
+    work_dir, bin_dir = get_work_and_bin_dirs(context)
+    cmd = [
+        str(bin_dir / "build_mmdb"),
+        "--compare-old",
+        previous_geo_mmdb,
+        "--compare-new",
+        geo_mmdb_path,
+        "--max-changed-share",
+        str(context.op_config["max_changed_share"]),
+        "--max-coverage-drop",
+        str(context.op_config["max_coverage_drop"]),
+    ]
+    result = subprocess.run(
+        cmd,
+        cwd=str(work_dir),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    output = (result.stdout or "").rstrip()
+    if output:
+        context.log.info(output)
+    if result.returncode == GATE_FAILED_EXIT_CODE:
+        raise RuntimeError(f"geo release gate failed; not publishing {geo_mmdb_path}: {output}")
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd, output=output)
+    return geo_mmdb_path
+
+
 @op(required_resource_keys={"paths"})
 def update_geo_latest_symlink(context, geo_mmdb_path: str):
     work_dir = get_work_dir(context)
@@ -224,11 +321,13 @@ def cleanup_geo_temp_dir(context, _geo_latest_link_path: str):
 )
 def build_geo_database_job():
     date_tag = build_date_tag()
+    previous_geo_mmdb = snapshot_previous_geo_mmdb()
     country_repo = clone_ip_geo_repo()
-    geo_mmdb = build_geo_mmdb(country_repo, date_tag)
+    geo_mmdb = build_geo_mmdb(country_repo, date_tag, previous_geo_mmdb)
     rdns_geo_result = run_rdns_geo(geo_mmdb)
     patched_geo_mmdb = patch_geo_mmdb_with_rdns(rdns_geo_result)
-    geo_latest = update_geo_latest_symlink(patched_geo_mmdb)
-    upload_file_to_s3.alias("upload_geo_mmdb_to_s3")(patched_geo_mmdb, date_tag)
-    upload_file_to_github_release.alias("upload_geo_mmdb_to_github_release")(patched_geo_mmdb, date_tag)
+    released_geo_mmdb = check_geo_mmdb_release_gate(patched_geo_mmdb, previous_geo_mmdb)
+    geo_latest = update_geo_latest_symlink(released_geo_mmdb)
+    upload_file_to_s3.alias("upload_geo_mmdb_to_s3")(released_geo_mmdb, date_tag)
+    upload_file_to_github_release.alias("upload_geo_mmdb_to_github_release")(released_geo_mmdb, date_tag)
     cleanup_geo_temp_dir(geo_latest)

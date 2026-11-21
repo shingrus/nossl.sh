@@ -133,6 +133,47 @@ func ResolveGeofeedCacheDir(root string) (string, error) {
 	return root, nil
 }
 
+// Geofeed precedence. mmdbwriter's Insert replaces a network and every subnet
+// below it, so insertion order decides which source wins. Entries are first
+// collected from every file, then inserted ordered by source tier (lowest
+// first) and prefix length (broadest first). Owner-published feeds and more
+// specific prefixes therefore always land last and are never erased by a
+// broader or weaker row, whatever the file names are.
+const (
+	geofeedTierDerived = 0 // ASN-level guesses, e.g. the PeeringDB dump
+	geofeedTierFeed    = 1 // RFC 8805 feeds published by network owners
+)
+
+// derivedGeofeedFilePrefixes names files in the geofeed dir that hold derived
+// (non-authoritative) rows rather than an operator's own feed.
+var derivedGeofeedFilePrefixes = []string{"pdbdump"}
+
+func geofeedSourceTier(fileName string) int {
+	lower := strings.ToLower(fileName)
+	for _, prefix := range derivedGeofeedFilePrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return geofeedTierDerived
+		}
+	}
+	return geofeedTierFeed
+}
+
+type geofeedEntry struct {
+	prefix netip.Prefix
+	code   string
+	city   string
+	tier   int
+}
+
+// treeBits is the prefix length in the IPv6 tree the writer uses, so IPv4
+// and IPv6 entries sort on one scale.
+func (e geofeedEntry) treeBits() int {
+	if e.prefix.Addr().Is4() {
+		return e.prefix.Bits() + 96
+	}
+	return e.prefix.Bits()
+}
+
 func ingestGeofeedDir(writer *mmdbwriter.Tree, geofeedDir string, nameIndex map[string]string, debugMode bool) (ingestStats, error) {
 	stats := ingestStats{}
 	dirEntries, err := os.ReadDir(geofeedDir)
@@ -153,33 +194,75 @@ func ingestGeofeedDir(writer *mmdbwriter.Tree, geofeedDir string, nameIndex map[
 	}
 	sort.Strings(names)
 
+	entries := make([]geofeedEntry, 0, 1<<16)
 	for _, name := range names {
 		filePath := filepath.Join(geofeedDir, name)
-		fileStats, err := ingestGeofeedFile(writer, filePath, nameIndex, debugMode)
+		fileEntries, fileStats, err := parseGeofeedFile(filePath, geofeedSourceTier(name))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to read %s: %v\n", filePath, err)
 			continue
 		}
+		entries = append(entries, fileEntries...)
 		stats.entries += fileStats.entries
-		stats.prefixes += fileStats.prefixes
 		stats.skipped += fileStats.skipped
 	}
 
-	return stats, nil
+	prefixes, err := insertGeofeedEntries(writer, entries, nameIndex, debugMode)
+	stats.prefixes += prefixes
+	return stats, err
 }
 
 func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[string]string, debugMode bool) (ingestStats, error) {
+	entries, stats, err := parseGeofeedFile(path, geofeedTierFeed)
+	if err != nil {
+		return stats, err
+	}
+	prefixes, err := insertGeofeedEntries(writer, entries, nameIndex, debugMode)
+	stats.prefixes += prefixes
+	if err != nil {
+		return stats, fmt.Errorf("%s: %w", path, err)
+	}
+	return stats, nil
+}
+
+func insertGeofeedEntries(
+	writer *mmdbwriter.Tree,
+	entries []geofeedEntry,
+	nameIndex map[string]string,
+	debugMode bool,
+) (int, error) {
+	sort.SliceStable(entries, func(i, j int) bool {
+		if entries[i].tier != entries[j].tier {
+			return entries[i].tier < entries[j].tier
+		}
+		return entries[i].treeBits() < entries[j].treeBits()
+	})
+
+	inserted := 0
+	for _, entry := range entries {
+		prefix := entry.prefix.String()
+		if err := insertGeofeedPrefix(writer, netipx.PrefixIPNet(entry.prefix), prefix, entry.code, entry.city, nameIndex, debugMode); err != nil {
+			return inserted, fmt.Errorf("insert %q: %w", prefix, err)
+		}
+		inserted++
+	}
+	return inserted, nil
+}
+
+// parseGeofeedFile reads one RFC 8805 file. CIDR rows are kept as they are;
+// single-IP rows are merged into ranges and split back into prefixes.
+func parseGeofeedFile(path string, tier int) ([]geofeedEntry, ingestStats, error) {
 	stats := ingestStats{}
 	file, err := os.Open(path)
 	if err != nil {
-		return stats, err
+		return nil, stats, err
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
+	entries := make([]geofeedEntry, 0, 256)
 	ipRecords := make([]geofeedIPRecord, 0, 1024)
-	cidrRecords := make([]geofeedCIDRRecord, 0, 256)
 	for scanner.Scan() {
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
@@ -196,12 +279,11 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 
 		normalizedPrefix, _, err := normalizeCIDRPrefix(prefix, fmt.Sprintf("%s:%d", path, lineNum))
 		if err == nil {
-			cidrRecords = append(cidrRecords, geofeedCIDRRecord{
-				prefix: normalizedPrefix,
-				code:   code,
-				city:   city,
-				line:   lineNum,
-			})
+			parsed, err := netip.ParsePrefix(normalizedPrefix)
+			if err != nil {
+				return nil, stats, fmt.Errorf("bad prefix %q (%s:%d): %w", normalizedPrefix, path, lineNum, err)
+			}
+			entries = append(entries, geofeedEntry{prefix: parsed, code: code, city: city, tier: tier})
 			stats.entries++
 			continue
 		}
@@ -222,23 +304,11 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 		stats.entries++
 	}
 	if err := scanner.Err(); err != nil {
-		return stats, err
+		return nil, stats, err
 	}
-
-	for _, record := range cidrRecords {
-		_, ipNet, err := net.ParseCIDR(record.prefix)
-		if err != nil {
-			return stats, fmt.Errorf("bad prefix %q (%s:%d): %w", record.prefix, path, record.line, err)
-		}
-		if err := insertGeofeedPrefix(writer, ipNet, record.prefix, record.code, record.city, nameIndex, debugMode); err != nil {
-			return stats, fmt.Errorf("insert %q (%s:%d): %w", record.prefix, path, record.line, err)
-		}
-		stats.prefixes++
-	}
-	cidrRecords = nil
 
 	if len(ipRecords) == 0 {
-		return stats, nil
+		return entries, stats, nil
 	}
 
 	sort.Slice(ipRecords, func(i, j int) bool {
@@ -270,11 +340,13 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 		if pending == nil {
 			return nil
 		}
-		prefixCount, err := insertGeofeedRange(writer, *pending, nameIndex, debugMode)
-		if err != nil {
-			return err
+		ipRange := netipx.IPRangeFrom(pending.start, pending.end)
+		if !ipRange.IsValid() {
+			return fmt.Errorf("invalid IP range %s-%s", pending.start, pending.end)
 		}
-		stats.prefixes += prefixCount
+		for _, prefix := range ipRange.Prefixes() {
+			entries = append(entries, geofeedEntry{prefix: prefix, code: pending.code, city: pending.city, tier: tier})
+		}
 		pending = nil
 		return nil
 	}
@@ -285,7 +357,7 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 			continue
 		}
 		if err := flushPending(); err != nil {
-			return stats, fmt.Errorf("%s: %w", path, err)
+			return nil, stats, fmt.Errorf("%s: %w", path, err)
 		}
 		pending = &geofeedRange{
 			start: record.addr,
@@ -294,12 +366,10 @@ func ingestGeofeedFile(writer *mmdbwriter.Tree, path string, nameIndex map[strin
 			city:  record.city,
 		}
 	}
-
 	if err := flushPending(); err != nil {
-		return stats, fmt.Errorf("%s: %w", path, err)
+		return nil, stats, fmt.Errorf("%s: %w", path, err)
 	}
-	ipRecords = nil
-	return stats, nil
+	return entries, stats, nil
 }
 
 type geofeedIPRecord struct {
@@ -307,13 +377,6 @@ type geofeedIPRecord struct {
 	code string
 	city string
 	line int
-}
-
-type geofeedCIDRRecord struct {
-	prefix string
-	code   string
-	city   string
-	line   int
 }
 
 type geofeedRange struct {
@@ -353,37 +416,6 @@ func insertGeofeedPrefix(
 	setString(mmdbRecord, "city_name", city)
 	setDebugNetwork(mmdbRecord, prefix, debugMode)
 	return writer.Insert(ipNet, mmdbRecord)
-}
-
-func insertGeofeedRange(
-	writer *mmdbwriter.Tree,
-	geofeed geofeedRange,
-	nameIndex map[string]string,
-	debugMode bool,
-) (int, error) {
-	ipRange := netipx.IPRangeFrom(geofeed.start, geofeed.end)
-	if !ipRange.IsValid() {
-		return 0, fmt.Errorf("invalid IP range %s-%s", geofeed.start, geofeed.end)
-	}
-	prefixes := ipRange.Prefixes()
-	if len(prefixes) == 0 {
-		return 0, nil
-	}
-
-	countryName := countryNameFromCode(geofeed.code, nameIndex)
-	for _, prefix := range prefixes {
-		ipNet := netipx.PrefixIPNet(prefix)
-		mmdbRecord := mmdbtype.Map{}
-		setString(mmdbRecord, "country_code", geofeed.code)
-		setString(mmdbRecord, "country_name", countryName)
-		setString(mmdbRecord, "city_name", geofeed.city)
-		setDebugNetwork(mmdbRecord, prefix.String(), debugMode)
-		if err := writer.Insert(ipNet, mmdbRecord); err != nil {
-			return 0, fmt.Errorf("insert %q: %w", prefix.String(), err)
-		}
-	}
-
-	return len(prefixes), nil
 }
 
 func parseGeofeedLine(line string) (string, string, string, error) {
