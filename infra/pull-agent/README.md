@@ -1,51 +1,51 @@
-# Pull Agent (Cloudflare R2 -> local DB artifacts)
+# Pull Agent (openipdata.org MMDBs + ASN detail database)
 
-This folder contains a small Python pull agent and systemd units to keep a
-local `ip2geo`/`ip2asn` MMDB and `asn.sqlite3` updated from the openipdata
-Cloudflare R2 bucket (`openipdata-dbs`). It talks to R2 through its
-S3-compatible API with `boto3`.
+This folder contains a Python updater and systemd units that keep the local
+GeoIP and ASN MMDBs current from openipdata.org's public GitHub Releases. These
+two files use the GeoLite2 City and ASN layouts. The website's `asn.sqlite3`
+detail database continues to update from the Cloudflare R2 export.
 
 ## What it does
 
-- Reads date folders in the bucket that match `YYYY-MM-DD`
-- For each file, picks the latest of the last 14 date folders that contains it,
-  so the ASN files update even while no new geo file is published
-- Builds expected file names from that folder and `--mmdb-name`
-  (default `openipdata`): `ip2geo-openipdata-YYYYMMDD.mmdb`,
-  `ip2asn-openipdata-YYYYMMDD.mmdb`, and `asn.sqlite3`
-- Skips the file when its ETag matches `<target>.etag`, otherwise downloads
-  it and validates its size (minimum size and the object's size)
-- Atomically replaces the target file, then writes the ETag to `<target>.etag`
-- Calls `POST /api/reload` after `asn.sqlite3` is replaced (default URL:
-  `http://127.0.0.1:8080/api/reload`)
+- Fetches `openipdata-org-ip2geo.mmdb` and `openipdata-org-ip2asn.mmdb` from
+  the latest public GitHub release.
+- Keeps fetching `asn.sqlite3` from the latest matching date folder in R2.
+- Uses HTTP ETag or Last-Modified headers for the public MMDBs and the R2 ETag
+  for SQLite to skip unchanged files.
+- Downloads each changed file to a temporary file, validates its minimum and
+  advertised size, then atomically replaces the target.
+- Calls `POST /api/reload` after replacing the ASN SQLite database (default URL:
+  `http://127.0.0.1:8080/api/reload`).
+- Supports `--dry-run` to download and validate without installing.
+
+The pull agent needs outbound HTTPS access to GitHub. A read-only R2 token is
+still required when `--asn-sqlite-target` is configured.
 
 ## Configuration
 
-Everything comes from one environment variable, `R2`:
+The R2 URL is supplied through the `R2` environment variable:
 
 ```
 R2=https://<access-key-id>:<secret-access-key>@<account-id>.r2.cloudflarestorage.com/<bucket>
 ```
 
-The bucket path is optional and defaults to `openipdata-dbs`; the region is
-always `auto`. Use a **read-only** R2 API token scoped to the bucket, and
-percent-encode the key or secret if they contain `:`, `@` or `/`.
+The bucket path is optional and defaults to `openipdata-dbs`. The region is
+always `auto`. Use a read-only token scoped to the bucket, and percent-encode
+the key or secret if they contain `:`, `@` or `/`.
 
 ## Change detection
 
-openipdata publishes twice a day and the evening run overwrites that day's
-files, often with the same size, so the agent compares ETags, not sizes. The
-ETag of each installed file is kept in `<target>.etag` (for example
-`/opt/nossl.sh/asn.sqlite3.etag`). A missing `.etag` file means "download",
-so the first run after deploying this version re-downloads every file once;
-delete a `.etag` file to force a fresh pull. `--dry-run` never writes `.etag`.
+Each installed file stores its source validator in `<target>.etag`. The MMDB
+validator is the release asset's ETag, or Last-Modified header when no ETag is
+available. The SQLite validator remains the R2 ETag. A missing sidecar forces
+a download; `--dry-run` does not change it.
 
 ## Files
 
 - `nossl-pull-agent.py` - pull/install script
 - `nossl-pull-agent.service` - systemd oneshot service
 - `nossl-pull-agent.timer` - periodic timer (every 5 minutes by default)
-- `nossl-pull-agent.env.example` - environment configuration template
+- `nossl-pull-agent.env.example` - R2 environment template
 
 ## Install example
 
@@ -69,9 +69,9 @@ and `ExecStart` script path/flags (`--geo-target`, `--asn-target`,
 ```bash
 set -a; . /etc/nossl-pull-agent.env; set +a
 python3 infra/pull-agent/nossl-pull-agent.py \
-  --geo-target /opt/nossl/ip2geo-latest.mmdb \
-  --asn-target /opt/nossl/ip2asn-latest.mmdb \
-  --asn-sqlite-target /opt/nossl/asn.sqlite3
+  --geo-target /opt/nossl.sh/ip2geo-latest.mmdb \
+  --asn-target /opt/nossl.sh/ip2asn-latest.mmdb \
+  --asn-sqlite-target /opt/nossl.sh/asn.sqlite3
 ```
 
 Add `--dry-run` to download and validate without installing.

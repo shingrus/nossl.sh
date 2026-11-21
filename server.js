@@ -251,6 +251,18 @@ const isPrivateIp = (ip) => {
 
 };
 
+const getAsnNumber = (asnRecord) => {
+    const asn = Number(asnRecord?.autonomous_system_number ?? asnRecord?.asn);
+    return Number.isSafeInteger(asn) && asn > 0 ? asn : null;
+};
+
+const getAsnOrganization = (asnRecord) =>
+    asnRecord?.autonomous_system_organization ||
+    asnRecord?.org ||
+    asnRecord?.organization ||
+    asnRecord?.name ||
+    null;
+
 export const lookupGeo = (ip) => {
 
     if (!geoReader.isLoaded() || isPrivateIp(ip)) {
@@ -287,8 +299,8 @@ export const lookupGeo = (ip) => {
                 countryCodeToName(countryCode) ||
                 null,
             cityName,
-            orgName: asnRecord ? asnRecord.name : null,
-            asn: asnRecord? asnRecord.asn : null,
+            orgName: getAsnOrganization(asnRecord),
+            asn: getAsnNumber(asnRecord),
         };
     } catch (error) {
         return null;
@@ -461,12 +473,12 @@ const getResolverAsnDetails = (ip) => {
 
     try {
         const asnRecord = asnReader.get(resolverIp);
-        const resolverOrg = trimString(asnRecord?.org || asnRecord?.organization);
+        const resolverOrg = trimString(getAsnOrganization(asnRecord));
         const resolverOrgSlug = buildOrgSlug(resolverOrg) || '';
-        const resolverAsn = Number.isSafeInteger(asnRecord?.asn) ? asnRecord.asn : null;
+        const resolverAsn = getAsnNumber(asnRecord);
         return {
             resolver_org: resolverOrg,
-            resolver_name: trimString(asnRecord?.name),
+            resolver_name: trimString(asnRecord?.name) || resolverOrg,
             resolver_asn: resolverAsn,
             resolver_org_slug: resolverOrgSlug,
         };

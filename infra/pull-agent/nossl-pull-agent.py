@@ -1,30 +1,12 @@
 #!/usr/bin/env python3
-"""
-Pull the latest artifacts from Cloudflare R2 (S3-compatible API) and install
-them atomically.
-
-Selection logic:
-1) List top-level date folders matching YYYY-MM-DD.
-2) For each dataset, pick the latest date folder that contains its file, so a
-   dataset published less often never blocks the others.
-3) Expected filenames are built from that folder's date and --mmdb-name:
-   `ip2geo-<name>-<YYYYMMDD>.mmdb`, `ip2asn-<name>-<YYYYMMDD>.mmdb`,
-   and/or `asn.sqlite3`.
-4) Download each only when the object's ETag differs from `<target>.etag`
-   (or that file is missing), then atomically replace target and store the ETag.
-5) With --dry-run, run the same logic, but skip install after successful download+validate.
-6) After successful asn.sqlite3 install, POST /api/reload.
-
-R2 location and credentials come from one environment variable (use a
-read-only token):
-  R2=https://<access-key-id>:<secret-access-key>@<account-id>.r2.cloudflarestorage.com/<bucket>
-"""
+"""Pull public openipdata.org MMDBs and the ASN SQLite export atomically."""
 
 from __future__ import annotations
 
 import argparse
 import os
 import re
+import shutil
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -38,12 +20,23 @@ DATE_FOLDER_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MIN_MMDB_SIZE_BYTES = 1024 * 1024
 MIN_ASN_SQLITE_SIZE_BYTES = 40 * 1024 * 1024
 INSTALL_MODE = 0o644
-SUPPORTED_DATASETS = ("ip2geo", "ip2asn", "asn-sqlite")
 RELOAD_URL = "http://127.0.0.1:8080/api/reload"
 RELOAD_TIMEOUT_SECONDS = 5.0
+DOWNLOAD_TIMEOUT_SECONDS = 120.0
 MAX_FOLDER_LOOKBACK = 14
 DEFAULT_BUCKET = "openipdata-dbs"
-DEFAULT_MMDB_NAME = "openipdata"
+RELEASE_BASE_URL = "https://github.com/shingrus/openipdata.org/releases/latest/download"
+DATASET_ASSETS = {
+    "ip2geo": "openipdata-org-ip2geo.mmdb",
+    "ip2asn": "openipdata-org-ip2asn.mmdb",
+}
+
+
+@dataclass(frozen=True)
+class ReleaseAsset:
+    url: str
+    size: int
+    validator: str
 
 
 @dataclass(frozen=True)
@@ -89,11 +82,9 @@ def list_date_folders(client: Any, bucket: str) -> list[str]:
     folders: list[str] = []
     for page in paginator.paginate(Bucket=bucket, Delimiter="/"):
         for entry in page.get("CommonPrefixes", []):
-            prefix = str(entry.get("Prefix") or "")
-            folder_name = prefix.strip("/")
+            folder_name = str(entry.get("Prefix") or "").strip("/")
             if parse_date_folder(folder_name):
                 folders.append(folder_name)
-
     folders.sort()
     return folders
 
@@ -115,21 +106,11 @@ def parse_r2(raw: str) -> R2Config:
     )
 
 
-def build_expected_key(latest_folder: str, dataset: str, mmdb_name: str) -> str:
-    if dataset == "asn-sqlite":
-        return f"{latest_folder}/asn.sqlite3"
-
-    if dataset in ("ip2geo", "ip2asn"):
-        folder_date = parse_date_folder(latest_folder)
-        if folder_date is None:
-            raise RuntimeError(f"Invalid latest date folder: {latest_folder!r}")
-        date_tag = folder_date.strftime("%Y%m%d")
-        return f"{latest_folder}/{dataset}-{mmdb_name}-{date_tag}.mmdb"
-
-    raise RuntimeError(f"Unsupported dataset: {dataset!r}")
+def build_sqlite_key(folder: str) -> str:
+    return f"{folder}/asn.sqlite3"
 
 
-def get_required_object(client: Any, bucket: str, key: str) -> R2Object:
+def get_required_r2_object(client: Any, bucket: str, key: str) -> R2Object:
     try:
         response = client.head_object(Bucket=bucket, Key=key)
     except Exception as exc:
@@ -141,18 +122,67 @@ def get_required_object(client: Any, bucket: str, key: str) -> R2Object:
     )
 
 
-def find_latest_folder_with(
-    client: Any, bucket: str, folders: list[str], dataset: str, mmdb_name: str
-) -> Optional[str]:
+def find_latest_sqlite_folder(client: Any, bucket: str, folders: list[str]) -> Optional[str]:
     for folder in reversed(folders[-MAX_FOLDER_LOOKBACK:]):
         try:
-            get_required_object(
-                client=client, bucket=bucket, key=build_expected_key(folder, dataset, mmdb_name)
+            get_required_r2_object(
+                client=client,
+                bucket=bucket,
+                key=build_sqlite_key(folder),
             )
         except RuntimeError:
             continue
         return folder
     return None
+
+
+def build_asset_url(dataset: str) -> str:
+    asset_name = DATASET_ASSETS.get(dataset)
+    if asset_name is None:
+        raise RuntimeError(f"Unsupported dataset: {dataset!r}")
+    return f"{RELEASE_BASE_URL}/{asset_name}"
+
+
+def request_headers() -> dict[str, str]:
+    return {"User-Agent": "nossl-pull-agent/1.0"}
+
+
+def get_response_validator(headers) -> str:
+    etag = str(headers.get("ETag") or "").strip().strip('"')
+    if etag:
+        return f"etag:{etag}"
+
+    last_modified = str(headers.get("Last-Modified") or "").strip()
+    if last_modified:
+        return f"last-modified:{last_modified}"
+
+    return ""
+
+
+def response_matches_validator(headers, validator: str) -> bool:
+    if validator.startswith("etag:"):
+        etag = str(headers.get("ETag") or "").strip().strip('"')
+        return etag == validator[len("etag:"):]
+    if validator.startswith("last-modified:"):
+        last_modified = str(headers.get("Last-Modified") or "").strip()
+        return last_modified == validator[len("last-modified:"):]
+    return False
+
+
+def get_required_release_asset(dataset: str) -> ReleaseAsset:
+    url = build_asset_url(dataset)
+    request = urllib_request.Request(url, headers=request_headers(), method="HEAD")
+    try:
+        with urllib_request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+            size = int(response.headers.get("Content-Length") or 0)
+            validator = get_response_validator(response.headers)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to inspect release asset {url}: {exc}") from exc
+
+    if not validator:
+        raise RuntimeError(f"Release asset has no ETag or Last-Modified header: {url}")
+
+    return ReleaseAsset(url=url, size=size, validator=validator)
 
 
 def temp_prefix_for(dataset: str) -> str:
@@ -175,23 +205,43 @@ def min_size_bytes_for(dataset: str) -> int:
     raise RuntimeError(f"Unsupported dataset: {dataset!r}")
 
 
-def download_object_to_temp(
-    client: Any, bucket: str, key: str, temp_dir: Path, dataset: str
-) -> Path:
+def create_temp_file(temp_dir: Path, dataset: str) -> Path:
     fd, temp_path = tempfile.mkstemp(
         prefix=temp_prefix_for(dataset),
         suffix=temp_suffix_for(dataset),
         dir=str(temp_dir),
     )
     os.close(fd)
-    temp_file = Path(temp_path)
+    return Path(temp_path)
 
+
+def download_release_asset_to_temp(
+    remote: ReleaseAsset, temp_dir: Path, dataset: str
+) -> Path:
+    temp_file = create_temp_file(temp_dir, dataset)
+    try:
+        request = urllib_request.Request(remote.url, headers=request_headers())
+        with urllib_request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+            if not response_matches_validator(response.headers, remote.validator):
+                raise RuntimeError("release asset changed while it was being downloaded")
+            with temp_file.open("wb") as output:
+                shutil.copyfileobj(response, output, length=1024 * 1024)
+    except Exception as exc:
+        temp_file.unlink(missing_ok=True)
+        raise RuntimeError(f"Failed to download release asset {remote.url}: {exc}") from exc
+
+    return temp_file
+
+
+def download_r2_object_to_temp(
+    client: Any, bucket: str, key: str, temp_dir: Path, dataset: str
+) -> Path:
+    temp_file = create_temp_file(temp_dir, dataset)
     try:
         client.download_file(bucket, key, str(temp_file))
-    except Exception:
+    except Exception as exc:
         temp_file.unlink(missing_ok=True)
-        raise
-
+        raise RuntimeError(f"Failed to download r2://{bucket}/{key}: {exc}") from exc
     return temp_file
 
 
@@ -246,16 +296,75 @@ def validate_target_path(path: Path) -> None:
         raise RuntimeError(f"Target directory does not exist: {path.parent}")
 
 
-def sync_dataset_to_target(
+def install_downloaded_file(
+    temp_file: Path,
+    target: PullTarget,
+    expected_size: int,
+    validator: str,
+    dry_run: bool,
+) -> bool:
+    try:
+        validate_download(
+            path=temp_file,
+            min_size_bytes=min_size_bytes_for(target.dataset),
+            expected_size=expected_size,
+        )
+        if dry_run:
+            log(
+                f"[{target.dataset}] dry-run: validated download and "
+                f"skipped install: {target.target_path}"
+            )
+            return False
+
+        install_atomically(temp_file, target.target_path)
+        if validator:
+            write_installed_etag(target.target_path, validator)
+        log(f"[{target.dataset}] installed: {target.target_path}")
+        return True
+    finally:
+        temp_file.unlink(missing_ok=True)
+
+
+def sync_release_asset_to_target(
+    target: PullTarget,
+    dry_run: bool,
+) -> bool:
+    selected = get_required_release_asset(target.dataset)
+    log(
+        f"[{target.dataset}] selected asset: {selected.url} "
+        f"({selected.size or 'unknown'} bytes, {selected.validator})"
+    )
+    if (
+        target.target_path.is_file()
+        and read_installed_etag(target.target_path) == selected.validator
+    ):
+        log(f"[{target.dataset}] unchanged (validator match): {target.target_path}")
+        return False
+
+    cleanup_stale_temp_files(target.target_path.parent, target.dataset)
+    temp_file = download_release_asset_to_temp(
+        remote=selected,
+        temp_dir=target.target_path.parent,
+        dataset=target.dataset,
+    )
+    return install_downloaded_file(
+        temp_file=temp_file,
+        target=target,
+        expected_size=selected.size,
+        validator=selected.validator,
+        dry_run=dry_run,
+    )
+
+
+def sync_sqlite_to_target(
     client: Any,
     bucket: str,
     latest_folder: str,
     target: PullTarget,
-    mmdb_name: str,
     dry_run: bool,
 ) -> bool:
-    expected_key = build_expected_key(latest_folder, target.dataset, mmdb_name)
-    selected = get_required_object(client=client, bucket=bucket, key=expected_key)
+    key = build_sqlite_key(latest_folder)
+    selected = get_required_r2_object(client=client, bucket=bucket, key=key)
     log(
         f"[{target.dataset}] selected object: r2://{bucket}/{selected.key} "
         f"({selected.size} bytes, etag {selected.etag or '-'})"
@@ -269,33 +378,20 @@ def sync_dataset_to_target(
         return False
 
     cleanup_stale_temp_files(target.target_path.parent, target.dataset)
-    temp_file = download_object_to_temp(
+    temp_file = download_r2_object_to_temp(
         client=client,
         bucket=bucket,
         key=selected.key,
         temp_dir=target.target_path.parent,
         dataset=target.dataset,
     )
-    try:
-        validate_download(
-            path=temp_file,
-            min_size_bytes=min_size_bytes_for(target.dataset),
-            expected_size=selected.size,
-        )
-        if dry_run:
-            log(
-                f"[{target.dataset}] dry-run: validated download and "
-                f"skipped install: {target.target_path}"
-            )
-            return False
-
-        install_atomically(temp_file, target.target_path)
-        if selected.etag:
-            write_installed_etag(target.target_path, selected.etag)
-        log(f"[{target.dataset}] installed: {target.target_path}")
-        return True
-    finally:
-        temp_file.unlink(missing_ok=True)
+    return install_downloaded_file(
+        temp_file=temp_file,
+        target=target,
+        expected_size=selected.size,
+        validator=selected.etag,
+        dry_run=dry_run,
+    )
 
 
 def post_reload() -> None:
@@ -319,21 +415,17 @@ def post_reload() -> None:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Download latest ip2geo/ip2asn MMDB files and asn.sqlite3 from "
-            "Cloudflare R2 date folders and install them atomically."
+            "Download the latest GeoLite2-compatible ip2geo/ip2asn MMDB files "
+            "from openipdata.org GitHub Releases and the ASN SQLite database "
+            "from Cloudflare R2."
         )
-    )
-    parser.add_argument(
-        "--mmdb-name",
-        default=DEFAULT_MMDB_NAME,
-        help=f"Name part of MMDB keys, <dataset>-<name>-<YYYYMMDD>.mmdb (default: {DEFAULT_MMDB_NAME})",
     )
     parser.add_argument("--target", help="Backward-compatible alias for --geo-target")
     parser.add_argument("--geo-target", help="Target MMDB file path for ip2geo")
     parser.add_argument("--asn-target", help="Target MMDB file path for ip2asn")
     parser.add_argument(
         "--asn-sqlite-target",
-        help="Target SQLite file path for asn.sqlite3",
+        help="Target SQLite file path for the ASN detail database",
     )
     parser.add_argument(
         "--dry-run",
@@ -341,8 +433,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Run normal checks/download flow, but skip install",
     )
 
-    args = parser.parse_args(argv)
-    return args
+    return parser.parse_args(argv)
 
 
 def main(argv: list[str]) -> int:
@@ -374,69 +465,72 @@ def main(argv: list[str]) -> int:
         eprint(str(exc))
         return 2
 
-    raw_r2 = os.getenv("R2") or ""
-    if not raw_r2.strip():
-        eprint("R2 is required")
-        return 2
-    try:
-        r2 = parse_r2(raw_r2)
-    except RuntimeError as exc:
-        eprint(str(exc))
-        return 2
+    r2_client = None
+    r2_bucket = None
+    sqlite_folder = None
+    if any(target.dataset == "asn-sqlite" for target in targets):
+        raw_r2 = os.getenv("R2") or ""
+        if not raw_r2.strip():
+            eprint("R2 is required when --asn-sqlite-target is set")
+            return 2
+        try:
+            r2 = parse_r2(raw_r2)
+        except RuntimeError as exc:
+            eprint(str(exc))
+            return 2
 
-    try:
-        import boto3
-        from botocore.config import Config
-    except ModuleNotFoundError:
-        eprint("Missing boto3 dependency; install boto3 in the Python environment.")
-        return 2
+        try:
+            import boto3
+            from botocore.config import Config
+        except ModuleNotFoundError:
+            eprint("Missing boto3 dependency; install boto3 in the Python environment.")
+            return 2
 
-    # boto3 >= 1.36 adds default checksums that R2 can reject; older botocore
-    # lacks these options and needs nothing.
-    try:
-        client_config = Config(
-            request_checksum_calculation="when_required",
-            response_checksum_validation="when_required",
+        try:
+            client_config = Config(
+                request_checksum_calculation="when_required",
+                response_checksum_validation="when_required",
+            )
+        except TypeError:
+            client_config = None
+        r2_client = boto3.client(
+            "s3",
+            region_name="auto",
+            endpoint_url=r2.endpoint_url,
+            aws_access_key_id=r2.access_key,
+            aws_secret_access_key=r2.secret_key,
+            config=client_config,
         )
-    except TypeError:
-        client_config = None
-    client = boto3.client(
-        "s3",
-        region_name="auto",
-        endpoint_url=r2.endpoint_url,
-        aws_access_key_id=r2.access_key,
-        aws_secret_access_key=r2.secret_key,
-        config=client_config,
-    )
-
-    folders = list_date_folders(client, r2.bucket)
-    if not folders:
-        eprint(f"No YYYY-MM-DD folders found in r2://{r2.bucket}/")
-        return 1
+        r2_bucket = r2.bucket
+        folders = list_date_folders(r2_client, r2_bucket)
+        if not folders:
+            eprint(f"No YYYY-MM-DD folders found in r2://{r2_bucket}/")
+            return 1
+        sqlite_folder = find_latest_sqlite_folder(r2_client, r2_bucket, folders)
 
     failed = False
     installed_by_dataset: dict[str, bool] = {}
     for target in targets:
-        latest_folder = find_latest_folder_with(
-            client, r2.bucket, folders, target.dataset, args.mmdb_name
-        )
-        if latest_folder is None:
+        if target.dataset == "asn-sqlite" and sqlite_folder is None:
             eprint(
                 f"[{target.dataset}] no file in the last {MAX_FOLDER_LOOKBACK} date folders "
-                f"of r2://{r2.bucket}/"
+                f"of r2://{r2_bucket}/"
             )
             failed = True
             continue
-        log(f"[{target.dataset}] latest date folder: {latest_folder}")
+
         try:
-            installed = sync_dataset_to_target(
-                client=client,
-                bucket=r2.bucket,
-                latest_folder=latest_folder,
-                target=target,
-                mmdb_name=args.mmdb_name,
-                dry_run=args.dry_run,
-            )
+            if target.dataset == "asn-sqlite":
+                log(f"[{target.dataset}] latest date folder: {sqlite_folder}")
+                installed = sync_sqlite_to_target(
+                    client=r2_client,
+                    bucket=r2_bucket,
+                    latest_folder=sqlite_folder,
+                    target=target,
+                    dry_run=args.dry_run,
+                )
+            else:
+                installed = sync_release_asset_to_target(target=target, dry_run=args.dry_run)
         except RuntimeError as exc:
             eprint(f"[{target.dataset}] {exc}")
             failed = True

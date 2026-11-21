@@ -1,5 +1,5 @@
 [Unit]
-Description=Pull latest ip2geo/ip2asn MMDB and asn.sqlite3 from Cloudflare R2
+Description=Pull latest GeoLite2 MMDBs and ASN SQLite export
 Wants=network-online.target
 After=network-online.target
 

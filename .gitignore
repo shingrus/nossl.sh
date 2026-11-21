@@ -19,3 +19,4 @@ build_mmdb
 infra/beacon/beacon
 
 .claude
+__pycache__/
